@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prototype 0</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="game-shell">
+      <canvas id="game" aria-label="Prototype 0 arena"></canvas>
+
+      <div class="match-panel" id="match-panel">
+        <div class="match-panel__row">
+          <span class="label">Sandbox</span>
+          <strong id="map-name">Duel Map</strong>
+        </div>
+        <div class="match-panel__row">
+          <span class="label">Round</span>
+          <strong id="round-label">Round 1</strong>
+        </div>
+        <div class="match-panel__row">
+          <span class="label">Score</span>
+          <strong id="match-score">0 - 0</strong>
+        </div>
+        <div class="match-panel__row">
+          <span class="label">Format</span>
+          <strong id="match-format">BO3</strong>
+        </div>
+        <span class="match-panel__status" id="status-line">Prototype 0 online.</span>
+      </div>
+
+      <button class="help-toggle" id="help-toggle" type="button">Help</button>
+      <div class="help-panel is-hidden" id="help-panel">
+        <strong>Controls</strong>
+        <span id="map-status">Press T to switch between Duel and Training.</span>
+        <span>Move with WASD, aim with mouse, fire with click, use equipped ability slots on Shift / Q / F, trigger Overdrive with E, use Ultimate on R, swap weapons with 1 / 2 / 3, and reset match with Backspace.</span>
+      </div>
+
+      <div class="round-banner" id="round-banner">
+        <span class="round-banner__label" id="round-banner-label">Round 1</span>
+        <strong class="round-banner__title" id="round-banner-title">Prepare</strong>
+      </div>
+
+      <div class="prematch-overlay" id="prematch-overlay">
+        <div class="prematch-shell">
+          <aside class="prematch-sidebar">
+            <span class="eyebrow">Prototype 0</span>
+            <h1>Build Lab</h1>
+            <p id="prematch-description">
+              Pick the combat sandbox, lock a build shell, then drop into the arena.
+            </p>
+            <div class="step-list">
+              <button class="step-chip is-active" id="step-mode" type="button" onclick="handlePrematchAction('step-mode')">1. Mode</button>
+              <button class="step-chip" id="step-build" type="button" onclick="handlePrematchAction('step-build')">2. Build</button>
+              <button class="step-chip" id="step-cosmetics" type="button" onclick="handlePrematchAction('step-cosmetics')">3. Cosmetics</button>
+            </div>
+            <div class="prematch-summary">
+              <div class="summary-block">
+                <span class="label">Selected Mode</span>
+                <strong id="selected-mode-label">Duel</strong>
+              </div>
+              <div class="summary-block">
+                <span class="label">Weapon</span>
+                <strong id="selected-weapon-label">Pulse Rifle</strong>
+              </div>
+              <div class="summary-block">
+                <span class="label">Rune Points</span>
+                <strong id="rune-points-label">15 remaining</strong>
+              </div>
+            </div>
+          </aside>
+
+          <section class="prematch-main">
+            <div class="prematch-screen prematch-screen--active" id="mode-screen">
+              <div class="screen-header">
+                <span class="eyebrow">Mode Select</span>
+                <h2>Choose the sandbox</h2>
+              </div>
+              <div class="mode-grid">
+                <button class="mode-card is-selected" id="mode-duel" type="button" onclick="handlePrematchAction('mode-duel')">
+                  <span class="mode-card__tag">1v1 Bot Duel</span>
+                  <strong>Duel Map</strong>
+                  <span>Best-of-3 rounds against the hunter bot.</span>
+                </button>
+                <button class="mode-card" id="mode-training" type="button" onclick="handlePrematchAction('mode-training')">
+                  <span class="mode-card__tag">Training</span>
+                  <strong>Training Map</strong>
+                  <span>Five static bots lined up for range, cleave, and status tests.</span>
+                </button>
+              </div>
+              <div class="screen-actions">
+                <button class="primary-button" id="continue-build" type="button" onclick="handlePrematchAction('continue-build')">Continue to Build</button>
+              </div>
+            </div>
+
+            <div class="prematch-screen" id="build-screen">
+              <div class="screen-header">
+                <span class="eyebrow">Build Lab</span>
+                <h2>Assemble your combat kit</h2>
+              </div>
+
+              <div class="builder-layout">
+                <aside class="build-card builder-library">
+                  <div class="build-card__header">
+                    <span class="label">Library</span>
+                    <strong id="library-title">Weapons</strong>
+                  </div>
+                  <div class="library-tabs">
+                    <button class="library-tab is-active" id="library-tab-weapon" type="button" data-library="weapon">Weapon</button>
+                    <button class="library-tab" id="library-tab-ability" type="button" data-library="ability">Abilities</button>
+                    <button class="library-tab" id="library-tab-perk" type="button" data-library="perk">Perks</button>
+                    <button class="library-tab" id="library-tab-ultimate" type="button" data-library="ultimate">Ultimate</button>
+                  </div>
+                  <span class="builder-copy" id="library-hint">Pick an item, then snap it into the highlighted slot.</span>
+                  <div class="selection-grid" id="build-library-grid"></div>
+                </aside>
+
+                <section class="builder-center">
+                  <section class="build-card builder-stage">
+                    <div class="build-card__header">
+                      <span class="label">Loadout Assembly</span>
+                      <strong id="assembly-focus">Weapon slot selected</strong>
+                    </div>
+
+                    <div class="gladiator-layout">
+                      <button class="loadout-slot loadout-slot--weapon is-active" id="loadout-slot-weapon" type="button" data-slot="weapon">
+                        <span class="loadout-slot__label">Weapon</span>
+                        <div class="loadout-slot__body">
+                          <div class="content-icon content-icon--weapon-pulse" id="loadout-slot-weapon-icon"></div>
+                          <div class="loadout-slot__copy">
+                            <strong id="loadout-slot-weapon-name">Pulse Rifle</strong>
+                            <span id="loadout-slot-weapon-meta">Baseline ranged pressure</span>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div class="gladiator-core" id="gladiator-core">
+                        <div class="gladiator-core__frame">
+                          <div class="gladiator-core__body" id="build-avatar-preview">
+                            <span class="gladiator-core__eye"></span>
+                          </div>
+                        </div>
+                        <div class="gladiator-core__summary">
+                          <strong id="build-avatar-name">Drifter Shell</strong>
+                          <span id="build-avatar-title">Arena-ready gladiator frame</span>
+                        </div>
+                      </div>
+
+                      <div class="loadout-cluster loadout-cluster--abilities">
+                        <button class="loadout-slot" id="loadout-slot-ability-0" type="button" data-slot="ability-0">
+                          <span class="loadout-slot__label">Ability 1</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--ability-dash" id="loadout-slot-ability-0-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-ability-0-name">Vector Dash</strong>
+                              <span id="loadout-slot-ability-0-meta">Mobility / outplay</span>
+                            </div>
+                          </div>
+                        </button>
+                        <button class="loadout-slot" id="loadout-slot-ability-1" type="button" data-slot="ability-1">
+                          <span class="loadout-slot__label">Ability 2</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-1-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-ability-1-name">Shock Javelin</strong>
+                              <span id="loadout-slot-ability-1-meta">Offense / punish</span>
+                            </div>
+                          </div>
+                        </button>
+                        <button class="loadout-slot" id="loadout-slot-ability-2" type="button" data-slot="ability-2">
+                          <span class="loadout-slot__label">Ability 3</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--ability-field" id="loadout-slot-ability-2-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-ability-2-name">Magnetic Field</strong>
+                              <span id="loadout-slot-ability-2-meta">Defense / control</span>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+
+                      <div class="loadout-cluster loadout-cluster--passives">
+                        <button class="loadout-slot" id="loadout-slot-perk-0" type="button" data-slot="perk-0">
+                          <span class="loadout-slot__label">Perk 1</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--perk-armor" id="loadout-slot-perk-0-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-perk-0-name">Scavenger Plates</strong>
+                              <span id="loadout-slot-perk-0-meta">Bonus max HP</span>
+                            </div>
+                          </div>
+                        </button>
+                        <button class="loadout-slot" id="loadout-slot-perk-1" type="button" data-slot="perk-1">
+                          <span class="loadout-slot__label">Perk 2</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--perk-overdrive" id="loadout-slot-perk-1-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-perk-1-name">Overdrive Capacitor</strong>
+                              <span id="loadout-slot-perk-1-meta">Faster energy gain</span>
+                            </div>
+                          </div>
+                        </button>
+                        <button class="loadout-slot loadout-slot--ultimate" id="loadout-slot-ultimate" type="button" data-slot="ultimate">
+                          <span class="loadout-slot__label">Ultimate</span>
+                          <div class="loadout-slot__body">
+                            <div class="content-icon content-icon--ultimate-overload" id="loadout-slot-ultimate-icon"></div>
+                            <div class="loadout-slot__copy">
+                              <strong id="loadout-slot-ultimate-name">Overdrive Overload</strong>
+                              <span id="loadout-slot-ultimate-meta">Aggressive timing spike</span>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="build-card build-card--runes">
+                    <div class="build-card__header">
+                      <span class="label">Rune Trees</span>
+                      <strong>15 points available, 1 capstone tree maximum</strong>
+                    </div>
+                    <div class="rune-toolbar">
+                      <span id="rune-points-inline">15 points remaining</span>
+                      <span id="rune-ultimate-inline">No ultimate selected</span>
+                    </div>
+                    <div class="rune-grid" id="rune-grid"></div>
+                  </section>
+                </section>
+
+                <aside class="builder-summary">
+                  <section class="build-card">
+                    <div class="build-card__header">
+                      <span class="label">Selection Detail</span>
+                      <strong>Focused Element</strong>
+                    </div>
+                    <div class="detail-panel">
+                      <div class="detail-panel__head">
+                        <div class="content-icon content-icon--weapon-pulse" id="detail-icon"></div>
+                        <div class="detail-panel__copy">
+                          <strong id="detail-name">Pulse Rifle</strong>
+                          <span id="detail-meta">Weapon / ranged baseline</span>
+                        </div>
+                      </div>
+                      <p id="detail-description">Reliable mid-long range pressure with clean pacing and low commitment.</p>
+                    </div>
+                  </section>
+
+                  <section class="build-card">
+                    <div class="build-card__header">
+                      <span class="label">Build Validation</span>
+                      <strong>Final Combat Kit</strong>
+                    </div>
+                    <div class="validation-list">
+                      <div class="validation-row">
+                        <span>Weapon</span>
+                        <strong id="validation-weapon">Pulse Rifle</strong>
+                      </div>
+                      <div class="validation-row validation-row--stack">
+                        <span>Abilities</span>
+                        <div class="validation-chip-list" id="validation-abilities"></div>
+                      </div>
+                      <div class="validation-row validation-row--stack">
+                        <span>Perks</span>
+                        <div class="validation-chip-list" id="validation-perks"></div>
+                      </div>
+                      <div class="validation-row">
+                        <span>Ultimate</span>
+                        <strong id="validation-ultimate">Overdrive Overload</strong>
+                      </div>
+                      <div class="validation-row validation-row--stack">
+                        <span>Runes</span>
+                        <div class="validation-chip-list" id="validation-runes"></div>
+                      </div>
+                    </div>
+                    <div class="power-profile">
+                      <div class="power-profile__row">
+                        <span>Offense</span>
+                        <div class="power-profile__bar"><div id="power-offense"></div></div>
+                      </div>
+                      <div class="power-profile__row">
+                        <span>Defense</span>
+                        <div class="power-profile__bar"><div id="power-defense"></div></div>
+                      </div>
+                      <div class="power-profile__row">
+                        <span>Utility</span>
+                        <div class="power-profile__bar"><div id="power-utility"></div></div>
+                      </div>
+                      <div class="power-profile__row">
+                        <span>Control</span>
+                        <div class="power-profile__bar"><div id="power-control"></div></div>
+                      </div>
+                    </div>
+                  </section>
+                </aside>
+              </div>
+
+              <div class="screen-actions screen-actions--split">
+                <button class="secondary-button" id="back-mode" type="button" onclick="handlePrematchAction('back-mode')">Back to Mode Select</button>
+                <button class="secondary-button" id="go-cosmetics" type="button" onclick="handlePrematchAction('go-cosmetics')">Cosmetics</button>
+                <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Ready</button>
+              </div>
+            </div>
+
+            <div class="prematch-screen" id="cosmetics-screen">
+              <div class="screen-header">
+                <span class="eyebrow">Cosmetics</span>
+                <h2>Tune your arena look</h2>
+              </div>
+
+              <div class="cosmetics-layout">
+                <section class="build-card cosmetics-preview">
+                  <div class="build-card__header">
+                    <span class="label">Gladiator Preview</span>
+                    <strong id="cosmetic-preview-name">Drifter Shell</strong>
+                  </div>
+                  <div class="cosmetics-preview__stage">
+                    <div class="gladiator-core__frame">
+                      <div class="gladiator-core__body" id="cosmetic-avatar-preview">
+                        <span class="gladiator-core__eye"></span>
+                      </div>
+                    </div>
+                    <div class="cosmetics-preview__weapon">
+                      <div class="content-icon content-icon--skin-stock" id="cosmetic-weapon-icon"></div>
+                      <div>
+                        <strong id="cosmetic-weapon-name">Stock Finish</strong>
+                        <span id="cosmetic-weapon-copy">Scrap-tech skin for your equipped weapon.</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="build-card">
+                  <div class="build-card__header">
+                    <span class="label">Avatar Skin</span>
+                    <strong>Body Style</strong>
+                  </div>
+                  <div class="selection-grid selection-grid--compact" id="avatar-options"></div>
+                </section>
+
+                <section class="build-card">
+                  <div class="build-card__header">
+                    <span class="label">Weapon Finish</span>
+                    <strong>Skin / Material</strong>
+                  </div>
+                  <div class="selection-grid selection-grid--compact" id="weapon-skin-options"></div>
+                </section>
+              </div>
+
+              <div class="screen-actions screen-actions--split">
+                <button class="secondary-button" id="back-build" type="button" onclick="handlePrematchAction('back-build')">Back to Build</button>
+                <button class="primary-button" id="start-session-cosmetics" type="button" onclick="handlePrematchAction('start-session')">Ready</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="bottom-hud">
+        <div class="hud-panel hud-panel--stats">
+          <div class="hud-panel__row">
+            <span class="label">Health</span>
+            <strong id="player-health-text">100 / 100</strong>
+          </div>
+          <div class="meter meter-health meter-health-player">
+            <div class="meter-fill meter-fill-player" id="player-health-fill"></div>
+          </div>
+
+          <div class="hud-panel__row">
+            <span class="label">Overdrive</span>
+            <strong id="overdrive-state">Charging</strong>
+          </div>
+          <span class="hud-hint" id="overdrive-status">Build energy by hitting and perfect dodging.</span>
+          <div class="meter meter-health">
+            <div class="meter-fill meter-fill-overdrive" id="overdrive-meter"></div>
+          </div>
+        </div>
+
+        <div class="hud-panel hud-panel--abilities">
+          <div class="weapon-pill">
+            <div class="weapon-pill__top">
+              <div class="content-icon content-icon--weapon-pulse" id="weapon-icon"></div>
+              <div class="weapon-pill__copy">
+                <span class="label">Weapon</span>
+                <strong id="weapon-name">Pulse Rifle</strong>
+                <span class="weapon-pill__status" id="weapon-status">Ready</span>
+              </div>
+            </div>
+            <div class="meter">
+              <div class="meter-fill meter-fill-weapon" id="weapon-meter"></div>
+            </div>
+          </div>
+
+          <div class="ability-bar">
+            <div class="ability-slot" id="slot-dash">
+              <span class="ability-slot__key">Shift</span>
+              <div class="ability-slot__icon ability-slot__icon--dash"></div>
+              <div class="ability-slot__cooldown" id="slot-dash-overlay"></div>
+              <span class="ability-slot__timer" id="slot-dash-timer"></span>
+              <span class="ability-slot__name">Dash</span>
+            </div>
+
+            <div class="ability-slot" id="slot-javelin">
+              <span class="ability-slot__key">Q</span>
+              <div class="ability-slot__icon ability-slot__icon--javelin"></div>
+              <div class="ability-slot__cooldown" id="slot-javelin-overlay"></div>
+              <span class="ability-slot__timer" id="slot-javelin-timer"></span>
+              <span class="ability-slot__name">Shock Javelin</span>
+            </div>
+
+            <div class="ability-slot" id="slot-field">
+              <span class="ability-slot__key">F</span>
+              <div class="ability-slot__icon ability-slot__icon--field"></div>
+              <div class="ability-slot__cooldown" id="slot-field-overlay"></div>
+              <span class="ability-slot__timer" id="slot-field-timer"></span>
+              <span class="ability-slot__name">Magnetic Field</span>
+            </div>
+
+            <div class="ability-slot ability-slot--placeholder" id="slot-ultimate">
+              <span class="ability-slot__key">R</span>
+              <div class="ability-slot__icon ability-slot__icon--ultimate"></div>
+              <div class="ability-slot__cooldown ability-slot__cooldown--full"></div>
+              <span class="ability-slot__timer">Soon</span>
+              <span class="ability-slot__name">Ultimate</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-panel hud-panel--target">
+          <div class="hud-panel__row">
+            <span class="label">Target</span>
+            <strong id="enemy-health-text">160 / 160</strong>
+          </div>
+          <span class="hud-hint">Primary duel target or nearest training target.</span>
+          <div class="meter meter-health meter-health-enemy">
+            <div class="meter-fill meter-fill-enemy" id="enemy-health-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="touch-layer" aria-hidden="true">
+        <div class="joystick" id="move-joystick">
+          <div class="joystick-stick" id="move-stick"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
