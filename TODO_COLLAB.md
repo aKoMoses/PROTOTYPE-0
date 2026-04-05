@@ -35,6 +35,7 @@ Le but est de faire avancer le projet sans casser :
 - [ ] Clarifier encore le weapon state, les cooldowns et l'Overdrive
 - [ ] Continuer a faire disparaitre les overlays trop lourds pendant le combat
 - [ ] créer dans Training tool une zone texte qui donne la description de chaque sort du joueur celon son build
+- [ ] créer un bouton qui permet de revenir au menu quand on est en jeu (ou le faire directement à partir du Training tool > pouvoir modifier son build à sa guise dans le training tool)
 
 ## Maps et environnement
 
