@@ -51,18 +51,13 @@ const ultimateSlotName = ultimateSlot.querySelector(".ability-slot__name");
 const prematchOverlay = document.getElementById("prematch-overlay");
 const modeScreen = document.getElementById("mode-screen");
 const buildScreen = document.getElementById("build-screen");
-const cosmeticsScreen = document.getElementById("cosmetics-screen");
 const stepMode = document.getElementById("step-mode");
 const stepBuild = document.getElementById("step-build");
-const stepCosmetics = document.getElementById("step-cosmetics");
 const modeDuel = document.getElementById("mode-duel");
 const modeTraining = document.getElementById("mode-training");
 const continueBuild = document.getElementById("continue-build");
 const backMode = document.getElementById("back-mode");
-const backBuild = document.getElementById("back-build");
-const goCosmetics = document.getElementById("go-cosmetics");
 const startSession = document.getElementById("start-session");
-const startSessionCosmetics = document.getElementById("start-session-cosmetics");
 const prematchDescription = document.getElementById("prematch-description");
 const selectedModeLabel = document.getElementById("selected-mode-label");
 const selectedWeaponLabel = document.getElementById("selected-weapon-label");
@@ -72,22 +67,12 @@ const runeUltimateInline = document.getElementById("rune-ultimate-inline");
 const avatarOptions = document.getElementById("avatar-options");
 const weaponSkinOptions = document.getElementById("weapon-skin-options");
 const runeGrid = document.getElementById("rune-grid");
-const libraryTitle = document.getElementById("library-title");
-const libraryHint = document.getElementById("library-hint");
 const buildLibraryGrid = document.getElementById("build-library-grid");
-const assemblyFocus = document.getElementById("assembly-focus");
-const buildAvatarPreview = document.getElementById("build-avatar-preview");
-const buildAvatarName = document.getElementById("build-avatar-name");
-const buildAvatarTitle = document.getElementById("build-avatar-title");
 const detailIcon = document.getElementById("detail-icon");
 const detailName = document.getElementById("detail-name");
 const detailMeta = document.getElementById("detail-meta");
 const detailDescription = document.getElementById("detail-description");
-const validationWeapon = document.getElementById("validation-weapon");
-const validationAbilities = document.getElementById("validation-abilities");
-const validationPerks = document.getElementById("validation-perks");
-const validationUltimate = document.getElementById("validation-ultimate");
-const validationRunes = document.getElementById("validation-runes");
+const detailFloat = document.getElementById("detail-float");
 const powerOffense = document.getElementById("power-offense");
 const powerDefense = document.getElementById("power-defense");
 const powerUtility = document.getElementById("power-utility");
@@ -97,6 +82,11 @@ const cosmeticAvatarPreview = document.getElementById("cosmetic-avatar-preview")
 const cosmeticWeaponIcon = document.getElementById("cosmetic-weapon-icon");
 const cosmeticWeaponName = document.getElementById("cosmetic-weapon-name");
 const cosmeticWeaponCopy = document.getElementById("cosmetic-weapon-copy");
+const labTabLoadout = document.getElementById("lab-tab-loadout");
+const labTabStyle = document.getElementById("lab-tab-style");
+const labLoadout = document.getElementById("lab-loadout");
+const labStyle = document.getElementById("lab-style");
+const runePanel = document.getElementById("rune-panel");
 const libraryTabs = Array.from(document.querySelectorAll("[data-library]"));
 const loadoutSlotButtons = {
   weapon: document.getElementById("loadout-slot-weapon"),
@@ -1110,10 +1100,8 @@ function setPrematchStep(step) {
   uiState.prematchStep = step;
   modeScreen.classList.toggle("prematch-screen--active", step === "mode");
   buildScreen.classList.toggle("prematch-screen--active", step === "build");
-  cosmeticsScreen.classList.toggle("prematch-screen--active", step === "cosmetics");
   stepMode.classList.toggle("is-active", step === "mode");
   stepBuild.classList.toggle("is-active", step === "build");
-  stepCosmetics.classList.toggle("is-active", step === "cosmetics");
 }
 
 function syncPrematchState() {
@@ -1152,8 +1140,6 @@ function updatePrematchSummary() {
     uiState.selectedMode === sandboxModes.training.key
       ? "Training mode loads the line of static bots for hitbox, status, and timing tests."
       : "Duel mode launches a best-of-3 arena round flow against the hunter bot.";
-  buildAvatarName.textContent = selectedAvatar.name;
-  buildAvatarTitle.textContent = selectedAvatar.description;
   cosmeticPreviewName.textContent = selectedAvatar.name;
 }
 
@@ -1161,38 +1147,35 @@ function renderSelectionGrid(container, items, selectedKeys, onSelect, options =
   container.textContent = "";
 
   items.forEach((item) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "selection-card";
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "item-row";
     if (item.locked) {
-      card.classList.add("is-locked");
+      row.classList.add("is-locked");
     }
     if (selectedKeys.includes(item.key)) {
-      card.classList.add("is-selected");
+      row.classList.add("is-selected");
     }
     if (options.activeKeys?.includes(item.key)) {
-      card.classList.add("is-active");
+      row.classList.add("is-active");
     }
 
-    card.innerHTML = `
-      <div class="selection-card__head">
-        ${getIconMarkup(item, options.iconType ?? "generic")}
-        <div class="selection-card__copy">
-          <span class="selection-card__tag">${item.slotLabel ?? item.role ?? item.category ?? "Slot"}</span>
-          <strong>${item.name}</strong>
-        </div>
-      </div>
-      <span>${item.description}</span>
-      <span class="selection-card__meta">${item.state === "playable" ? "Playable now" : item.state === "preview" ? "Preview foundation" : item.locked ? "Locked / future content" : "Selectable"}</span>
+    const stateLabel = item.state === "playable" ? "" : item.state === "preview" ? "PREVIEW" : "LOCKED";
+    const stateClass = item.state === "preview" ? " item-row__state--preview" : "";
+
+    row.innerHTML = `
+      ${getIconMarkup(item, options.iconType ?? "generic")}
+      <span class="item-row__name">${item.name}</span>
+      ${stateLabel ? `<span class="item-row__state${stateClass}">${stateLabel}</span>` : ""}
     `;
 
     if (!item.locked) {
-      card.addEventListener("click", () => onSelect(item.key));
+      row.addEventListener("click", () => onSelect(item.key));
     } else {
-      card.disabled = true;
+      row.disabled = true;
     }
 
-    container.appendChild(card);
+    container.appendChild(row);
   });
 }
 
@@ -1326,15 +1309,17 @@ function updateDetailPanel() {
   const item = getContentItem(collectionName, detail.key);
 
   if (!item) {
+    if (detailFloat) detailFloat.classList.add("is-hidden");
     return;
   }
 
+  if (detailFloat) detailFloat.classList.remove("is-hidden");
   detailIcon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${detail.type}-${item.key}`)}`;
   if (item.category) {
     detailIcon.classList.add(`content-icon--${item.category}`);
   }
   detailName.textContent = item.name;
-  detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} • ${getItemStateLabel(item)}`;
+  detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} · ${getItemStateLabel(item)}`;
   detailDescription.textContent = item.description;
 }
 
@@ -1355,22 +1340,8 @@ function renderValidationChips(container, items, type) {
 
 function updateLoadoutSummaryPanels() {
   const selectedWeapon = getContentItem("weapons", loadout.weapon);
-  const selectedUltimate = getContentItem("ultimates", loadout.ultimate);
   const selectedAbilities = loadout.abilities.map((key) => getContentItem("abilities", key)).filter(Boolean);
   const selectedPerks = loadout.perks.map((key) => getContentItem("perks", key)).filter(Boolean);
-  const runeChips = Object.entries(content.runeTrees)
-    .map(([treeKey, tree]) => {
-      const state = loadout.runes[treeKey];
-      const total = state.secondary + state.primary + state.ultimate;
-      return total > 0 ? { ...tree, name: `${tree.name} ${total}`, category: treeKey === "attack" ? "offense" : treeKey === "defense" ? "defense" : treeKey === "support" ? "utility" : "control", icon: `rune-${treeKey}-primary` } : null;
-    })
-    .filter(Boolean);
-
-  validationWeapon.textContent = selectedWeapon?.name ?? "None";
-  validationUltimate.textContent = selectedUltimate?.name ?? "None";
-  renderValidationChips(validationAbilities, selectedAbilities, "ability");
-  renderValidationChips(validationPerks, selectedPerks, "perk");
-  renderValidationChips(validationRunes, runeChips.length > 0 ? runeChips : [{ key: "empty-runes", name: "No rune investment", category: "utility", icon: "rune-support-secondary" }], "rune");
 
   const offense = Math.min(100, 30 + (selectedWeapon?.category === "offense" ? 24 : 10) + selectedAbilities.filter((item) => item.category === "offense").length * 14 + getRuneValue("attack", "secondary") * 6);
   const defense = Math.min(100, 24 + selectedAbilities.filter((item) => item.category === "defense").length * 20 + selectedPerks.filter((item) => item.category === "defense").length * 18 + getRuneValue("defense", "secondary") * 8);
@@ -1404,7 +1375,7 @@ function updateLoadoutSlots() {
     const meta = document.getElementById(`loadout-slot-${key}-meta`);
     const buttonNode = document.getElementById(`loadout-slot-${key}`);
 
-    if (!buttonNode || !icon || !name || !meta || !item) {
+    if (!buttonNode || !icon || !name || !item) {
       return;
     }
 
@@ -1415,10 +1386,10 @@ function updateLoadoutSlots() {
       icon.classList.add(`content-icon--${item.category}`);
     }
     name.textContent = item.name;
-    meta.textContent = item.role ?? item.description;
+    if (meta) {
+      meta.textContent = item.role ?? item.description;
+    }
   });
-
-  assemblyFocus.textContent = getSlotDisplayName(uiState.selectedLoadoutSlot);
 }
 
 function getCategoryTargetSlot(category) {
@@ -1489,14 +1460,23 @@ function assignLoadoutItem(category, slotKey, itemKey) {
 }
 
 function renderBuildLibrary() {
-  const config = getPrematchCategoryConfig(uiState.buildCategory);
-  const items = getPrematchCategoryItems(uiState.buildCategory);
-  libraryTitle.textContent = config.title;
-  libraryHint.textContent = config.hint;
+  const isRunesTab = uiState.buildCategory === "runes";
+
+  buildLibraryGrid.style.display = isRunesTab ? "none" : "";
+  if (runePanel) {
+    runePanel.classList.toggle("is-hidden", !isRunesTab);
+  }
 
   libraryTabs.forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.library === uiState.buildCategory);
   });
+
+  if (isRunesTab) {
+    return;
+  }
+
+  const config = getPrematchCategoryConfig(uiState.buildCategory);
+  const items = getPrematchCategoryItems(uiState.buildCategory);
 
   renderSelectionGrid(
     buildLibraryGrid,
@@ -1552,55 +1532,51 @@ function renderRuneTrees() {
 
   Object.values(content.runeTrees).forEach((tree) => {
     const treeState = loadout.runes[tree.key];
-    const card = document.createElement("article");
-    card.className = "rune-card";
+    const treeEl = document.createElement("div");
+    treeEl.className = "rune-tree";
+    const totalPts = treeState.secondary + treeState.primary + treeState.ultimate;
+    const nodes = Object.values(tree.nodes);
 
-    const nodesMarkup = Object.values(tree.nodes)
-      .map((node) => {
-        const points = treeState[node.key];
-        const isUltimate = node.key === "ultimate";
-        const disabledAdd =
-          points >= node.max ||
-          (!isUltimate && getRemainingRunePoints() <= 0) ||
-          (isUltimate && selectedUltimateTree && selectedUltimateTree !== tree.key) ||
-          (isUltimate && getRemainingRunePoints() <= 0 && points === 0);
+    let nodesMarkup = "";
+    nodes.forEach((node, i) => {
+      const points = treeState[node.key];
+      const isUltimate = node.key === "ultimate";
+      const disabledAdd =
+        points >= node.max ||
+        (!isUltimate && getRemainingRunePoints() <= 0) ||
+        (isUltimate && selectedUltimateTree && selectedUltimateTree !== tree.key) ||
+        (isUltimate && getRemainingRunePoints() <= 0 && points === 0);
 
-        return `
-          <div class="rune-node ${isUltimate && points > 0 ? "rune-node--ultimate is-selected" : isUltimate ? "rune-node--ultimate" : ""}">
-            <div class="rune-node__title">
-              <div class="rune-node__title-main">
-                ${getIconMarkup({ key: `${tree.key}-${node.key}`, icon: `rune-${tree.key}-${node.key}`, category: tree.key === "attack" ? "offense" : tree.key === "defense" ? "defense" : tree.key === "support" ? "utility" : "control" }, "rune")}
-                <strong>${node.name}</strong>
-              </div>
-              <span>${points} / ${node.max}</span>
-            </div>
-            <span class="rune-card__copy">${node.description}</span>
-            <div class="rune-node__controls">
-              <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="remove" ${points <= 0 ? "disabled" : ""}>-</button>
-              <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="add" ${disabledAdd ? "disabled" : ""}>+</button>
-              ${
-                isUltimate
-                  ? `<button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="toggle" ${selectedUltimateTree && selectedUltimateTree !== tree.key ? "disabled" : ""}>${points > 0 ? "Active" : "Select"}</button>`
-                  : ""
-              }
-            </div>
+      if (i > 0) {
+        const prevNode = nodes[i - 1];
+        const prevHasPoints = treeState[prevNode.key] > 0;
+        nodesMarkup += `<div class="rune-tree__connector ${prevHasPoints ? "is-lit" : ""}"></div>`;
+      }
+
+      nodesMarkup += `
+        <div class="rune-node-v2 ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""}">
+          <div class="rune-node-v2__dot ${points > 0 ? "has-points" : ""}">${points}</div>
+          <div class="rune-node-v2__info">
+            <span class="rune-node-v2__name">${node.name}</span>
+            <span class="rune-node-v2__tier">${isUltimate ? "Capstone" : node.key === "primary" ? "Core" : "Minor"} · ${points}/${node.max}</span>
           </div>
-        `;
-      })
-      .join("");
-
-    card.innerHTML = `
-      <div class="rune-card__header">
-        <div>
-          <span class="label">${tree.name}</span>
-          <strong>${tree.description}</strong>
+          <div class="rune-node-v2__controls">
+            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="remove" ${points <= 0 ? "disabled" : ""}>−</button>
+            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="${isUltimate ? "toggle" : "add"}" ${disabledAdd ? "disabled" : ""}>${isUltimate ? (points > 0 ? "✓" : "◆") : "+"}</button>
+          </div>
         </div>
-        <span class="rune-card__points">${treeState.secondary + treeState.primary + treeState.ultimate} pts</span>
+      `;
+    });
+
+    treeEl.innerHTML = `
+      <div class="rune-tree__header">
+        <strong>${tree.name}</strong>
+        <span class="rune-tree__pts">${totalPts}</span>
       </div>
-      ${nodesMarkup}
+      <div class="rune-tree__nodes">${nodesMarkup}</div>
     `;
 
-    runeGrid.appendChild(card);
+    runeGrid.appendChild(treeEl);
   });
 
   runeGrid.querySelectorAll("[data-rune-action]").forEach((button) => {
@@ -1678,7 +1654,7 @@ function renderPrematch() {
   modeTraining.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.training.key);
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
-  setPreviewAvatar(buildAvatarPreview, avatar);
+  setPreviewAvatar(cosmeticAvatarPreview, avatar);
   renderBuildLibrary();
   renderCosmetics();
   updateLoadoutSlots();
@@ -2141,15 +2117,9 @@ function handlePrematchAction(buttonId) {
     return;
   }
 
-  if (buttonId === "step-build" || buttonId === "continue-build" || buttonId === "back-build") {
+  if (buttonId === "step-build" || buttonId === "continue-build") {
     setPrematchStep("build");
     statusLine.textContent = "Build phase open. Lock the loadout, then press Ready.";
-    return;
-  }
-
-  if (buttonId === "step-cosmetics" || buttonId === "go-cosmetics") {
-    setPrematchStep("cosmetics");
-    statusLine.textContent = "Cosmetics open. Visual tuning stays separate from the combat build.";
     return;
   }
 
@@ -4604,28 +4574,39 @@ bindPrematchButton(modeDuel, "mode-duel");
 bindPrematchButton(modeTraining, "mode-training");
 bindPrematchButton(stepMode, "step-mode");
 bindPrematchButton(stepBuild, "step-build");
-bindPrematchButton(stepCosmetics, "step-cosmetics");
 bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
-bindPrematchButton(backBuild, "back-build");
-bindPrematchButton(goCosmetics, "go-cosmetics");
 bindPrematchButton(startSession, "start-session");
-bindPrematchButton(startSessionCosmetics, "start-session");
+
+/* Lab tab switching (LOADOUT / STYLE) */
+if (labTabLoadout && labTabStyle && labLoadout && labStyle) {
+  [labTabLoadout, labTabStyle].forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const panel = tab.dataset.lab;
+      labTabLoadout.classList.toggle("is-active", panel === "loadout");
+      labTabStyle.classList.toggle("is-active", panel === "style");
+      labLoadout.classList.toggle("lab-panel--active", panel === "loadout");
+      labStyle.classList.toggle("lab-panel--active", panel === "style");
+    });
+  });
+}
 
 libraryTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     uiState.buildCategory = tab.dataset.library;
-    uiState.selectedDetail = {
-      type: uiState.buildCategory,
-      key:
-        uiState.buildCategory === "weapon"
-          ? loadout.weapon
-          : uiState.buildCategory === "ultimate"
-            ? loadout.ultimate
-            : uiState.buildCategory === "perk"
-              ? loadout.perks[0]
-              : loadout.abilities[0],
-    };
+    if (uiState.buildCategory !== "runes") {
+      uiState.selectedDetail = {
+        type: uiState.buildCategory,
+        key:
+          uiState.buildCategory === "weapon"
+            ? loadout.weapon
+            : uiState.buildCategory === "ultimate"
+              ? loadout.ultimate
+              : uiState.buildCategory === "perk"
+                ? loadout.perks[0]
+                : loadout.abilities[0],
+      };
+    }
     renderPrematch();
   });
 });
