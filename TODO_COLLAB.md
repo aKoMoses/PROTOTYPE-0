@@ -34,6 +34,7 @@ Le but est de faire avancer le projet sans casser :
 - [ ] Preserver la vue centrale de l'arene
 - [ ] Clarifier encore le weapon state, les cooldowns et l'Overdrive
 - [ ] Continuer a faire disparaitre les overlays trop lourds pendant le combat
+- [ ] créer dans Training tool une zone texte qui donne la description de chaque sort du joueur celon son build
 
 ## Maps et environnement
 
