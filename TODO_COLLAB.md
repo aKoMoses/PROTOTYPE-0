@@ -13,7 +13,8 @@ Le but est de faire avancer le projet sans casser :
 
 ## A faire en priorite haute
 
-- [ ] Reorganiser le Build Lab pour qu'il soit plus clair, plus compact et plus intuitif
+- [ ] Reorganiser le Build Lab pour qu'il soit plus clair, plus compact et plus intuitif > faire la même chose pour le bot
+- [ ] faire en sorte que l'arbre des talents sois fonctionnel de cette manière : on peux débloquer le prochain step que si l'on a remplis les cases d'avants. faire en sorte qu'on puisse décocher le dernier talent.
 - [ ] Rendre la construction du build plus naturelle visuellement
 - [ ] Mieux distinguer les slots gameplay : weapon, abilities, perks, ultimate, runes
 - [ ] Rendre la validation finale du build immediate a lire
