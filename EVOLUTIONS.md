@@ -68,9 +68,9 @@ Le joueur doit sentir qu'il avance même entre les sessions.
 Renforcer la sensation d'être dans un monde post-apo cohérent.
 
 ### Son et musique
-- [ ] Musique dynamique qui s'adapte à l'intensité du combat
-- [ ] FX sonores distincts par arme, ability et statut
-- [ ] Ambiance sonore des maps (vent, grésillement, machines)
+- [x] Musique dynamique qui s'adapte à l'intensité du combat
+- [x] FX sonores distincts par arme, ability et statut
+- [x] Ambiance sonore des maps (vent, grésillement, machines)
 
 ### Cinématiques et présentations
 - [ ] Intro de round : animation courte du gladiateur avec son build

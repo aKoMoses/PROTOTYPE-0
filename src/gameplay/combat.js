@@ -10,6 +10,7 @@ import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle,
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown } from "../build/loadout.js";
+import { playDamageCue, playStatusCue, playMapCue, playReloadCue } from "../audio.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
 
@@ -126,6 +127,7 @@ export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
   addExplosion(pylon.x, pylon.y, 96, pylon.color);
   addImpact(pylon.x, pylon.y, "#fff0d2", 32);
   addShake(10.4);
+  playMapCue("pylon-collapse");
 
   const endX = pylon.x + Math.cos(pylon.fallAngle) * pylon.fallLength;
   const endY = pylon.y + Math.sin(pylon.fallAngle) * pylon.fallLength;
@@ -168,6 +170,7 @@ export function damagePylon(pylon, amount, sourceX, sourceY, team = "player") {
   pylon.damageFlash = 0.24;
   pylon.wobbleTime = 0.42;
   addImpact(pylon.x, pylon.y, pylon.color, 18);
+  playMapCue("pylon-hit");
   if (pylon.hp <= 0) {
     collapsePylon(pylon, sourceX, sourceY, team);
   }
@@ -221,6 +224,7 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     if (entity.x !== undefined && entity.y !== undefined) {
       addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 20 : 16);
     }
+    playStatusCue(type, entity === player ? "player" : "enemy");
     return existing;
   }
 
@@ -229,6 +233,7 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
   if (entity.x !== undefined && entity.y !== undefined) {
     addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 24 : 18);
   }
+  playStatusCue(type, entity === player ? "player" : "enemy");
   return effect;
 }
 
@@ -429,6 +434,7 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
     bot.shield -= absorbed;
     damage -= absorbed;
     addImpact(bot.x, bot.y, "#a6d9ff", 18);
+    playDamageCue("enemy", absorbed, "shield", true);
   }
 
   if (damage <= 0) {
@@ -442,6 +448,7 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
   addImpact(impactX, impactY, color, heavyHit ? 30 : 24);
   addImpact(bot.x, bot.y, heavyHit ? "#fff4d3" : "#e9fbff", heavyHit ? 22 : 12);
   addShake(heavyHit ? 5.8 : 2.8);
+  playDamageCue("enemy", damage, "hit", false);
   addDamageText(bot.x, bot.y - bot.radius - 8, damage, { heavy: heavyHit, color: heavyHit ? "#ff9b73" : "#ff7269" });
 
   if (energyGain > 0) {
@@ -478,6 +485,7 @@ export function startPulseReload(actor = player, silent = false) {
 
   actor.reloadTime = config.pulseReloadTime;
   actor.fireCooldown = Math.max(actor.fireCooldown, config.pulseReloadTime);
+  playReloadCue(actor === player ? "player" : "enemy");
   if (!silent && actor === player) {
     statusLine.textContent = "Pulse Rifle reloading. Reposition before the next lane.";
   }
@@ -571,6 +579,7 @@ export function absorbEnemyProjectiles() {
         addAbsorbBurst(bullet.x, bullet.y, 24, field.color);
         addImpact(bullet.x, bullet.y, field.color, 18);
         addShake(3.2);
+        playMapCue("projectile-absorb");
         break;
       }
     }
@@ -591,6 +600,7 @@ export function absorbPlayerProjectiles() {
         absorbed = true;
         addAbsorbBurst(bullet.x, bullet.y, 20, field.color);
         addImpact(bullet.x, bullet.y, field.color, 16);
+        playMapCue("projectile-absorb");
         break;
       }
     }
@@ -632,6 +642,7 @@ export function applyPlayerDamage(amount, source = "hit") {
 
   if (abilityState.phaseShift.time > 0 || abilityState.phaseDash.time > 0) {
     addImpact(player.x, player.y, "#d3f6ff", 18);
+    playDamageCue("player", 0, source, true);
     return false;
   }
 
@@ -643,6 +654,7 @@ export function applyPlayerDamage(amount, source = "hit") {
     player.shield -= absorbed;
     finalDamage -= absorbed;
     addImpact(player.x, player.y, "#a3dcff", 18);
+    playDamageCue("player", absorbed, source, true);
   }
 
   if (finalDamage <= 0) {
@@ -655,6 +667,7 @@ export function applyPlayerDamage(amount, source = "hit") {
   const heavyHit = finalDamage >= 18;
   applyHitReaction(player, player.x - Math.cos(player.facing) * 18, player.y - Math.sin(player.facing) * 18, heavyHit ? 1.05 : 0.65);
   addImpact(player.x, player.y, source === "javelin" ? "#ffd4a6" : source === "axe-finisher" ? "#ffe6ac" : "#ff9c86", heavyHit ? 24 : 16);
+  playDamageCue("player", finalDamage, source, false);
   addDamageText(player.x, player.y - player.radius - 8, finalDamage, { heavy: heavyHit, color: source === "axe-finisher" ? "#ffb066" : "#ff7469" });
 
   if (hasPerk("arcFeedback") && previousHp - player.hp >= 18) {

@@ -168,6 +168,40 @@ body {
   outline: none;
 }
 
+.audio-panel {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  pointer-events: auto;
+}
+
+.audio-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.audio-toggle {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.68rem;
+}
+
+.audio-control {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.audio-control input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 .help-toggle {
   position: absolute;
   top: 16px;

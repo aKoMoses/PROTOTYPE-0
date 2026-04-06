@@ -10,6 +10,7 @@ import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerS
 import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
 import { updateDashAbility, updateJavelinAbility, updateFieldAbility, updateExtraAbilities } from "./abilities.js";
 import * as dom from "../dom.js";
+import { playWeaponEquip } from "../audio.js";
 
 export function setWeapon(nextWeapon) {
   if (player.weapon === nextWeapon) {
@@ -25,6 +26,7 @@ export function setWeapon(nextWeapon) {
   }
   player.comboStep = 0;
   player.comboTimer = 0;
+  playWeaponEquip(nextWeapon);
   dom.statusLine.textContent =
     nextWeapon === weapons.axe.key
       ? "Electric Axe equipped. Chain the combo and commit on the finisher."
