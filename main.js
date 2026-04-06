@@ -140,23 +140,33 @@ const config = {
   fireRate: 0.084,
   bulletSpeed: 1320,
   bulletLife: 1,
-  pulseDamage: 10,
+  pulseDamage: 11,
   pulseMagazineSize: 12,
   pulseReloadTime: 1.18,
+  railChargeThreshold: 0.34,
+  railMaxCharge: 0.9,
+  railTapDamage: 28,
+  railChargeDamage: 42,
+  railTapSpeed: 1980,
+  railChargeSpeed: 2360,
+  railDistanceRamp: 0.52,
+  railChargeDistanceRamp: 0.72,
+  railChargeSnare: 0.42,
+  railChargeSnareDuration: 0.8,
   axeComboReset: 0.72,
   axeCommitSpeed: 940,
   axeCommitDuration: 0.12,
   javelinCooldown: 3.4,
   javelinChargeThreshold: 0.45,
   javelinTapSpeed: 1220,
-  javelinTapDamage: 40,
+  javelinTapDamage: 42,
   javelinTapRadius: 11,
   javelinTapSlow: 0.26,
   javelinTapSlowDuration: 0.7,
   javelinHoldSpeed: 980,
-  javelinHoldDamage: 58,
+  javelinHoldDamage: 62,
   javelinHoldRadius: 16,
-  javelinHoldStun: 0.5,
+  javelinHoldStun: 0.56,
   fieldCooldown: 3.6,
   fieldChargeThreshold: 0.45,
   fieldTapDuration: 1.2,
@@ -877,6 +887,7 @@ const uiState = {
   buildCategory: "weapon",
   selectedLoadoutSlot: "weapon",
   selectedDetail: { type: "weapon", key: weapons.pulse.key },
+  hoverDetail: null,
 };
 
 const botBuildState = {
@@ -1004,6 +1015,8 @@ const player = {
   decoyTime: 0,
   injectorMarks: 0,
   injectorMarkTime: 0,
+  sniperCharging: false,
+  sniperChargeTime: 0,
 };
 
 const abilityState = {
@@ -1160,6 +1173,10 @@ function createBot({
     statusEffects: [],
     injectorMarks: 0,
     injectorMarkTime: 0,
+    sniperCharging: false,
+    sniperChargeTime: 0,
+    sniperWindupTime: 0,
+    pendingSniperShot: null,
   };
 }
 
@@ -2049,9 +2066,14 @@ function syncPrematchState() {
 
 function openPrematch(step = "mode") {
   uiState.prematchOpen = true;
+  uiState.hoverDetail = null;
   input.keys.clear();
   input.firing = false;
   releaseDashInput();
+  if (player.sniperCharging) {
+    player.sniperCharging = false;
+    player.sniperChargeTime = 0;
+  }
   abilityState.javelin.charging = false;
   abilityState.field.charging = false;
   setPrematchStep(step);
@@ -2078,6 +2100,16 @@ function relaunchCurrentSession() {
   resetBotsForMode(sandboxModes.training.key);
   showRoundBanner("", "", false);
   statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} reset. Keep labbing the build.`;
+}
+
+function handleSecondarySessionAction() {
+  if (sandbox.mode === sandboxModes.training.key) {
+    openPrematch("build");
+    statusLine.textContent = "Training lab reopened. Adjust the build and re-enter when ready.";
+    return;
+  }
+
+  relaunchCurrentSession();
 }
 
 function updatePrematchSummary() {
@@ -2133,6 +2165,17 @@ function renderSelectionGrid(container, items, selectedKeys, onSelect, options =
       row.addEventListener("click", () => onSelect(item.key));
     } else {
       row.disabled = true;
+    }
+
+    if (options.detailType) {
+      row.addEventListener("mouseenter", () => {
+        setHoverDetail({ type: options.detailType, key: item.key });
+      });
+      row.addEventListener("focus", () => {
+        setHoverDetail({ type: options.detailType, key: item.key });
+      });
+      row.addEventListener("mouseleave", () => setHoverDetail(null));
+      row.addEventListener("blur", () => setHoverDetail(null));
     }
 
     container.appendChild(row);
@@ -2283,21 +2326,54 @@ function getItemStateLabel(item) {
   return "Selectable";
 }
 
+function setHoverDetail(detail = null) {
+  uiState.hoverDetail = detail;
+  updateDetailPanel();
+}
+
+function getRuneDetail(treeKey, nodeKey) {
+  const tree = content.runeTrees[treeKey];
+  const node = tree?.nodes?.[nodeKey];
+  if (!tree || !node) {
+    return null;
+  }
+
+  const tierLabel =
+    nodeKey === "ultimate" ? "Capstone Node" : nodeKey === "primary" ? "Major Node" : "Minor Node";
+
+  return {
+    icon: nodeKey === "ultimate" ? "rune-capstone" : nodeKey === "primary" ? "rune-major" : "rune-minor",
+    category: nodeKey === "ultimate" ? "offense" : nodeKey === "primary" ? "control" : "utility",
+    name: `${tree.name} - ${node.name}`,
+    meta: `${tierLabel} - ${tree.description}`,
+    description: node.description,
+  };
+}
+
 function updateDetailPanel() {
-  const detail = uiState.selectedDetail ?? { type: "weapon", key: loadout.weapon };
-  const collectionName =
-    detail.type === "ability"
-      ? "abilities"
-      : detail.type === "perk"
-        ? "perks"
-        : detail.type === "ultimate"
-          ? "ultimates"
-          : detail.type === "avatar"
-            ? "avatars"
-            : detail.type === "skin"
-              ? "weaponSkins"
-              : "weapons";
-  const item = getContentItem(collectionName, detail.key);
+  const detail = uiState.hoverDetail ?? uiState.selectedDetail ?? { type: "weapon", key: loadout.weapon };
+  let item = null;
+  let meta = "";
+
+  if (detail.type === "rune") {
+    item = getRuneDetail(detail.treeKey, detail.nodeKey);
+    meta = item?.meta ?? "";
+  } else {
+    const collectionName =
+      detail.type === "ability"
+        ? "abilities"
+        : detail.type === "perk"
+          ? "perks"
+          : detail.type === "ultimate"
+            ? "ultimates"
+            : detail.type === "avatar"
+              ? "avatars"
+              : detail.type === "skin"
+                ? "weaponSkins"
+                : "weapons";
+    item = getContentItem(collectionName, detail.key);
+    meta = item ? `${getItemMetaLabel(item, detail.type)} - ${getItemStateLabel(item)}` : "";
+  }
 
   if (!item) {
     if (detailFloat) detailFloat.classList.add("is-hidden");
@@ -2311,6 +2387,7 @@ function updateDetailPanel() {
   }
   detailName.textContent = item.name;
   detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} · ${getItemStateLabel(item)}`;
+  detailMeta.textContent = meta;
   detailDescription.textContent = item.description;
 }
 
@@ -2476,6 +2553,7 @@ function renderBuildLibrary() {
     {
       activeKeys: config.selectedKeys,
       iconType: config.iconType,
+      detailType: uiState.buildCategory,
     },
   );
 }
@@ -2490,7 +2568,7 @@ function renderCosmetics() {
       uiState.selectedDetail = { type: "avatar", key: avatarKey };
       renderPrematch();
     },
-    { iconType: "avatar" },
+    { iconType: "avatar", detailType: "avatar" },
   );
 
   renderSelectionGrid(
@@ -2502,7 +2580,7 @@ function renderCosmetics() {
       uiState.selectedDetail = { type: "skin", key: skinKey };
       renderPrematch();
     },
-    { iconType: "skin" },
+    { iconType: "skin", detailType: "skin" },
   );
 
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
@@ -2576,6 +2654,7 @@ function renderTrainingBotPanel() {
     {
       iconType: "weapon",
       activeKeys: [previewBuild.weapon],
+      detailType: "weapon",
     },
   );
 
@@ -2587,6 +2666,7 @@ function renderTrainingBotPanel() {
     {
       iconType: "ability",
       activeKeys: previewBuild.abilities,
+      detailType: "ability",
     },
   );
 
@@ -2625,7 +2705,7 @@ function renderRuneTrees() {
       }
 
       nodesMarkup += `
-        <div class="rune-node-v2 ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""}">
+        <div class="rune-node-v2 rune-node-v2--${node.key === "primary" ? "major" : isUltimate ? "ultimate" : "minor"} ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""}" data-rune-hover="true" data-rune-tree="${tree.key}" data-rune-node-detail="${node.key}">
           <div class="rune-node-v2__dot ${points > 0 ? "has-points" : ""}">${points}</div>
           <div class="rune-node-v2__info">
             <span class="rune-node-v2__name">${node.name}</span>
@@ -2663,6 +2743,15 @@ function renderRuneTrees() {
 
       adjustRuneNode(treeKey, nodeKey, action === "add" ? 1 : -1);
     });
+  });
+
+  runeGrid.querySelectorAll("[data-rune-hover]").forEach((node) => {
+    const treeKey = node.dataset.runeTree;
+    const nodeKey = node.dataset.runeNodeDetail;
+    node.addEventListener("mouseenter", () => setHoverDetail({ type: "rune", treeKey, nodeKey }));
+    node.addEventListener("mouseleave", () => setHoverDetail(null));
+    node.addEventListener("focusin", () => setHoverDetail({ type: "rune", treeKey, nodeKey }));
+    node.addEventListener("focusout", () => setHoverDetail(null));
   });
 }
 
@@ -2815,9 +2904,11 @@ function spawnBullet(owner, targetX, targetY, collection, color, speed, damage, 
   const direction = normalize(targetX - owner.x, targetY - owner.y);
   const startX = owner.x + direction.x * (owner.radius + 8);
   const startY = owner.y + direction.y * (owner.radius + 8);
-  collection.push({
+  const bullet = {
     x: startX,
     y: startY,
+    startX,
+    startY,
     vx: direction.x * speed,
     vy: direction.y * speed,
     radius: options.radius ?? 4,
@@ -2830,7 +2921,8 @@ function spawnBullet(owner, targetX, targetY, collection, color, speed, damage, 
     effect: options.effect ?? null,
     source: options.source ?? "weapon",
     ownerTeam: owner.team ?? "player",
-  });
+  };
+  collection.push(bullet);
 
   tracers.push({
     x0: startX - direction.x * 18,
@@ -2841,6 +2933,8 @@ function spawnBullet(owner, targetX, targetY, collection, color, speed, damage, 
     life: 0.05,
     maxLife: 0.05,
   });
+
+  return bullet;
 }
 
 function addImpact(x, y, color, size = 14) {
@@ -2885,6 +2979,25 @@ function addHealingText(x, y, amount) {
     size: 18,
     weight: 700,
   });
+}
+
+function getRailDamage(projectile) {
+  const traveled = length(
+    (projectile.x ?? 0) - (projectile.startX ?? projectile.x ?? 0),
+    (projectile.y ?? 0) - (projectile.startY ?? projectile.y ?? 0),
+  );
+  const effect = projectile.effect ?? {};
+  const ramp = effect.charged ? config.railChargeDistanceRamp : config.railDistanceRamp;
+  const distanceRatio = clamp((traveled - 120) / 760, 0, 1);
+  return projectile.damage * (1 + distanceRatio * ramp);
+}
+
+function getProjectileDamage(projectile) {
+  if (projectile?.effect?.kind === "rail") {
+    return getRailDamage(projectile);
+  }
+
+  return projectile.damage;
 }
 
 function applyHitReaction(entity, sourceX, sourceY, intensity = 1) {
@@ -3053,6 +3166,10 @@ function applyBotLoadout(bot, loadoutConfig) {
   bot.weapon = normalized.weapon;
   bot.ammo = getPulseMagazineSize();
   bot.reloadTime = 0;
+  bot.sniperCharging = false;
+  bot.sniperChargeTime = 0;
+  bot.sniperWindupTime = 0;
+  bot.pendingSniperShot = null;
   bot.shield = 0;
   bot.shieldTime = 0;
   bot.hasteTime = 0;
@@ -3128,6 +3245,10 @@ function resetBotsForMode(mode = sandbox.mode) {
     bot.shotSpread = 0;
     bot.reloadTime = 0;
     bot.ammo = getPulseMagazineSize();
+    bot.sniperCharging = false;
+    bot.sniperChargeTime = 0;
+    bot.sniperWindupTime = 0;
+    bot.pendingSniperShot = null;
     bot.shield = 0;
     bot.shieldTime = 0;
     bot.hasteTime = 0;
@@ -3277,7 +3398,15 @@ function updateDuelMatch(dt) {
   }
 
   if (matchState.phase === "match_end" && matchState.timer <= 0) {
-    startDuelRound({ resetScore: true });
+    matchState.playerRounds = 0;
+    matchState.enemyRounds = 0;
+    matchState.roundNumber = 1;
+    matchState.phase = "round_start";
+    showRoundBanner("", "", false);
+    resetPlayer({ silent: true });
+    resetBotsForMode(sandboxModes.duel.key);
+    openPrematch("mode");
+    statusLine.textContent = "Match complete. Lock the next mode, map, and build.";
   }
 }
 
@@ -4377,6 +4506,8 @@ function setWeapon(nextWeapon) {
   player.weapon = nextWeapon;
   player.fireCooldown = 0;
   player.reloadTime = 0;
+  player.sniperCharging = false;
+  player.sniperChargeTime = 0;
   if (nextWeapon === weapons.pulse.key) {
     player.ammo = getPulseMagazineSize();
   }
@@ -4455,7 +4586,7 @@ function attackScrapShotgun() {
     const angle = baseAngle + spread;
     const targetX = player.x + Math.cos(angle) * 100;
     const targetY = player.y + Math.sin(angle) * 100;
-    spawnBullet(player, targetX, targetY, bullets, activeSkin.tint, config.bulletSpeed * 0.85, 9 * getPerkDamageMultiplier(), {
+    spawnBullet(player, targetX, targetY, bullets, activeSkin.tint, config.bulletSpeed * 0.85, 10 * getPerkDamageMultiplier(), {
       radius: 4,
       source: "shotgun-pellet",
       trailColor: "#ffd0aa",
@@ -4469,30 +4600,94 @@ function attackScrapShotgun() {
 }
 
 function attackRailSniper() {
+  return firePlayerRailSniper(player.sniperChargeTime);
+}
+
+function startRailSniperCharge() {
+  if (!isCombatLive() || player.weapon !== weapons.sniper.key) {
+    return false;
+  }
+  if (player.fireCooldown > 0 || player.sniperCharging) {
+    return false;
+  }
+
+  player.sniperCharging = true;
+  player.sniperChargeTime = 0;
+  statusLine.textContent = "Rail Sniper charging. Hold for a harder punish.";
+  return true;
+}
+
+function releaseRailSniperCharge() {
+  if (!player.sniperCharging) {
+    return false;
+  }
+
+  player.sniperCharging = false;
+  const shotFired = firePlayerRailSniper(player.sniperChargeTime);
+  player.sniperChargeTime = 0;
+  return shotFired;
+}
+
+function firePlayerRailSniper(chargeTime = 0) {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.wastelux;
-  player.fireCooldown = getWeaponCooldown(weapons.sniper.key);
+  const charged = chargeTime >= config.railChargeThreshold;
+  const chargeRatio = charged
+    ? clamp((chargeTime - config.railChargeThreshold) / Math.max(0.01, config.railMaxCharge - config.railChargeThreshold), 0, 1)
+    : 0;
+  const baseDamage = charged
+    ? config.railChargeDamage + chargeRatio * 12
+    : config.railTapDamage;
+  const projectileSpeed = charged
+    ? config.railChargeSpeed + chargeRatio * 180
+    : config.railTapSpeed;
+  const snare = charged ? config.railChargeSnare + chargeRatio * 0.08 : 0;
+  const snareDuration = charged ? config.railChargeSnareDuration + chargeRatio * 0.15 : 0;
+  const cooldownScale = charged ? 1.08 : 1;
+  player.fireCooldown = getWeaponCooldown(weapons.sniper.key) * cooldownScale;
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
+  const startX = player.x + direction.x * (player.radius + 8);
+  const startY = player.y + direction.y * (player.radius + 8);
+  const beamLength = charged ? 208 : 172;
+  beamEffects.push({
+    x0: startX,
+    y0: startY,
+    x1: startX + direction.x * beamLength,
+    y1: startY + direction.y * beamLength,
+    color: charged ? "#ffeab2" : "#ffe19a",
+    width: charged ? 7 : 5,
+    life: charged ? 0.12 : 0.09,
+    maxLife: charged ? 0.12 : 0.09,
+  });
   spawnBullet(
     player,
     input.mouseX,
     input.mouseY,
     bullets,
     activeSkin.tint,
-    1940,
-    34 * getPerkDamageMultiplier(getPrimaryBot()),
+    projectileSpeed,
+    baseDamage * getPerkDamageMultiplier(getPrimaryBot()),
     {
-      radius: 6,
-      life: 0.72,
+      radius: charged ? 7 : 5,
+      life: charged ? 0.62 : 0.74,
       piercing: true,
-      trailColor: "#ffe7a8",
-      source: "rail-sniper",
-      effect: { kind: "rail", bonusSlow: 0.12, bonusSlowDuration: 0.45 },
+      trailColor: charged ? "#fff0bf" : "#ffe7a8",
+      source: charged ? "rail-sniper-charged" : "rail-sniper",
+      effect: {
+        kind: "rail",
+        charged,
+        bonusSlow: snare,
+        bonusSlowDuration: snareDuration,
+      },
     },
   );
-  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, "#ffe4a4", 20);
-  addShake(7.6);
-  player.recoil = 1.42;
-  statusLine.textContent = "Rail Sniper cracked a long precision shot.";
+  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, charged ? "#fff0b9" : "#ffe4a4", charged ? 26 : 20);
+  addImpact(player.x + direction.x * 52, player.y + direction.y * 52, charged ? "#fff7e0" : "#ffeec3", charged ? 18 : 10);
+  addShake(charged ? 9.8 : 7.6);
+  player.recoil = charged ? 1.7 : 1.42;
+  statusLine.textContent = charged
+    ? "Charged Rail Sniper shot launched. Long lanes are lethal."
+    : "Rail Sniper cracked a precision line shot.";
+  return true;
 }
 
 function attackVoltStaff() {
@@ -4859,6 +5054,8 @@ function resetPlayer({ silent = false } = {}) {
   player.decoyTime = 0;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
+  player.sniperCharging = false;
+  player.sniperChargeTime = 0;
   clearStatusEffects(player);
   abilityState.dash.inputHeld = false;
   abilityState.dash.holdTime = 0;
@@ -4914,6 +5111,9 @@ function updatePlayer(dt) {
   player.slashFlash = Math.max(0, player.slashFlash - dt);
   player.attackStartupTime = Math.max(0, player.attackStartupTime - dt);
   player.hitReactionTime = Math.max(0, player.hitReactionTime - dt);
+  if (player.sniperCharging) {
+    player.sniperChargeTime = Math.min(config.railMaxCharge, player.sniperChargeTime + dt);
+  }
   updateStatusEffects(player, dt);
   tickEntityMarks(player, dt);
   const playerStatus = getStatusState(player);
@@ -4946,6 +5146,12 @@ function updatePlayer(dt) {
     const targetVelocityY = move.y * startupMoveSpeed;
     player.velocityX = approach(player.velocityX, targetVelocityX, config.playerAcceleration * 0.78 * dt);
     player.velocityY = approach(player.velocityY, targetVelocityY, config.playerAcceleration * 0.78 * dt);
+  } else if (player.sniperCharging) {
+    const chargeMoveSpeed = getActiveMoveSpeed() * playerStatus.speedMultiplier * playerZoneEffects.slowMultiplier * 0.58;
+    const targetVelocityX = move.x * chargeMoveSpeed;
+    const targetVelocityY = move.y * chargeMoveSpeed;
+    player.velocityX = approach(player.velocityX, targetVelocityX, config.playerAcceleration * 0.62 * dt);
+    player.velocityY = approach(player.velocityY, targetVelocityY, config.playerAcceleration * 0.62 * dt);
   } else if (player.attackCommitTime > 0) {
     player.attackCommitTime = Math.max(0, player.attackCommitTime - dt);
     player.velocityX = player.attackCommitX * player.attackCommitSpeed;
@@ -4997,13 +5203,15 @@ function updatePlayer(dt) {
     finalizePulseReload(player);
   }
 
-  if (combatLive && !playerStatus.stunned && input.firing && player.fireCooldown <= 0) {
+  if (combatLive && !playerStatus.stunned && input.firing && player.fireCooldown <= 0 && !player.sniperCharging) {
     if (player.weapon === weapons.axe.key) {
       attackElectricAxe();
     } else if (player.weapon === weapons.shotgun.key) {
       attackScrapShotgun();
     } else if (player.weapon === weapons.sniper.key) {
-      attackRailSniper();
+      if (!startRailSniperCharge()) {
+        attackRailSniper();
+      }
     } else if (player.weapon === weapons.staff.key) {
       attackVoltStaff();
     } else if (player.weapon === weapons.injector.key) {
@@ -5225,7 +5433,7 @@ function fireEnemyPulse(targetX, targetY, punishShot = false) {
   const spread = punishShot ? 18 : 30;
   const spreadX = (Math.random() - 0.5) * spread;
   const spreadY = (Math.random() - 0.5) * spread;
-  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 6, {
+  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 7, {
     radius: 4,
     source: "enemy-pulse",
     trailColor: "#ffc0b4",
@@ -5250,7 +5458,7 @@ function fireEnemyShotgun(targetX, targetY) {
       enemyBullets,
       "#ff9d62",
       config.bulletSpeed * 0.82,
-      5,
+        6,
       {
         radius: 4,
         source: "enemy-shotgun",
@@ -5306,7 +5514,9 @@ function applyProjectileEffectToBot(bot, projectile) {
       addImpact(bot.x, bot.y, "#f0b8ff", 24);
     }
   } else if (effect.kind === "rail") {
-    applyStatusEffect(bot, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    if ((effect.bonusSlow ?? 0) > 0) {
+      applyStatusEffect(bot, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    }
   }
 }
 
@@ -5328,20 +5538,42 @@ function applyProjectileEffectToPlayer(projectile) {
       addImpact(player.x, player.y, "#f0b8ff", 20);
     }
   } else if (effect.kind === "rail") {
-    applyStatusEffect(player, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    if ((effect.bonusSlow ?? 0) > 0) {
+      applyStatusEffect(player, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    }
   }
 }
 
-function fireEnemySniper(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", 1760, 18, {
-    radius: 6,
-    life: 0.78,
-    piercing: true,
-    trailColor: "#ffeab3",
-    source: "enemy-sniper",
-    effect: { kind: "rail", bonusSlow: 0.16, bonusSlowDuration: 0.6 },
+function fireEnemySniper(targetX, targetY, charged = false) {
+  const baseDamage = charged ? config.railChargeDamage * 0.62 : config.railTapDamage * 0.68;
+  const projectileSpeed = charged ? config.railChargeSpeed * 0.94 : config.railTapSpeed * 0.92;
+  const direction = normalize(targetX - enemy.x, targetY - enemy.y);
+  const startX = enemy.x + direction.x * (enemy.radius + 8);
+  const startY = enemy.y + direction.y * (enemy.radius + 8);
+  beamEffects.push({
+    x0: startX,
+    y0: startY,
+    x1: startX + direction.x * (charged ? 196 : 156),
+    y1: startY + direction.y * (charged ? 196 : 156),
+    color: charged ? "#ffe4a2" : "#ffd27a",
+    width: charged ? 6 : 4,
+    life: charged ? 0.1 : 0.08,
+    maxLife: charged ? 0.1 : 0.08,
   });
-  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd27a", 18);
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", projectileSpeed, baseDamage, {
+    radius: charged ? 7 : 6,
+    life: charged ? 0.66 : 0.78,
+    piercing: true,
+    trailColor: charged ? "#fff0be" : "#ffeab3",
+    source: charged ? "enemy-sniper-charged" : "enemy-sniper",
+    effect: {
+      kind: "rail",
+      charged,
+      bonusSlow: charged ? config.railChargeSnare * 0.78 : 0.14,
+      bonusSlowDuration: charged ? config.railChargeSnareDuration * 0.92 : 0.6,
+    },
+  });
+  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd27a", charged ? 24 : 18);
   return true;
 }
 
@@ -5747,7 +5979,8 @@ function updateEnemy(dt) {
     player.attackStartupTime > 0 ||
     player.attackCommitTime > 0 ||
     player.activeAxeStrike !== null ||
-    player.pendingAxeStrike !== null;
+    player.pendingAxeStrike !== null ||
+    player.sniperCharging;
   const targetRange = getEnemyTargetRange();
   const shouldPunish = playerExposed || playerLow;
   const behaviorProfile = getEnemyBehaviorProfile(distance, shouldPunish);
@@ -5821,7 +6054,7 @@ function updateEnemy(dt) {
     !enemyStatus.stunned &&
     enemyHasAbility("magneticField") &&
     enemy.fieldCooldown <= 0 &&
-    (incomingProjectile || (playerOnAxe && distance < behaviorProfile.fieldResponseDistance))
+    (incomingProjectile || player.sniperCharging || (playerOnAxe && distance < behaviorProfile.fieldResponseDistance))
   ) {
     spawnEnemyMagneticField();
   }
@@ -5917,8 +6150,9 @@ function updateEnemy(dt) {
     castEnemyChainLightning();
     enemy.shootCooldown = 0.46;
   } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && distance > 280 && distance < 920) {
-    if (fireEnemySniper(targetX + player.velocityX * 0.2, targetY + player.velocityY * 0.2)) {
-      enemy.shootCooldown = shouldPunish ? 1.08 : 1.26;
+    const chargedShot = shouldPunish || player.sniperCharging || distance > 560;
+    if (fireEnemySniper(targetX + player.velocityX * (chargedShot ? 0.24 : 0.18), targetY + player.velocityY * (chargedShot ? 0.24 : 0.18), chargedShot)) {
+      enemy.shootCooldown = chargedShot ? 1.34 : shouldPunish ? 1.08 : 1.26;
       enemy.postAttackMoveTime = 0.54;
     }
   } else if (!enemyStatus.stunned && enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 340 && shouldPunish) {
@@ -5951,6 +6185,15 @@ function updateEnemy(dt) {
       enemy.dashCooldown = 1.6;
       addImpact(enemy.x, enemy.y, "#ffc3b8", 18);
       statusLine.textContent = "The bot is dodging your fire. Track it.";
+    } else if (player.sniperCharging && distance > 220 && distance < 760) {
+      const dodgeSide = Math.random() < 0.5 ? -1 : 1;
+      enemy.dodgeVectorX = side.x * dodgeSide * 1.2;
+      enemy.dodgeVectorY = side.y * dodgeSide * 1.2;
+      enemy.dodgeTime = config.enemyDodgeDuration + 0.08;
+      enemy.dodgeCooldown = config.enemyDodgeCooldown;
+      enemy.dashCooldown = 1.8;
+      enemy.postAttackMoveTime = 0.32;
+      addImpact(enemy.x, enemy.y, "#ffe0aa", 20);
     } else if ((shouldPunish || player.attackStartupTime > 0) && distance > 150 && distance < 330 && enemy.dashCooldown <= 0) {
       enemy.dodgeVectorX = forward.x;
       enemy.dodgeVectorY = forward.y;
@@ -6099,7 +6342,7 @@ function applyPlayerDamage(amount, source = "hit") {
       player.shield = Math.max(player.shield, 18);
       player.shieldTime = 2;
       statusLine.textContent = "Last Stand Buffer kept you alive.";
-      return true;
+      return false;
     }
 
     if (hasPerk("cloneFailover") && player.decoyTime <= 0) {
@@ -6111,7 +6354,7 @@ function applyPlayerDamage(amount, source = "hit") {
       addAfterimage(player.x - 38, player.y + 12, player.facing, player.radius + 6, "#d8b2ff");
       addImpact(player.x, player.y, "#d8b2ff", 28);
       statusLine.textContent = "Clone Failover dumped a decoy and saved the round.";
-      return true;
+      return false;
     }
 
     if (player.revivalPrimed > 0) {
@@ -6120,7 +6363,7 @@ function applyPlayerDamage(amount, source = "hit") {
       player.shield = Math.max(player.shield, 24);
       player.shieldTime = 2.4;
       statusLine.textContent = "Revival Protocol rescued you from lethal damage.";
-      return true;
+      return false;
     }
   }
 
@@ -6156,7 +6399,7 @@ function resolveCombat() {
 
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
-        damageBot(bot, bullet.damage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
+        damageBot(bot, getProjectileDamage(bullet), bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
         if (!bullet.piercing) {
           bullets.splice(i, 1);
@@ -6179,7 +6422,7 @@ function resolveCombat() {
 
       if (abilityState.dash.invulnerabilityTime <= 0) {
         const defeatedByBullet = applyPlayerDamage(
-          bullet.damage * (1 - playerFieldModifier.damageReduction),
+          getProjectileDamage(bullet) * (1 - playerFieldModifier.damageReduction),
           "bullet",
         );
         applyProjectileEffectToPlayer(bullet);
@@ -6364,17 +6607,26 @@ function drawProjectileSprite(projectile, hostile = false) {
   ctx.shadowColor = projectile.trailColor ?? color;
 
   if (source.includes("rail")) {
+    const chargedRail = source.includes("charged");
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(-10, -3.5);
-    ctx.lineTo(-6, 0);
-    ctx.lineTo(-10, 3.5);
+    ctx.moveTo(chargedRail ? 22 : 18, 0);
+    ctx.lineTo(-10, chargedRail ? -4.5 : -3.5);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-10, chargedRail ? 4.5 : 3.5);
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle = hostile ? "rgba(255, 241, 198, 0.88)" : "rgba(255, 248, 212, 0.9)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = chargedRail ? 2.8 : 2;
     ctx.stroke();
+    if (chargedRail) {
+      ctx.strokeStyle = hostile ? "rgba(255, 221, 171, 0.72)" : "rgba(255, 245, 200, 0.74)";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-18, 0);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+    }
   } else if (source.includes("injector")) {
     ctx.fillStyle = color;
     ctx.fillRect(-12, -2.5, 22, 5);
@@ -6829,6 +7081,52 @@ function drawArenaFloorLighting() {
   ctx.fillRect(0, arena.height * 0.5 - 120, arena.width, 240);
 }
 
+function drawArenaAtmosphere() {
+  const activeLayout = getMapLayout();
+  const theme = activeLayout.theme ?? mapChoices.electroGallery.theme;
+  const topGlow = ctx.createLinearGradient(0, 0, 0, 220);
+  topGlow.addColorStop(0, `${theme.border}1f`);
+  topGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = topGlow;
+  ctx.fillRect(0, 0, arena.width, 220);
+
+  const bottomVignette = ctx.createLinearGradient(0, arena.height - 220, 0, arena.height);
+  bottomVignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+  bottomVignette.addColorStop(1, "rgba(3, 5, 8, 0.26)");
+  ctx.fillStyle = bottomVignette;
+  ctx.fillRect(0, arena.height - 220, arena.width, 220);
+
+  if (activeLayout.key === "electroGallery") {
+    ctx.strokeStyle = "rgba(118, 236, 255, 0.08)";
+    ctx.lineWidth = 3;
+    for (let y = 156; y <= arena.height - 156; y += 196) {
+      ctx.beginPath();
+      ctx.moveTo(68, y);
+      ctx.lineTo(184, y);
+      ctx.lineTo(228, y - 18);
+      ctx.lineTo(286, y - 18);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(arena.width - 68, y);
+      ctx.lineTo(arena.width - 184, y);
+      ctx.lineTo(arena.width - 228, y + 18);
+      ctx.lineTo(arena.width - 286, y + 18);
+      ctx.stroke();
+    }
+  } else if (activeLayout.key === "bricABroc") {
+    ctx.strokeStyle = "rgba(255, 187, 124, 0.08)";
+    ctx.lineWidth = 2;
+    for (let x = 144; x < arena.width - 144; x += 188) {
+      ctx.beginPath();
+      ctx.moveTo(x, 84);
+      ctx.lineTo(x + 24, 132);
+      ctx.lineTo(x - 10, 210);
+      ctx.stroke();
+    }
+  }
+}
+
 function drawPortals() {
   for (const portal of mapState.portals) {
     const pulse = 1 + Math.sin(performance.now() * 0.008 + portal.x * 0.001) * 0.08;
@@ -6968,6 +7266,7 @@ function drawWorld() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, arena.width, arena.height);
   drawArenaFloorLighting();
+  drawArenaAtmosphere();
 
   drawArenaDecor();
 
@@ -7339,6 +7638,20 @@ function drawWorld() {
     ctx.moveTo(18, 0);
     ctx.lineTo(60, 0);
     ctx.stroke();
+    if (player.sniperCharging) {
+      const chargeRatio = clamp(player.sniperChargeTime / config.railMaxCharge, 0, 1);
+      ctx.strokeStyle = chargeRatio >= config.railChargeThreshold / config.railMaxCharge
+        ? "rgba(255, 242, 188, 0.92)"
+        : "rgba(255, 234, 176, 0.68)";
+      ctx.lineWidth = 4 + chargeRatio * 3;
+      ctx.shadowBlur = 18 + chargeRatio * 18;
+      ctx.shadowColor = weaponSkin.glow;
+      ctx.beginPath();
+      ctx.moveTo(58, 0);
+      ctx.lineTo(128 + chargeRatio * 56, 0);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
   } else if (player.weapon === weapons.staff.key) {
     ctx.fillStyle = avatar.detailColor;
     ctx.fillRect(-3, -4, 44, 8);
@@ -7462,23 +7775,30 @@ function updateHud() {
       : player.weapon === weapons.axe.key && player.comboTimer > 0
       ? `Combo ${player.comboStep}/3`
       : player.weapon === weapons.sniper.key
-        ? weaponReady
-          ? "Rail primed"
-          : `Rechamber ${player.fireCooldown.toFixed(2)}s`
-      : player.weapon === weapons.staff.key
-        ? weaponReady
-          ? "Sustain beam ready"
-          : `Cycling ${player.fireCooldown.toFixed(2)}s`
-      : player.weapon === weapons.injector.key
-        ? weaponReady
-          ? "Marks armed"
-          : `Injecting ${player.fireCooldown.toFixed(2)}s`
-      : weaponReady
-        ? "Ready"
-        : `Cooling ${player.fireCooldown.toFixed(2)}s`;
+        ? player.sniperCharging
+          ? player.sniperChargeTime >= config.railChargeThreshold
+            ? "Charged rail"
+            : "Lining shot"
+          : weaponReady
+            ? "Rail primed"
+            : `Rechamber ${player.fireCooldown.toFixed(2)}s`
+        : player.weapon === weapons.staff.key
+          ? weaponReady
+            ? "Sustain beam ready"
+            : `Cycling ${player.fireCooldown.toFixed(2)}s`
+        : player.weapon === weapons.injector.key
+          ? weaponReady
+            ? "Marks armed"
+            : `Injecting ${player.fireCooldown.toFixed(2)}s`
+        : weaponReady
+          ? "Ready"
+          : `Cooling ${player.fireCooldown.toFixed(2)}s`;
   const pulseMeterRatio = player.reloadTime > 0
     ? 1 - player.reloadTime / config.pulseReloadTime
     : player.ammo / getPulseMagazineSize();
+  const sniperChargeRatio = player.sniperCharging
+    ? Math.max(0, Math.min(1, player.sniperChargeTime / config.railMaxCharge))
+    : 1 - player.fireCooldown / activeWeapon.cooldown;
   weaponMeter.style.width = `${
     Math.max(
       0,
@@ -7487,7 +7807,9 @@ function updateHud() {
         (
           player.weapon === weapons.pulse.key
             ? pulseMeterRatio
-            : 1 - player.fireCooldown / activeWeapon.cooldown
+            : player.weapon === weapons.sniper.key
+              ? sniperChargeRatio
+              : 1 - player.fireCooldown / activeWeapon.cooldown
         ) * 100,
       ),
     )
@@ -7526,6 +7848,12 @@ function updateHud() {
       ? `${Math.ceil(primaryBot.hp)} / ${primaryBot.maxHp}`
       : "Down"
     : "--";
+  if (menuButton) {
+    menuButton.textContent = "Menu";
+  }
+  if (rematchButton) {
+    rematchButton.textContent = sandbox.mode === sandboxModes.training.key ? "Build Lab" : "Rematch";
+  }
 
   setHudSlotPresentation(slotDashIcon, slotDashName, { icon: "ability-dash", name: "Dash" });
   setHudSlotPresentation(slotAbility1Icon, slotAbility1Name, slotAbilities[0] ?? content.abilities.shockJavelin);
@@ -7548,6 +7876,7 @@ function updateHud() {
 function updateAbilitySlot(slot, overlay, timerLabel, state) {
   slot.classList.toggle("ready", state.ready);
   slot.classList.toggle("charging", state.charging);
+  slot.classList.toggle("cooling", !state.ready && !state.charging);
   const clampedRatio = Math.max(0, Math.min(1, state.cooldownRatio ?? 1));
   const degrees = Math.round(clampedRatio * 360);
   const shadowColor = state.charging ? "rgba(55, 33, 10, 0.82)" : "rgba(6, 10, 14, 0.88)";
@@ -7873,7 +8202,7 @@ helpToggle.addEventListener("click", () => {
 });
 
 [rematchButton, hudRematchButton].forEach((button) => {
-  button?.addEventListener("click", () => relaunchCurrentSession());
+  button?.addEventListener("click", () => handleSecondarySessionAction());
 });
 
 bindPrematchButton(modeDuel, "mode-duel");
@@ -7945,6 +8274,21 @@ Object.entries(loadoutSlotButtons).forEach(([slotKey, button]) => {
     }
     renderPrematch();
   });
+
+  button.addEventListener("mouseenter", () => {
+    const item = getLoadoutItemForSlot(normalizedSlot);
+    if (item) {
+      setHoverDetail({ type: getSlotCategory(normalizedSlot), key: item.key });
+    }
+  });
+  button.addEventListener("mouseleave", () => setHoverDetail(null));
+  button.addEventListener("focus", () => {
+    const item = getLoadoutItemForSlot(normalizedSlot);
+    if (item) {
+      setHoverDetail({ type: getSlotCategory(normalizedSlot), key: item.key });
+    }
+  });
+  button.addEventListener("blur", () => setHoverDetail(null));
 });
 
 botModeRandom?.addEventListener("click", () => {
@@ -7975,26 +8319,6 @@ trainingFireOn?.addEventListener("click", () => {
   statusLine.textContent = "Training bots now fire steady pulse shots.";
 });
 
-window.addEventListener("keyup", (event) => {
-  if (uiState.prematchOpen) {
-    return;
-  }
-
-  input.keys.delete(event.code);
-
-  if (event.code === "Space" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
-    releaseAbilityInput(0);
-  }
-
-  if (event.code === "KeyQ") {
-      releaseAbilityInput(1);
-  }
-
-  if (event.code === "KeyF") {
-    releaseAbilityInput(2);
-  }
-});
-
 canvas.addEventListener("mousemove", (event) => {
   updatePointer(event.clientX, event.clientY);
 });
@@ -8005,13 +8329,22 @@ canvas.addEventListener("mousedown", (event) => {
   }
   updatePointer(event.clientX, event.clientY);
   input.firing = true;
+  if (player.weapon === weapons.sniper.key) {
+    startRailSniperCharge();
+  }
 });
 
 window.addEventListener("mouseup", () => {
+  if (player.sniperCharging) {
+    releaseRailSniperCharge();
+  }
   input.firing = false;
 });
 
 canvas.addEventListener("mouseleave", () => {
+  if (player.sniperCharging) {
+    releaseRailSniperCharge();
+  }
   input.firing = false;
 });
 
@@ -8029,6 +8362,9 @@ canvas.addEventListener(
       } else {
         input.firing = true;
         updatePointer(touch.clientX, touch.clientY);
+        if (player.weapon === weapons.sniper.key) {
+          startRailSniperCharge();
+        }
       }
     }
   },
@@ -8059,6 +8395,9 @@ canvas.addEventListener(
       if (touch.identifier === input.moveTouchId) {
         clearJoystick();
       } else {
+        if (player.sniperCharging) {
+          releaseRailSniperCharge();
+        }
         input.firing = false;
       }
     }
@@ -8069,6 +8408,9 @@ canvas.addEventListener(
 canvas.addEventListener(
   "touchcancel",
   () => {
+    if (player.sniperCharging) {
+      releaseRailSniperCharge();
+    }
     input.firing = false;
     clearJoystick();
   },

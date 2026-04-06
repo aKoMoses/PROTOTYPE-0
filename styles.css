@@ -1808,6 +1808,12 @@ body {
   background: conic-gradient(from -90deg, rgba(55, 33, 10, 0.82) 360deg, rgba(55, 33, 10, 0.16) 360deg);
 }
 
+.ability-slot.cooling .ability-slot__icon,
+.ability-slot.cooling .ability-slot__name {
+  filter: grayscale(0.35);
+  opacity: 0.72;
+}
+
 .ability-slot__key {
   position: absolute;
   top: 5px;
@@ -1839,7 +1845,7 @@ body {
   z-index: 1;
   display: grid;
   place-items: center;
-  font-size: 0.9rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-shadow:
@@ -2402,8 +2408,25 @@ body {
   transition: all 120ms ease;
 }
 
+.rune-node-v2:hover,
+.rune-node-v2:focus-within {
+  border-color: rgba(169, 242, 255, 0.34);
+  transform: translateY(-1px);
+}
+
+.rune-node-v2--minor {
+  border-color: rgba(143, 216, 255, 0.12);
+}
+
+.rune-node-v2--major {
+  border-color: rgba(142, 255, 196, 0.18);
+  background: rgba(116, 255, 196, 0.04);
+}
+
 .rune-node-v2--ultimate {
   border-style: dashed;
+  border-color: rgba(255, 211, 117, 0.24);
+  background: rgba(255, 211, 117, 0.04);
 }
 
 .rune-node-v2--ultimate.is-selected {
@@ -2498,6 +2521,7 @@ body {
   background: var(--panel-strong);
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
+  min-height: 116px;
 }
 
 .detail-float.is-hidden {
