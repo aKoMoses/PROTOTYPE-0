@@ -419,7 +419,7 @@ body {
 }
 
 .mode-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .map-grid {
@@ -611,6 +611,41 @@ body {
   height: 12px;
   clip-path: polygon(0 0, 100% 50%, 0 100%);
   background: #f7d8ff;
+}
+
+.content-icon--weapon-lance::before {
+  left: 8px;
+  top: 19px;
+  width: 22px;
+  height: 4px;
+  background: linear-gradient(90deg, #ffe27c, #fff4c3);
+}
+
+.content-icon--weapon-lance::after {
+  left: 28px;
+  top: 14px;
+  width: 12px;
+  height: 14px;
+  clip-path: polygon(0 50%, 64% 0, 100% 50%, 64% 100%);
+  background: #fff4c3;
+}
+
+.content-icon--weapon-cannon::before {
+  left: 7px;
+  top: 13px;
+  width: 18px;
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #ffb16a, #ffe0ba);
+}
+
+.content-icon--weapon-cannon::after {
+  left: 22px;
+  top: 16px;
+  width: 14px;
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #ffe0ba, #fff1d8);
 }
 
 .content-icon--ability-dash::before,

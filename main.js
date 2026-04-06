@@ -64,6 +64,7 @@ const stepMode = document.getElementById("step-mode");
 const stepMap = document.getElementById("step-map");
 const stepBuild = document.getElementById("step-build");
 const modeDuel = document.getElementById("mode-duel");
+const modeSurvival = document.getElementById("mode-survival");
 const modeTraining = document.getElementById("mode-training");
 const mapGrid = document.getElementById("map-grid");
 const continueMap = document.getElementById("continue-map");
@@ -112,6 +113,15 @@ const botDifficultyEasy = document.getElementById("bot-difficulty-easy");
 const botDifficultyNormal = document.getElementById("bot-difficulty-normal");
 const botDifficultyHard = document.getElementById("bot-difficulty-hard");
 const botDifficultyNightmare = document.getElementById("bot-difficulty-nightmare");
+const ruleFormatBo3 = document.getElementById("rule-format-bo3");
+const ruleFormatBo5 = document.getElementById("rule-format-bo5");
+const ruleTimerOff = document.getElementById("rule-timer-off");
+const ruleTimer60 = document.getElementById("rule-timer-60");
+const ruleTimer75 = document.getElementById("rule-timer-75");
+const ruleSuddenDeathOff = document.getElementById("rule-suddendeath-off");
+const ruleSuddenDeathOn = document.getElementById("rule-suddendeath-on");
+const ruleMirrorOff = document.getElementById("rule-mirror-off");
+const ruleMirrorOn = document.getElementById("rule-mirror-on");
 const botModeRandom = document.getElementById("bot-mode-random");
 const botModeCustom = document.getElementById("bot-mode-custom");
 const botWeaponGrid = document.getElementById("bot-weapon-grid");
@@ -148,6 +158,7 @@ const config = {
   pulseDamage: 11,
   pulseMagazineSize: 12,
   pulseReloadTime: 1.18,
+  statusTickInterval: 0.5,
   railChargeThreshold: 0.34,
   railMaxCharge: 0.9,
   railTapDamage: 30,
@@ -196,6 +207,31 @@ const config = {
   ultimateCooldown: 14,
   phantomDuration: 3,
   phantomReplayDelay: 0.16,
+  lancePrimaryRange: 228,
+  lancePrimaryWidth: 18,
+  lancePrimaryDamage: 44,
+  lancePrimaryCooldown: 0.64,
+  lanceAltRange: 196,
+  lanceAltWidth: 26,
+  lanceAltDamage: 62,
+  lanceAltCooldown: 1.06,
+  lanceAltShockDuration: 0.48,
+  cannonPrimaryDamage: 34,
+  cannonPrimarySpeed: 760,
+  cannonPrimaryCooldown: 0.84,
+  cannonPrimaryRadius: 8,
+  cannonSplashRadius: 82,
+  cannonSplashDamage: 26,
+  cannonBurnDuration: 2.4,
+  cannonBurnMagnitude: 0.72,
+  cannonAltDamage: 24,
+  cannonAltSpeed: 980,
+  cannonAltCooldown: 1.12,
+  cannonAltRadius: 7,
+  cannonFreezeDuration: 1.2,
+  cannonFreezeMagnitude: 0.52,
+  survivalWavePause: 1.8,
+  survivalWaveIntermission: 2.4,
   enemyRadius: 20,
   enemyMaxHp: 380,
   enemySpeed: 246,
@@ -421,6 +457,34 @@ const content = {
       accent: "#d88cff",
       icon: "weapon-injector",
       category: "utility",
+      state: "playable",
+    },
+    lance: {
+      key: "lance",
+      name: "Charge Lance",
+      cooldown: config.lancePrimaryCooldown,
+      slotLabel: "Engage Bruiser",
+      description: "Long thrust bruiser weapon with an electrified charge commit on alt-fire.",
+      rhythm: "Measured / engage",
+      rangeProfile: "Mid reach thrust into short burst commit",
+      commitment: "High",
+      accent: "#ffe27c",
+      icon: "weapon-lance",
+      category: "offense",
+      state: "playable",
+    },
+    cannon: {
+      key: "cannon",
+      name: "Heavy Cannon",
+      cooldown: config.cannonPrimaryCooldown,
+      slotLabel: "Siege Burst",
+      description: "Slow shell launcher with splash pressure, burn, and a cryo utility alt-fire.",
+      rhythm: "Slow / explosive",
+      rangeProfile: "Medium / long siege",
+      commitment: "High",
+      accent: "#ffb16a",
+      icon: "weapon-cannon",
+      category: "control",
       state: "playable",
     },
   },
@@ -707,6 +771,11 @@ const sandboxModes = {
     name: "Duel Map",
     subtitle: "One hunter bot with full combat behavior.",
   },
+  survival: {
+    key: "survival",
+    name: "Survival Mode",
+    subtitle: "Escalating solo waves against adaptive hunter builds.",
+  },
   training: {
     key: "training",
     name: "Training Map",
@@ -856,7 +925,7 @@ const mapLayouts = {
 };
 
 const buildLabVisiblePools = {
-  weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector"],
+  weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector", "lance", "cannon"],
   abilities: [
     "shockJavelin",
     "magneticField",
@@ -979,6 +1048,13 @@ const trainingToolState = {
   botsFire: false,
 };
 
+const duelRules = {
+  formatWins: 2,
+  roundTimer: 60,
+  suddenDeath: true,
+  mirrorMatch: false,
+};
+
 const abilityConfig = {
   dash: {
     tapDuration: config.dashDuration,
@@ -1043,6 +1119,7 @@ const input = {
   mouseX: arena.width * 0.5,
   mouseY: arena.height * 0.5,
   firing: false,
+  altFiring: false,
   moveTouchId: null,
   moveTouchX: 0,
   moveTouchY: 0,
@@ -1094,6 +1171,8 @@ const player = {
   injectorMarkTime: 0,
   sniperCharging: false,
   sniperChargeTime: 0,
+  lanceChargeTime: 0,
+  cannonAltCooldown: 0,
 };
 
 const phantomState = {
@@ -1281,6 +1360,8 @@ function createBot({
     sniperChargeTime: 0,
     sniperWindupTime: 0,
     pendingSniperShot: null,
+    lanceChargeTime: 0,
+    cannonAltCooldown: 0,
     decoyTime: 0,
     ultimateCooldown: 0,
     failsafeReady: true,
@@ -1301,7 +1382,7 @@ const enemy = createBot({
   radius: config.enemyRadius,
   color: "#ff8a77",
   accent: "#ffa596",
-  modes: [sandboxModes.duel.key],
+  modes: [sandboxModes.duel.key, sandboxModes.survival.key],
 });
 enemy.team = "enemy";
 enemy.dashCooldown = 0;
@@ -1341,11 +1422,32 @@ const matchState = {
   roundNumber: 1,
   phase: "round_start",
   timer: 1.1,
+  roundClock: 0,
+  suddenDeathActive: false,
   bannerVisible: true,
   bannerLabel: "Round 1",
   bannerTitle: "Prepare",
   bannerStyle: "intro",
   introIndex: 0,
+};
+
+const survivalState = {
+  wave: 1,
+  totalKills: 0,
+  waveKills: 0,
+  phase: "idle",
+  timer: 0,
+  waveTargetKills: 2,
+  bannerLabel: "Wave 1",
+  bannerTitle: "Prepare",
+  completed: false,
+};
+
+const playerBehaviorModel = {
+  aggression: 0.5,
+  rangedBias: 0.5,
+  controlBias: 0.32,
+  mobilityBias: 0.4,
 };
 
 const statusVisuals = {
@@ -1368,6 +1470,34 @@ const statusVisuals = {
     fill: "rgba(255, 86, 64, 0.98)",
     stroke: "rgba(255, 234, 214, 0.96)",
     text: "#ffd8b8",
+    wave: "spark",
+  },
+  burn: {
+    label: "BURN",
+    fill: "rgba(255, 120, 82, 0.95)",
+    stroke: "rgba(255, 215, 181, 0.9)",
+    text: "#ffbc9a",
+    wave: "embers",
+  },
+  freeze: {
+    label: "FREEZE",
+    fill: "rgba(150, 222, 255, 0.95)",
+    stroke: "rgba(218, 246, 255, 0.92)",
+    text: "#c7f4ff",
+    wave: "ring",
+  },
+  poison: {
+    label: "POISON",
+    fill: "rgba(155, 255, 140, 0.94)",
+    stroke: "rgba(225, 255, 210, 0.9)",
+    text: "#c7ffbb",
+    wave: "droplets",
+  },
+  shock: {
+    label: "SHOCK",
+    fill: "rgba(255, 229, 124, 0.96)",
+    stroke: "rgba(255, 248, 199, 0.94)",
+    text: "#fff0a3",
     wave: "spark",
   },
 };
@@ -1791,7 +1921,7 @@ function collapsePylon(pylon, sourceX, sourceY, team = "player") {
       if (defeatedByPylon) {
         if (sandbox.mode === sandboxModes.duel.key) {
           finishDuelRound("enemy");
-        } else {
+        } else if (sandbox.mode === sandboxModes.training.key) {
           resetPlayer();
         }
       }
@@ -1821,6 +1951,9 @@ function hitMapWithProjectile(projectile, team = "player") {
   for (const obstacle of mapState.obstacles) {
     if (circleIntersectsRect(projectile.x, projectile.y, projectile.radius, obstacle)) {
       addImpact(projectile.x, projectile.y, team === "player" ? "#9ce8ff" : "#ffb294", 16);
+      if (projectile.effect?.kind === "cannon") {
+        triggerStatusShellExplosion(projectile.owner ?? (team === "player" ? player : enemy), projectile.x, projectile.y, projectile.effect, team);
+      }
       return true;
     }
   }
@@ -1828,10 +1961,16 @@ function hitMapWithProjectile(projectile, team = "player") {
   for (const pylon of mapState.pylons) {
     if (pylon.alive && circleIntersectsCircle(projectile.x, projectile.y, projectile.radius, pylon.x, pylon.y, pylon.radius)) {
       damagePylon(pylon, projectile.damage * 0.6, projectile.x, projectile.y, team);
+      if (projectile.effect?.kind === "cannon") {
+        triggerStatusShellExplosion(projectile.owner ?? (team === "player" ? player : enemy), projectile.x, projectile.y, projectile.effect, team);
+      }
       return true;
     }
     if (pylon.fallenRect && circleIntersectsRect(projectile.x, projectile.y, projectile.radius, pylon.fallenRect)) {
       addImpact(projectile.x, projectile.y, pylon.color, 14);
+      if (projectile.effect?.kind === "cannon") {
+        triggerStatusShellExplosion(projectile.owner ?? (team === "player" ? player : enemy), projectile.x, projectile.y, projectile.effect, team);
+      }
       return true;
     }
   }
@@ -1851,27 +1990,124 @@ function damagePylonsAlongLine(startX, startY, endX, endY, damage, team = "playe
   }
 }
 
+function getStatusImpactTone(type) {
+  switch (type) {
+    case "stun":
+      return { color: "#ffd37c", size: 24 };
+    case "burn":
+      return { color: "#ff9b73", size: 20 };
+    case "freeze":
+      return { color: "#c3efff", size: 22 };
+    case "poison":
+      return { color: "#b6ff8a", size: 20 };
+    case "shock":
+      return { color: "#fff0a6", size: 22 };
+    default:
+      return { color: "#8fd6ff", size: 18 };
+  }
+}
+
+function damageEntityByStatus(entity, damage, source = "status", color = "#ffb08a") {
+  if (!entity?.alive || damage <= 0) {
+    return false;
+  }
+
+  if (entity === player) {
+    return applyPlayerDamage(damage, source);
+  }
+
+  return damageBot(entity, damage, color, entity.x, entity.y, 0);
+}
+
+function handleStatusImmediateEffects(entity, type) {
+  if (type !== "shock" && type !== "stun") {
+    return;
+  }
+
+  if (entity === player) {
+    if (player.sniperCharging) {
+      player.sniperCharging = false;
+      player.sniperChargeTime = 0;
+    }
+    if (type === "shock") {
+      player.pendingAxeStrike = null;
+      player.attackStartupTime = Math.min(player.attackStartupTime, 0.06);
+      player.fireCooldown = Math.max(player.fireCooldown, 0.18);
+    }
+    return;
+  }
+
+  entity.sniperCharging = false;
+  entity.sniperChargeTime = 0;
+  entity.pendingSniperShot = null;
+  if (type === "shock") {
+    entity.pendingMeleeStrike = null;
+    entity.meleeWindupTime = Math.min(entity.meleeWindupTime, 0.06);
+    entity.shootCooldown = Math.max(entity.shootCooldown, 0.22);
+  }
+}
+
+function triggerStatusSynergy(entity, type) {
+  const effects = entity.statusEffects ?? [];
+  const freeze = effects.find((effect) => effect.type === "freeze" && effect.time > 0);
+  const shock = effects.find((effect) => effect.type === "shock" && effect.time > 0);
+  const burn = effects.find((effect) => effect.type === "burn" && effect.time > 0);
+  const poison = effects.find((effect) => effect.type === "poison" && effect.time > 0);
+
+  if ((type === "shock" && freeze) || (type === "freeze" && shock)) {
+    const shatterDamage = 12 + Math.round(((freeze?.magnitude ?? shock?.magnitude ?? 0.3) * 18));
+    damageEntityByStatus(entity, shatterDamage, "shatter", "#dff8ff");
+    if (freeze) {
+      freeze.time = 0;
+    }
+    if (shock) {
+      shock.time = Math.min(shock.time, 0.18);
+    }
+    addImpact(entity.x ?? 0, entity.y ?? 0, "#e8fbff", 28);
+    addShake(4.2);
+  }
+
+  if ((type === "burn" && poison) || (type === "poison" && burn)) {
+    const corrosionDamage = 10 + Math.round(((burn?.magnitude ?? poison?.magnitude ?? 0.3) * 14));
+    damageEntityByStatus(entity, corrosionDamage, "corrosion", "#c7ff9c");
+    if (burn) {
+      burn.time = Math.max(burn.time, 1.2);
+    }
+    if (poison) {
+      poison.time = Math.max(poison.time, 1.4);
+    }
+    addImpact(entity.x ?? 0, entity.y ?? 0, "#d8ffb8", 22);
+  }
+}
+
 function applyStatusEffect(entity, type, duration, magnitude = 0) {
   if (!entity.statusEffects) {
     entity.statusEffects = [];
   }
+
+  const tone = getStatusImpactTone(type);
 
   const existing = entity.statusEffects.find((effect) => effect.type === type);
 
   if (existing) {
     existing.time = Math.max(existing.time, duration);
     existing.magnitude = Math.max(existing.magnitude, magnitude);
+    existing.tickTimer = Math.min(existing.tickTimer ?? config.statusTickInterval, config.statusTickInterval);
     if (entity.x !== undefined && entity.y !== undefined) {
-      addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 20 : 16);
+      addImpact(entity.x, entity.y, tone.color, Math.max(16, tone.size - 4));
     }
+    handleStatusImmediateEffects(entity, type);
+    triggerStatusSynergy(entity, type);
     return existing;
   }
 
-  const effect = { type, time: duration, magnitude };
+  const effect = { type, time: duration, magnitude, tickTimer: config.statusTickInterval };
   entity.statusEffects.push(effect);
   if (entity.x !== undefined && entity.y !== undefined) {
-    addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 24 : 18);
+    addImpact(entity.x, entity.y, tone.color, tone.size);
   }
+  handleStatusImmediateEffects(entity, type);
+  triggerStatusSynergy(entity, type);
   return effect;
 }
 
@@ -1882,9 +2118,21 @@ function updateStatusEffects(entity, dt) {
   }
 
   for (let index = entity.statusEffects.length - 1; index >= 0; index -= 1) {
-    entity.statusEffects[index].time -= dt;
+    const effect = entity.statusEffects[index];
+    effect.time -= dt;
 
-    if (entity.statusEffects[index].time <= 0) {
+    if (effect.type === "burn" || effect.type === "poison") {
+      effect.tickTimer = (effect.tickTimer ?? config.statusTickInterval) - dt;
+      while (effect.tickTimer <= 0 && effect.time > 0) {
+        effect.tickTimer += config.statusTickInterval;
+        const tickDamage = effect.type === "burn"
+          ? 4 + effect.magnitude * 4
+          : 3 + effect.magnitude * 3;
+        damageEntityByStatus(entity, tickDamage, effect.type, effect.type === "burn" ? "#ff9a70" : "#b6ff7e");
+      }
+    }
+
+    if (effect.time <= 0) {
       entity.statusEffects.splice(index, 1);
     }
   }
@@ -2027,7 +2275,41 @@ function pickRandomItems(source, count) {
   return picks;
 }
 
-function createRandomBotLoadout() {
+function pickWeightedItem(items, getWeight) {
+  const weighted = items.map((item) => ({ item, weight: Math.max(0.01, getWeight(item)) }));
+  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  let cursor = Math.random() * total;
+  for (const entry of weighted) {
+    cursor -= entry.weight;
+    if (cursor <= 0) {
+      return entry.item;
+    }
+  }
+  return weighted[weighted.length - 1]?.item ?? items[0];
+}
+
+function getPlayerStyleProfile() {
+  return { ...playerBehaviorModel };
+}
+
+function createMirrorBotLoadout() {
+  return ensureBotLoadoutFilled({
+    weapon: loadout.weapon,
+    abilities: [...loadout.abilities],
+    perk: loadout.perks[0],
+    ultimate: loadout.ultimate,
+    personality: "Mirror Rival",
+    runeProfile: cloneRuneAllocation(loadout.runes),
+  });
+}
+
+function createRandomBotLoadout(options = {}) {
+  const { wave = 1, mirror = false } = options;
+  if (mirror) {
+    return createMirrorBotLoadout();
+  }
+
+  const playerStyle = getPlayerStyleProfile();
   const archetypes = [
     {
       weapon: weapons.pulse.key,
@@ -2036,6 +2318,7 @@ function createRandomBotLoadout() {
       ultimate: "revivalProtocol",
       personality: "Pulse Controller",
       runeProfile: createBotRuneAllocation("defense"),
+      tags: ["zoning", "anti-rush"],
     },
     {
       weapon: weapons.pulse.key,
@@ -2044,6 +2327,7 @@ function createRandomBotLoadout() {
       ultimate: "empCataclysm",
       personality: "Burst Duelist",
       runeProfile: createBotRuneAllocation("spells"),
+      tags: ["burst", "anti-caster"],
     },
     {
       weapon: weapons.shotgun.key,
@@ -2052,6 +2336,7 @@ function createRandomBotLoadout() {
       ultimate: "phantomSplit",
       personality: "Shotgun Hunter",
       runeProfile: createBotRuneAllocation("attack"),
+      tags: ["rush", "anti-range"],
     },
     {
       weapon: weapons.shotgun.key,
@@ -2060,6 +2345,7 @@ function createRandomBotLoadout() {
       ultimate: "revivalProtocol",
       personality: "Close Breacher",
       runeProfile: createBotRuneAllocation("attack"),
+      tags: ["rush", "anti-range"],
     },
     {
       weapon: weapons.axe.key,
@@ -2068,6 +2354,7 @@ function createRandomBotLoadout() {
       ultimate: "phantomSplit",
       personality: "Axe Rusher",
       runeProfile: createBotRuneAllocation("attack"),
+      tags: ["rush", "anti-range"],
     },
     {
       weapon: weapons.axe.key,
@@ -2076,6 +2363,7 @@ function createRandomBotLoadout() {
       ultimate: "empCataclysm",
       personality: "Brawler Anchor",
       runeProfile: createBotRuneAllocation("defense"),
+      tags: ["anti-rush", "brawler"],
     },
     {
       weapon: weapons.sniper.key,
@@ -2084,6 +2372,7 @@ function createRandomBotLoadout() {
       ultimate: "phantomSplit",
       personality: "Patient Sniper",
       runeProfile: createBotRuneAllocation("spells"),
+      tags: ["zoning", "anti-rush"],
     },
     {
       weapon: weapons.staff.key,
@@ -2092,6 +2381,7 @@ function createRandomBotLoadout() {
       ultimate: "revivalProtocol",
       personality: "Zoner Support",
       runeProfile: createBotRuneAllocation("support"),
+      tags: ["support", "anti-rush"],
     },
     {
       weapon: weapons.injector.key,
@@ -2100,17 +2390,57 @@ function createRandomBotLoadout() {
       ultimate: "empCataclysm",
       personality: "Pressure Chemist",
       runeProfile: createBotRuneAllocation("spells"),
+      tags: ["pressure", "attrition"],
+    },
+    {
+      weapon: weapons.lance.key,
+      abilities: ["magneticGrapple", "phaseDash", "energyShield"],
+      perk: "predatorInstinct",
+      ultimate: "phantomSplit",
+      personality: "Lance Diver",
+      runeProfile: createBotRuneAllocation("attack"),
+      tags: ["rush", "anti-range", "skirmish"],
+    },
+    {
+      weapon: weapons.cannon.key,
+      abilities: ["gravityWell", "magneticField", "phaseShift"],
+      perk: "reactiveArmor",
+      ultimate: "empCataclysm",
+      personality: "Siege Breaker",
+      runeProfile: createBotRuneAllocation("spells"),
+      tags: ["zoning", "anti-rush", "siege"],
     },
   ];
 
-  const selectedArchetype = archetypes[Math.floor(Math.random() * archetypes.length)];
+  const selectedArchetype = pickWeightedItem(archetypes, (archetype) => {
+    let weight = 1;
+    if (playerStyle.rangedBias > 0.58 && archetype.tags.includes("anti-range")) {
+      weight += 1.3;
+    }
+    if (playerStyle.rangedBias < 0.42 && archetype.tags.includes("anti-rush")) {
+      weight += 1.15;
+    }
+    if (playerStyle.aggression > 0.6 && archetype.tags.includes("anti-rush")) {
+      weight += 0.75;
+    }
+    if (playerStyle.aggression < 0.38 && archetype.tags.includes("rush")) {
+      weight += 0.7;
+    }
+    if (wave >= 3 && archetype.tags.includes("siege")) {
+      weight += 0.5;
+    }
+    if (wave >= 4 && archetype.tags.includes("support")) {
+      weight += 0.4;
+    }
+    return weight;
+  });
   return ensureBotLoadoutFilled(selectedArchetype);
 }
 
 function getBotConfiguredLoadout() {
   return botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
-    : createRandomBotLoadout();
+    : createRandomBotLoadout({ mirror: duelRules.mirrorMatch });
 }
 
 function enemyHasAbility(abilityKey) {
@@ -2136,6 +2466,30 @@ function setBotDifficulty(difficultyKey) {
     botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
   }
   statusLine.textContent = `Hunter bot difficulty set to ${botDifficultyProfiles[difficultyKey].name}.`;
+  renderPrematch();
+}
+
+function setDuelFormatWins(formatWins) {
+  duelRules.formatWins = formatWins === 3 ? 3 : 2;
+  statusLine.textContent = duelRules.formatWins === 3 ? "Match format set to BO5." : "Match format set to BO3.";
+  renderPrematch();
+}
+
+function setDuelRoundTimer(seconds) {
+  duelRules.roundTimer = seconds > 0 ? seconds : 0;
+  statusLine.textContent = duelRules.roundTimer > 0 ? `Round timer set to ${duelRules.roundTimer}s.` : "Round timer disabled.";
+  renderPrematch();
+}
+
+function setSuddenDeathRule(enabled) {
+  duelRules.suddenDeath = Boolean(enabled);
+  statusLine.textContent = duelRules.suddenDeath ? "Sudden Death enabled." : "Sudden Death disabled.";
+  renderPrematch();
+}
+
+function setMirrorMatchRule(enabled) {
+  duelRules.mirrorMatch = Boolean(enabled);
+  statusLine.textContent = duelRules.mirrorMatch ? "Mirror Match enabled for duel bots." : "Mirror Match disabled.";
   renderPrematch();
 }
 
@@ -2203,10 +2557,10 @@ function getPerkDamageMultiplier(target = null) {
 
   if (hasPerk("executionRelay") && target) {
     const targetStatus = getStatusState(target);
-    if (targetStatus.slow > 0) {
+    if (targetStatus.slow > 0 || targetStatus.frozen) {
       multiplier *= 1.18;
     }
-    if ((targetStatus.slow > 0 || targetStatus.stunned) && getRuneValue("attack", "primary") > 0) {
+    if ((targetStatus.slow > 0 || targetStatus.stunned || targetStatus.snared || targetStatus.shocked || targetStatus.frozen) && getRuneValue("attack", "primary") > 0) {
       multiplier *= 1 + getRuneValue("attack", "primary") * 0.04;
     }
   }
@@ -2382,6 +2736,7 @@ function openPrematch(step = "mode") {
   uiState.hoverDetail = null;
   input.keys.clear();
   input.firing = false;
+  input.altFiring = false;
   releaseDashInput();
   if (player.sniperCharging) {
     player.sniperCharging = false;
@@ -2406,6 +2761,12 @@ function relaunchCurrentSession() {
   if (sandbox.mode === sandboxModes.duel.key) {
     startDuelRound({ resetScore: true });
     statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} rematch primed. Clean reset, same stakes.`;
+    return;
+  }
+
+  if (sandbox.mode === sandboxModes.survival.key) {
+    startSurvivalRun({ resetProgress: true });
+    statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} survival run restarted.`;
     return;
   }
 
@@ -2444,6 +2805,8 @@ function updatePrematchSummary() {
   prematchDescription.textContent =
     uiState.selectedMode === sandboxModes.training.key
       ? "Training mode loads a clean firing lane with static bots so you can lab timing, spacing, and projectile denial."
+      : uiState.selectedMode === sandboxModes.survival.key
+        ? `${selectedMap.name}: ${selectedMap.subtitle} Enter a solo endurance gauntlet against escalating hunter builds.`
       : `${selectedMap.name}: ${selectedMap.subtitle}`;
   cosmeticPreviewName.textContent = selectedAvatar.name;
 }
@@ -2516,7 +2879,17 @@ function renderMapSelection() {
       card.classList.add("is-selected");
     }
     card.innerHTML = `
-      <span class="mode-card__tag">${uiState.selectedMode === sandboxModes.training.key ? "Training" : mapChoice.key === "randomMap" ? "Random" : "Duel Map"}</span>
+      <span class="mode-card__tag">${
+        uiState.selectedMode === sandboxModes.training.key
+          ? "Training"
+          : uiState.selectedMode === sandboxModes.survival.key
+            ? mapChoice.key === "randomMap"
+              ? "Random Survival"
+              : "Survival Arena"
+            : mapChoice.key === "randomMap"
+              ? "Random"
+              : "Duel Map"
+      }</span>
       <strong>${mapChoice.name}</strong>
       <span>${mapChoice.subtitle}</span>
     `;
@@ -2726,8 +3099,22 @@ function getWeaponDetailStats(item) {
       return [
         "9 damage dart",
         "Applies a mark for 4.2s",
+        `Applies Poison for ${formatSeconds(2.6)}`,
         "3 marks are consumed for a 12 HP heal",
         `${formatSeconds(weapons.injector.cooldown)} cadence`,
+      ];
+    case "lance":
+      return [
+        `Primary: ${config.lancePrimaryDamage} damage thrust, ${formatDistance(config.lancePrimaryRange)}`,
+        `Alt-fire: ${config.lanceAltDamage} damage drive, ${formatSeconds(config.lanceAltShockDuration)} shock`,
+        `${formatSeconds(config.lancePrimaryCooldown)} / ${formatSeconds(config.lanceAltCooldown)} recovery`,
+      ];
+    case "cannon":
+      return [
+        `Primary shell: ${config.cannonPrimaryDamage} direct, ${config.cannonSplashDamage} splash`,
+        `Applies Burn for ${formatSeconds(config.cannonBurnDuration)}`,
+        `Alt-fire cryo shell: ${config.cannonAltDamage} direct, Freeze for ${formatSeconds(config.cannonFreezeDuration)}`,
+        `${formatSeconds(config.cannonPrimaryCooldown)} / ${formatSeconds(config.cannonAltCooldown)} recovery`,
       ];
     default:
       return [];
@@ -2766,7 +3153,7 @@ function getAbilityDetailStats(item) {
     case "empBurst":
       return [
         `${formatDistance(120)} pulse radius`,
-        `Applies ${formatPercent(0.38)} slow for ${formatSeconds(1)}`,
+        `Applies Shock for ${formatSeconds(0.8)}`,
         "Deletes nearby hostile projectiles",
         `${formatSeconds(config.boosterCooldown)} cooldown`,
       ];
@@ -2774,7 +3161,7 @@ function getAbilityDetailStats(item) {
       return [
         "3 chained hits",
         "28 damage on first hit, 28% less on each jump",
-        `Applies ${formatPercent(0.18)} to ${formatPercent(0.26)} slow`,
+        `Applies Shock for ${formatSeconds(0.55)}`,
         `${formatSeconds(5.4)} cooldown`,
       ];
     case "blinkStep":
@@ -3324,8 +3711,9 @@ function renderTrainingBotPanel() {
   const previewPerk = getContentItem("perks", previewBuild.perk);
   const previewUltimate = getContentItem("ultimates", previewBuild.ultimate);
 
-  botConfigLabel.textContent = "Duel Tool";
-  botConfigTitle.textContent = "Hunter Bot Loadout";
+  const survivalSelected = uiState.selectedMode === sandboxModes.survival.key;
+  botConfigLabel.textContent = survivalSelected ? "Survival Director" : "Duel Tool";
+  botConfigTitle.textContent = survivalSelected ? "Wave Hunter Profile" : "Hunter Bot Loadout";
   botConfigDuel?.classList.remove("is-hidden");
   botConfigTraining?.classList.add("is-hidden");
   botConfigCard.classList.toggle("is-randomized", botBuildState.mode === "random");
@@ -3335,8 +3723,20 @@ function renderTrainingBotPanel() {
   botDifficultyNormal?.classList.toggle("is-active", botBuildState.difficulty === "normal");
   botDifficultyHard?.classList.toggle("is-active", botBuildState.difficulty === "hard");
   botDifficultyNightmare?.classList.toggle("is-active", botBuildState.difficulty === "nightmare");
-  botConfigCopy.textContent =
-    botBuildState.mode === "random"
+  ruleFormatBo3?.classList.toggle("is-active", duelRules.formatWins === 2);
+  ruleFormatBo5?.classList.toggle("is-active", duelRules.formatWins === 3);
+  ruleTimerOff?.classList.toggle("is-active", duelRules.roundTimer <= 0);
+  ruleTimer60?.classList.toggle("is-active", duelRules.roundTimer === 60);
+  ruleTimer75?.classList.toggle("is-active", duelRules.roundTimer === 75);
+  ruleSuddenDeathOff?.classList.toggle("is-active", !duelRules.suddenDeath);
+  ruleSuddenDeathOn?.classList.toggle("is-active", duelRules.suddenDeath);
+  ruleMirrorOff?.classList.toggle("is-active", !duelRules.mirrorMatch);
+  ruleMirrorOn?.classList.toggle("is-active", duelRules.mirrorMatch);
+  botConfigCopy.textContent = survivalSelected
+    ? botBuildState.mode === "random"
+      ? "Survival escalates through adaptive hunter builds. Random mode keeps the gauntlet fresh from wave to wave."
+      : "Custom mode locks the hunter chassis for survival endurance testing while difficulty still ramps."
+    : botBuildState.mode === "random"
       ? "Hunter bot randomizes a full playable build on each duel reset, including personality, perk, and ultimate."
       : "Custom mode locks the hunter core build. Use it to lab exact matchup pressure before entering the arena.";
 
@@ -3373,7 +3773,7 @@ function renderTrainingBotPanel() {
       previewUltimate,
       {
         key: `difficulty-${botBuildState.difficulty}`,
-        name: `${getBotDifficultyProfile().name} AI`,
+        name: `${getBotDifficultyProfile().name} AI${survivalSelected ? " Director" : ""}`,
         icon: "ability-emp",
         category: "control",
       },
@@ -3536,6 +3936,7 @@ function renderPrematch() {
     };
   }
   modeDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.duel.key);
+  modeSurvival?.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.survival.key);
   modeTraining.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.training.key);
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
@@ -3563,10 +3964,19 @@ function getStatusState(entity) {
   let stunTime = 0;
   let snared = false;
   let snareTime = 0;
+  let frozen = false;
+  let shocked = false;
+  let shockTime = 0;
 
   for (const effect of entity.statusEffects ?? []) {
     if (effect.type === "slow") {
       slow = Math.max(slow, effect.magnitude);
+    } else if (effect.type === "freeze") {
+      frozen = true;
+      slow = Math.max(slow, 0.42 + effect.magnitude * 0.4);
+    } else if (effect.type === "shock") {
+      shocked = true;
+      shockTime = Math.max(shockTime, effect.time);
     } else if (effect.type === "snare") {
       snared = true;
       snareTime = Math.max(snareTime, effect.time);
@@ -3578,11 +3988,14 @@ function getStatusState(entity) {
 
   return {
     slow,
-    speedMultiplier: stunned || snared ? 0 : 1 - slow,
+    speedMultiplier: stunned || snared ? 0 : Math.max(0.18, 1 - slow),
     snared,
     snareTime,
     stunned,
     stunTime,
+    frozen,
+    shocked,
+    shockTime,
   };
 }
 
@@ -3619,6 +4032,7 @@ function spawnBullet(owner, targetX, targetY, collection, color, speed, damage, 
   const startX = owner.x + direction.x * (owner.radius + 8);
   const startY = owner.y + direction.y * (owner.radius + 8);
   const bullet = {
+    owner,
     x: startX,
     y: startY,
     startX,
@@ -3918,7 +4332,14 @@ function getPlayerSpawn(mode = sandbox.mode) {
 }
 
 function isCombatLive() {
-  return !uiState.prematchOpen && (sandbox.mode !== sandboxModes.duel.key || matchState.phase === "active");
+  return (
+    !uiState.prematchOpen &&
+    (
+      (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") ||
+      (sandbox.mode === sandboxModes.survival.key && survivalState.phase === "active") ||
+      sandbox.mode === sandboxModes.training.key
+    )
+  );
 }
 
 function getPulseMagazineSize() {
@@ -3930,8 +4351,18 @@ function getActiveBotLoadout() {
   return botBuildState.current;
 }
 
+function getEscalatedDifficultyKey(baseKey = botBuildState.difficulty, wave = survivalState.wave) {
+  const keys = ["easy", "normal", "hard", "nightmare"];
+  const startIndex = Math.max(0, keys.indexOf(baseKey));
+  const waveOffset = sandbox.mode === sandboxModes.survival.key ? Math.floor(Math.max(0, wave - 1) / 2) : 0;
+  return keys[Math.min(keys.length - 1, startIndex + waveOffset)] ?? baseKey;
+}
+
 function getBotDifficultyProfile() {
-  return botDifficultyProfiles[botBuildState.difficulty] ?? botDifficultyProfiles.normal;
+  const key = sandbox.mode === sandboxModes.survival.key
+    ? getEscalatedDifficultyKey(botBuildState.difficulty, survivalState.wave)
+    : botBuildState.difficulty;
+  return botDifficultyProfiles[key] ?? botDifficultyProfiles.normal;
 }
 
 function getBotAimOffset(baseSpread) {
@@ -3960,7 +4391,7 @@ function getBotDamageMultiplier(target, bot = enemy) {
   const stats = getBotCombatStats(bot);
   let multiplier = 1 + getBotRuneValue(bot, "attack", "secondary") * 0.02;
   const targetStatus = getStatusState(target);
-  if (stats.executionBonus > 0 && (targetStatus.slow > 0 || targetStatus.snared || targetStatus.stunned)) {
+  if (stats.executionBonus > 0 && (targetStatus.slow > 0 || targetStatus.snared || targetStatus.stunned || targetStatus.shocked || targetStatus.frozen)) {
     multiplier *= 1 + stats.executionBonus;
   }
   if (stats.lowHealthBonus > 0 && target.hp / target.maxHp <= 0.35) {
@@ -3981,6 +4412,8 @@ function applyBotLoadout(bot, loadoutConfig) {
   bot.sniperChargeTime = 0;
   bot.sniperWindupTime = 0;
   bot.pendingSniperShot = null;
+  bot.lanceChargeTime = 0;
+  bot.cannonAltCooldown = 0;
   bot.shield = 0;
   bot.shieldTime = 0;
   bot.hasteTime = 0;
@@ -4036,7 +4469,7 @@ function refreshHunterLoadout() {
 function resetBotsForMode(mode = sandbox.mode) {
   resetMapState(mode, sandbox.mapKey);
 
-  if (mode === sandboxModes.duel.key) {
+  if (mode === sandboxModes.duel.key || mode === sandboxModes.survival.key) {
     refreshHunterLoadout();
   }
 
@@ -4078,6 +4511,8 @@ function resetBotsForMode(mode = sandbox.mode) {
     bot.sniperChargeTime = 0;
     bot.sniperWindupTime = 0;
     bot.pendingSniperShot = null;
+    bot.lanceChargeTime = 0;
+    bot.cannonAltCooldown = 0;
     bot.shield = 0;
     bot.shieldTime = 0;
     bot.hasteTime = 0;
@@ -4137,6 +4572,9 @@ function startDuelRound({ resetScore = false } = {}) {
     matchState.roundNumber = 1;
   }
 
+  matchState.formatWins = duelRules.formatWins;
+  matchState.roundClock = duelRules.roundTimer;
+  matchState.suddenDeathActive = false;
   clearCombatArtifacts();
   resetPlayer({ silent: true });
   resetBotsForMode(sandboxModes.duel.key);
@@ -4169,6 +4607,141 @@ function finishDuelRound(winner) {
   }
 }
 
+function getSurvivalWaveProfile(wave = survivalState.wave) {
+  return {
+    targetKills: Math.min(8, 2 + Math.floor((wave - 1) * 0.85)),
+    hpScale: 1 + (wave - 1) * 0.14,
+    speedScale: 1 + Math.min(0.18, (wave - 1) * 0.03),
+  };
+}
+
+function prepPlayerForSurvival(newRun = false) {
+  const buildStats = getBuildStats();
+  const desiredHp = newRun ? buildStats.maxHp : clamp(player.hp + buildStats.maxHp * 0.18, 0, buildStats.maxHp);
+  resetPlayer({ silent: true });
+  clearCombatArtifacts();
+  player.hp = desiredHp;
+  player.shield = Math.max(player.shield, newRun ? 0 : 14);
+  player.shieldTime = newRun ? 0 : 1.4;
+}
+
+function spawnSurvivalHunter() {
+  const profile = getSurvivalWaveProfile(survivalState.wave);
+  const chosenLoadout = botBuildState.mode === "custom"
+    ? ensureBotLoadoutFilled(botBuildState.custom)
+    : createRandomBotLoadout({ wave: survivalState.wave, mirror: duelRules.mirrorMatch });
+  applyBotLoadout(enemy, chosenLoadout);
+  enemy.maxHp = Math.round(enemy.maxHp * profile.hpScale);
+  enemy.hp = enemy.maxHp;
+  enemy.speedScale = profile.speedScale;
+  enemy.wavePower = profile.hpScale;
+  enemy.spawnX = getMapLayout(sandboxModes.survival.key, sandbox.mapKey).enemySpawn.x;
+  enemy.spawnY = getMapLayout(sandboxModes.survival.key, sandbox.mapKey).enemySpawn.y;
+  respawnBot(enemy, false);
+  enemy.postAttackMoveTime = 0;
+  enemy.focusTime = 0;
+  statusLine.textContent = `Wave ${survivalState.wave}: ${enemy.loadout.personality} entering the arena.`;
+}
+
+function startSurvivalRun({ resetProgress = true } = {}) {
+  if (resetProgress) {
+    survivalState.wave = 1;
+    survivalState.totalKills = 0;
+  }
+  const profile = getSurvivalWaveProfile(survivalState.wave);
+  survivalState.waveKills = 0;
+  survivalState.waveTargetKills = profile.targetKills;
+  survivalState.phase = "wave_intro";
+  survivalState.timer = 1.2;
+  survivalState.completed = false;
+  prepPlayerForSurvival(resetProgress);
+  resetMapState(sandboxModes.survival.key, sandbox.mapKey);
+  enemy.alive = false;
+  showRoundBanner(`WAVE ${survivalState.wave}`, "PREPARE", true);
+  matchState.bannerStyle = "countdown";
+  statusLine.textContent = `Wave ${survivalState.wave} queued. Endure ${profile.targetKills} hunters to advance.`;
+}
+
+function finishSurvivalRun() {
+  if (sandbox.mode !== sandboxModes.survival.key || survivalState.phase === "run_end") {
+    return;
+  }
+  survivalState.phase = "run_end";
+  survivalState.timer = 2.4;
+  showRoundBanner("SURVIVAL", `DOWN AT WAVE ${survivalState.wave}`, true);
+  matchState.bannerStyle = "fight";
+  statusLine.textContent = `Run over. ${survivalState.totalKills} hunters eliminated before the collapse.`;
+}
+
+function handleSurvivalEnemyDefeated() {
+  survivalState.totalKills += 1;
+  survivalState.waveKills += 1;
+  enemy.alive = false;
+  if (survivalState.waveKills >= survivalState.waveTargetKills) {
+    survivalState.phase = "wave_clear";
+    survivalState.timer = config.survivalWaveIntermission;
+    showRoundBanner(`WAVE ${survivalState.wave}`, "CLEARED", true);
+    matchState.bannerStyle = "fight";
+    statusLine.textContent = `Wave ${survivalState.wave} cleared. Brace for the next hunter cycle.`;
+  } else {
+    survivalState.phase = "spawn_next";
+    survivalState.timer = config.survivalWavePause;
+    showRoundBanner(`WAVE ${survivalState.wave}`, `NEXT ${survivalState.waveKills + 1}/${survivalState.waveTargetKills}`, true);
+    matchState.bannerStyle = "countdown";
+    statusLine.textContent = `Wave ${survivalState.wave}: hunter ${survivalState.waveKills + 1} incoming.`;
+  }
+}
+
+function updateSurvivalMode(dt) {
+  if (sandbox.mode !== sandboxModes.survival.key) {
+    return;
+  }
+
+  if (survivalState.phase === "active") {
+    showRoundBanner("", "", false);
+    return;
+  }
+
+  survivalState.timer = Math.max(0, survivalState.timer - dt);
+
+  if (survivalState.phase === "wave_intro" && survivalState.timer <= 0) {
+    spawnSurvivalHunter();
+    survivalState.phase = "active";
+    showRoundBanner("", "", false);
+    return;
+  }
+
+  if (survivalState.phase === "spawn_next" && survivalState.timer <= 0) {
+    spawnSurvivalHunter();
+    survivalState.phase = "active";
+    showRoundBanner("", "", false);
+    return;
+  }
+
+  if (survivalState.phase === "wave_clear" && survivalState.timer <= 0) {
+    survivalState.wave += 1;
+    const profile = getSurvivalWaveProfile(survivalState.wave);
+    survivalState.waveKills = 0;
+    survivalState.waveTargetKills = profile.targetKills;
+    survivalState.phase = "wave_intro";
+    survivalState.timer = 1.2;
+    prepPlayerForSurvival(false);
+    resetMapState(sandboxModes.survival.key, sandbox.mapKey);
+    showRoundBanner(`WAVE ${survivalState.wave}`, "PREPARE", true);
+    matchState.bannerStyle = "countdown";
+    statusLine.textContent = `Wave ${survivalState.wave} ready. Endure ${profile.targetKills} hunter pushes.`;
+    return;
+  }
+
+  if (survivalState.phase === "run_end" && survivalState.timer <= 0) {
+    openPrematch("mode");
+    resetPlayer({ silent: true });
+    resetBotsForMode(sandboxModes.training.key);
+    showRoundBanner("", "", false);
+    statusLine.textContent = "Survival run complete. Tune the next build and dive back in.";
+  }
+}
+
 function updateDuelMatch(dt) {
   if (sandbox.mode !== sandboxModes.duel.key) {
     showRoundBanner("", "", false);
@@ -4176,7 +4749,34 @@ function updateDuelMatch(dt) {
   }
 
   if (matchState.phase === "active") {
-    showRoundBanner("", "", false);
+    if (matchState.roundClock > 0) {
+      matchState.roundClock = Math.max(0, matchState.roundClock - dt);
+      if (matchState.roundClock <= 0) {
+        if (duelRules.suddenDeath && !matchState.suddenDeathActive) {
+          matchState.suddenDeathActive = true;
+          player.shield = 0;
+          enemy.shield = 0;
+          player.hp = Math.min(player.hp, Math.max(26, getBuildStats().maxHp * 0.18));
+          enemy.hp = Math.min(enemy.hp, Math.max(30, enemy.maxHp * 0.2));
+          showRoundBanner(`ROUND ${matchState.roundNumber}`, "SUDDEN DEATH", true);
+          matchState.bannerStyle = "fight";
+          addImpact(player.x, player.y, "#ffd875", 24);
+          addImpact(enemy.x, enemy.y, "#ffd875", 24);
+          statusLine.textContent = "Sudden Death. One clean punish ends the round.";
+          return;
+        } else {
+          finishDuelRound(player.hp >= enemy.hp ? "player" : "enemy");
+          statusLine.textContent = "Time expired. Higher HP took the round.";
+          return;
+        }
+      }
+    }
+    if (matchState.suddenDeathActive) {
+      showRoundBanner(`ROUND ${matchState.roundNumber}`, "SUDDEN DEATH", true);
+      matchState.bannerStyle = "fight";
+    } else {
+      showRoundBanner("", "", false);
+    }
     return;
   }
 
@@ -4188,6 +4788,8 @@ function updateDuelMatch(dt) {
 
       if (matchState.introIndex >= matchState.introSequence.length) {
         matchState.phase = "active";
+        matchState.roundClock = duelRules.roundTimer;
+        matchState.suddenDeathActive = false;
         matchState.bannerStyle = "intro";
         showRoundBanner("", "", false);
         statusLine.textContent = "Fight. Contest space and close the round.";
@@ -4257,6 +4859,12 @@ function switchSandboxMode(nextMode, nextMapKey = sandbox.mapKey) {
     return;
   }
 
+  if (nextMode === sandboxModes.survival.key) {
+    startSurvivalRun({ resetProgress: true });
+    statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Survival gauntlet initialized.`;
+    return;
+  }
+
   startDuelRound({ resetScore: true });
   statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Match flow initialized.`;
 }
@@ -4280,7 +4888,7 @@ function launchSelectedSession() {
   }
   botBuildState.current = botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
-    : createRandomBotLoadout();
+    : createRandomBotLoadout({ mirror: duelRules.mirrorMatch });
   player.weapon = loadout.weapon;
   const previousMode = sandbox.mode;
   const previousMapKey = sandbox.mapKey;
@@ -4292,12 +4900,16 @@ function launchSelectedSession() {
     resetPlayer({ silent: true });
     resetBotsForMode(sandboxModes.training.key);
     showRoundBanner("", "", false);
+  } else if (uiState.selectedMode === sandboxModes.survival.key) {
+    startSurvivalRun({ resetProgress: true });
   } else {
     startDuelRound({ resetScore: true });
   }
 
   if (uiState.selectedMode === sandboxModes.training.key) {
     statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} started. Test ranges, hitboxes, and defensive timings.`;
+  } else if (uiState.selectedMode === sandboxModes.survival.key) {
+    statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} loaded. Endure the wave gauntlet and keep the build online.`;
   } else {
     statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} loaded. Read the round and contest space cleanly.`;
   }
@@ -4308,6 +4920,14 @@ function handlePrematchAction(buttonId) {
     uiState.selectedMode = sandboxModes.duel.key;
     uiState.selectedMap = normalizeSelectedMap(sandboxModes.duel.key, uiState.selectedMap);
     statusLine.textContent = "Duel Map selected.";
+    renderPrematch();
+    return;
+  }
+
+  if (buttonId === "mode-survival") {
+    uiState.selectedMode = sandboxModes.survival.key;
+    uiState.selectedMap = normalizeSelectedMap(sandboxModes.survival.key, uiState.selectedMap);
+    statusLine.textContent = "Survival mode selected.";
     renderPrematch();
     return;
   }
@@ -4778,7 +5398,7 @@ function castEmpBurst() {
     }
 
     if (length(bot.x - player.x, bot.y - player.y) <= 120 + bot.radius) {
-      applyStatusEffect(bot, "slow", getStatusDuration(1), 0.38);
+      applyStatusEffect(bot, "shock", getStatusDuration(0.8), 0.24);
       bot.shootCooldown = Math.max(bot.shootCooldown, 0.8);
       addImpact(bot.x, bot.y, "#d7c4ff", 20);
     }
@@ -4791,7 +5411,7 @@ function castEmpBurst() {
     }
   }
 
-  statusLine.textContent = "EMP Burst disrupted nearby tech pressure.";
+  statusLine.textContent = "EMP Burst disrupted nearby tech pressure with a hard shock pulse.";
 }
 
 function castBackstepBurst() {
@@ -4855,7 +5475,7 @@ function castChainLightning() {
       currentTarget.y,
       0,
     );
-    applyStatusEffect(currentTarget, "slow", getStatusDuration(0.55), 0.18 + hop * 0.04);
+    applyStatusEffect(currentTarget, "shock", getStatusDuration(0.55), 0.18 + hop * 0.04);
     addImpact(currentTarget.x, currentTarget.y, hop === 0 ? "#9feaff" : "#d6bbff", 22 - hop * 4);
 
     sourceX = currentTarget.x;
@@ -4868,7 +5488,7 @@ function castChainLightning() {
 
   addImpact(player.x + Math.cos(player.facing) * 18, player.y + Math.sin(player.facing) * 18, "#9feaff", 18);
   addShake(6.2);
-  statusLine.textContent = "Chain Lightning punished the lane with cascading arcs.";
+  statusLine.textContent = "Chain Lightning punished the lane with cascading shock arcs.";
 }
 
 function castBlinkStep() {
@@ -5371,8 +5991,8 @@ function spawnEnemyMagneticField() {
   addImpact(enemy.x, enemy.y, "#ffd1c8", 24);
 }
 
-function respawnBot(bot) {
-  if (bot.role === "hunter") {
+function respawnBot(bot, reapplyLoadout = true) {
+  if (bot.role === "hunter" && reapplyLoadout) {
     applyBotLoadout(bot, getActiveBotLoadout());
   }
   bot.x = bot.spawnX;
@@ -5403,6 +6023,8 @@ function respawnBot(bot) {
   bot.activeMeleeStrike = null;
   bot.injectorMarks = 0;
   bot.injectorMarkTime = 0;
+  bot.lanceChargeTime = 0;
+  bot.cannonAltCooldown = 0;
   bot.abilityCooldowns.grapple = 0;
   bot.abilityCooldowns.shield = 0;
   bot.abilityCooldowns.booster = 0;
@@ -5478,6 +6100,8 @@ function damageBot(bot, damage, color, impactX, impactY, energyGain) {
 
     if (sandbox.mode === sandboxModes.duel.key && bot.role === "hunter") {
       finishDuelRound("player");
+    } else if (sandbox.mode === sandboxModes.survival.key && bot.role === "hunter") {
+      handleSurvivalEnemyDefeated();
     }
   }
 
@@ -5506,6 +6130,8 @@ function setWeapon(nextWeapon) {
   if (nextWeapon === weapons.pulse.key) {
     player.ammo = getPulseMagazineSize();
   }
+  player.lanceChargeTime = 0;
+  player.cannonAltCooldown = 0;
   player.comboStep = 0;
   player.comboTimer = 0;
   statusLine.textContent =
@@ -5519,6 +6145,10 @@ function setWeapon(nextWeapon) {
         ? "Volt Staff equipped. Trade raw burst for sustain and field control."
       : nextWeapon === weapons.injector.key
         ? "Bio-Injector equipped. Mark targets and convert pressure into sustain."
+      : nextWeapon === weapons.lance.key
+        ? "Charge Lance equipped. Stab for spacing, alt-fire to commit and shock."
+      : nextWeapon === weapons.cannon.key
+        ? "Heavy Cannon equipped. Burn space with shells and freeze with cryo alt-fire."
       : "Pulse Rifle equipped. Keep the bot under ranged pressure.";
 }
 
@@ -5737,6 +6367,138 @@ function attackBioInjector() {
   addImpact(player.x + Math.cos(player.facing) * 22, player.y + Math.sin(player.facing) * 22, "#da90ff", 14);
   player.phantomActionFlash = 0.14;
   statusLine.textContent = "Bio-Injector tagged the lane with corrosive pressure.";
+}
+
+function collectTargetsAlongLine(owner, facing, range, width, targets, singleTarget = true) {
+  const lineStartX = owner.x + Math.cos(facing) * Math.max(10, owner.radius - 2);
+  const lineStartY = owner.y + Math.sin(facing) * Math.max(10, owner.radius - 2);
+  const lineEndX = owner.x + Math.cos(facing) * range;
+  const lineEndY = owner.y + Math.sin(facing) * range;
+  const hits = [];
+
+  for (const target of targets) {
+    if (!target?.alive) {
+      continue;
+    }
+    const lineDistance = pointToSegmentDistance(target.x, target.y, lineStartX, lineStartY, lineEndX, lineEndY);
+    const targetDistance = length(target.x - owner.x, target.y - owner.y);
+    if (lineDistance > width + target.radius || targetDistance > range + target.radius + 12) {
+      continue;
+    }
+    hits.push({ target, targetDistance });
+  }
+
+  hits.sort((left, right) => left.targetDistance - right.targetDistance);
+  return singleTarget ? hits.slice(0, 1) : hits;
+}
+
+function triggerStatusShellExplosion(owner, impactX, impactY, effect, team = "player", directTarget = null) {
+  if (!effect) {
+    return;
+  }
+
+  addExplosion(impactX, impactY, effect.splashRadius ?? 72, effect.statusType === "freeze" ? "#c8eeff" : "#ffb27d");
+  addImpact(impactX, impactY, effect.statusType === "freeze" ? "#e6fbff" : "#ffd1a8", 24);
+  damagePylonsAlongLine(impactX - 8, impactY - 8, impactX + 8, impactY + 8, (effect.splashDamage ?? 0) * 0.45, team);
+  const targets = team === "player" ? getAllBots() : [player];
+
+  for (const target of targets) {
+    if (!target?.alive) {
+      continue;
+    }
+    if (length(target.x - impactX, target.y - impactY) > (effect.splashRadius ?? 0) + target.radius) {
+      continue;
+    }
+
+    if (target !== directTarget && (effect.splashDamage ?? 0) > 0) {
+      damageEntityByStatus(target, effect.splashDamage, effect.statusType === "freeze" ? "cannon-freeze" : "cannon-shell", effect.statusType === "freeze" ? "#c8eeff" : "#ffb27d");
+    }
+    if (effect.statusType) {
+      const adjustedDuration = target === player
+        ? getStatusDuration((effect.statusDuration ?? 0) * (1 - getBuildStats().ccReduction))
+        : getStatusDuration(effect.statusDuration ?? 0);
+      applyStatusEffect(target, effect.statusType, adjustedDuration, effect.statusMagnitude ?? 0);
+    }
+  }
+}
+
+function attackChargeLance(altFire = false) {
+  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
+  const range = altFire ? config.lanceAltRange : config.lancePrimaryRange;
+  const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
+  const damage = altFire
+    ? config.lanceAltDamage * (1 + getBuildStats().finisherBonus) * getPerkDamageMultiplier(getPrimaryBot())
+    : config.lancePrimaryDamage * getPerkDamageMultiplier(getPrimaryBot());
+  player.fireCooldown = altFire ? config.lanceAltCooldown : config.lancePrimaryCooldown;
+  if (altFire) {
+    player.attackCommitX = direction.x;
+    player.attackCommitY = direction.y;
+    player.attackCommitSpeed = 1040;
+    player.attackCommitTime = 0.12;
+  }
+
+  addBeamEffect(player.x, player.y, player.x + direction.x * range, player.y + direction.y * range, altFire ? "#fff0a5" : "#ffe8a8", altFire ? 7 : 4, altFire ? 0.16 : 0.1);
+  addSlashEffect(player.x + direction.x * 26, player.y + direction.y * 26, player.facing, altFire ? 3 : 1);
+  damagePylonsAlongLine(player.x, player.y, player.x + direction.x * range, player.y + direction.y * range, damage * 0.4, "player");
+  const hits = collectTargetsAlongLine(player, player.facing, range, width, getAllBots(), true);
+
+  if (hits.length === 0) {
+    player.lastMissTime = altFire ? 0.62 : 0.44;
+    addShake(altFire ? 5.8 : 3.2);
+    statusLine.textContent = altFire
+      ? "Charge Lance drive missed. The commit is punishable."
+      : "Charge Lance thrust missed the lane.";
+    return;
+  }
+
+  for (const hit of hits) {
+    damageBot(hit.target, damage, altFire ? "#ffe39a" : "#fff0c2", hit.target.x, hit.target.y, 0);
+    if (altFire) {
+      applyStatusEffect(hit.target, "shock", getStatusDuration(config.lanceAltShockDuration), 0.36);
+      addImpact(hit.target.x, hit.target.y, "#fff6c9", 30);
+      addShake(8.4);
+    } else {
+      applyStatusEffect(hit.target, "snare", getStatusDuration(0.28), 1);
+      addShake(5.2);
+    }
+  }
+
+  player.recoil = altFire ? 1.3 : 0.88;
+  player.phantomActionFlash = altFire ? 0.22 : 0.16;
+  statusLine.textContent = altFire
+    ? "Charge Lance drive connected. Shock the target and cash in the engage."
+    : "Charge Lance pierced the lane cleanly.";
+}
+
+function fireHeavyCannon(altFire = false) {
+  const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.rustfang;
+  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
+  const speed = altFire ? config.cannonAltSpeed : config.cannonPrimarySpeed;
+  const damage = altFire
+    ? config.cannonAltDamage * (1 + getBuildStats().abilityDamageBonus * 0.4) * getPerkDamageMultiplier(getPrimaryBot())
+    : config.cannonPrimaryDamage * getPerkDamageMultiplier(getPrimaryBot());
+  player.fireCooldown = altFire ? config.cannonAltCooldown : config.cannonPrimaryCooldown;
+  spawnBullet(player, input.mouseX, input.mouseY, bullets, activeSkin.tint, speed, damage, {
+    radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+    life: 1.05,
+    trailColor: altFire ? "#d9f8ff" : "#ffd0a4",
+    source: altFire ? "cannon-cryo" : "cannon-shell",
+    effect: {
+      kind: "cannon",
+      splashRadius: altFire ? 74 : config.cannonSplashRadius,
+      splashDamage: altFire ? 14 : config.cannonSplashDamage,
+      statusType: altFire ? "freeze" : "burn",
+      statusDuration: altFire ? config.cannonFreezeDuration : config.cannonBurnDuration,
+      statusMagnitude: altFire ? config.cannonFreezeMagnitude : config.cannonBurnMagnitude,
+    },
+  });
+  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, altFire ? "#d6f6ff" : "#ffca8d", altFire ? 18 : 22);
+  addShake(altFire ? 6.4 : 8.4);
+  player.recoil = altFire ? 1.12 : 1.44;
+  player.phantomActionFlash = 0.18;
+  statusLine.textContent = altFire
+    ? "Heavy Cannon cryo shell launched. Freeze the angle before the punish."
+    : "Heavy Cannon shell launched. Burn the space and force movement.";
 }
 
 function getAxeComboProfile(step) {
@@ -6062,6 +6824,8 @@ function resetPlayer({ silent = false } = {}) {
   player.injectorMarkTime = 0;
   player.sniperCharging = false;
   player.sniperChargeTime = 0;
+  player.lanceChargeTime = 0;
+  player.cannonAltCooldown = 0;
   clearStatusEffects(player);
   abilityState.dash.inputHeld = false;
   abilityState.dash.holdTime = 0;
@@ -6120,6 +6884,7 @@ function updatePlayer(dt) {
   player.slashFlash = Math.max(0, player.slashFlash - dt);
   player.attackStartupTime = Math.max(0, player.attackStartupTime - dt);
   player.hitReactionTime = Math.max(0, player.hitReactionTime - dt);
+  player.cannonAltCooldown = Math.max(0, player.cannonAltCooldown - dt);
   if (player.sniperCharging) {
     player.sniperChargeTime = Math.min(config.railMaxCharge, player.sniperChargeTime + dt);
   }
@@ -6129,6 +6894,10 @@ function updatePlayer(dt) {
   const playerZoneEffects = getZoneEffectsForEntity(player);
   const buildStats = getBuildStats();
   const beingPulled = updateEntityPull(player, dt);
+  playerBehaviorModel.aggression = clamp(playerBehaviorModel.aggression + (((input.firing || input.altFiring || player.attackCommitTime > 0) ? 1 : -0.45) * dt * 0.22), 0, 1);
+  playerBehaviorModel.rangedBias = clamp(playerBehaviorModel.rangedBias + (((player.weapon === weapons.pulse.key || player.weapon === weapons.sniper.key || player.weapon === weapons.cannon.key) ? 1 : -1) * dt * 0.18), 0, 1);
+  playerBehaviorModel.controlBias = clamp(playerBehaviorModel.controlBias + (((loadout.abilities.includes("gravityWell") || loadout.abilities.includes("magneticField")) ? 1 : -0.7) * dt * 0.14), 0, 1);
+  playerBehaviorModel.mobilityBias = clamp(playerBehaviorModel.mobilityBias + (((abilityState.dash.activeTime > 0 || player.afterDashHasteTime > 0) ? 1 : -0.55) * dt * 0.16), 0, 1);
 
   updateDashAbility(dt);
   updateJavelinAbility(dt);
@@ -6219,11 +6988,23 @@ function updatePlayer(dt) {
     finalizePulseReload(player);
   }
 
+  if (combatLive && !playerStatus.stunned && input.altFiring && player.fireCooldown <= 0 && !player.sniperCharging) {
+    if (player.weapon === weapons.lance.key) {
+      attackChargeLance(true);
+    } else if (player.weapon === weapons.cannon.key) {
+      fireHeavyCannon(true);
+    }
+  }
+
   if (combatLive && !playerStatus.stunned && input.firing && player.fireCooldown <= 0 && !player.sniperCharging) {
     if (player.weapon === weapons.axe.key) {
       attackElectricAxe();
     } else if (player.weapon === weapons.shotgun.key) {
       attackScrapShotgun();
+    } else if (player.weapon === weapons.lance.key) {
+      attackChargeLance(false);
+    } else if (player.weapon === weapons.cannon.key) {
+      fireHeavyCannon(false);
     } else if (player.weapon === weapons.sniper.key) {
       if (!startRailSniperCharge()) {
         attackRailSniper();
@@ -6344,6 +7125,12 @@ function getEnemyTargetRange() {
   if (weaponKey === weapons.injector.key) {
     return enemy.hp <= 72 ? 474 : 392;
   }
+  if (weaponKey === weapons.lance.key) {
+    return enemy.hp <= 72 ? 264 : 226;
+  }
+  if (weaponKey === weapons.cannon.key) {
+    return enemy.hp <= 72 ? 636 : 520;
+  }
   return enemy.hp <= 72 ? 548 : hasShield ? 430 : 404;
 }
 
@@ -6414,6 +7201,32 @@ function getEnemyBehaviorProfile(distance, shouldPunish) {
       fieldResponseDistance: 240,
       punishWindowDistance: distance < 520,
       dodgeAggression: 0.94,
+      shootBurstSize: 0,
+    };
+  }
+
+  if (weaponKey === weapons.lance.key) {
+    return {
+      strafeScale: shouldPunish ? 1.16 : 0.98,
+      engageBias: hasGrapple ? 1.3 : 1.14,
+      retreatBias: enemy.hp <= 72 ? 0.96 : 0.58,
+      abilityPressureDistance: 360,
+      fieldResponseDistance: 208,
+      punishWindowDistance: distance < 300,
+      dodgeAggression: 0.94,
+      shootBurstSize: 0,
+    };
+  }
+
+  if (weaponKey === weapons.cannon.key) {
+    return {
+      strafeScale: shouldPunish ? 1.02 : 0.92,
+      engageBias: 0.74,
+      retreatBias: enemy.hp <= 72 ? 1.2 : 1.04,
+      abilityPressureDistance: 460,
+      fieldResponseDistance: 262,
+      punishWindowDistance: distance > 260 && distance < 760,
+      dodgeAggression: 1,
       shootBurstSize: 0,
     };
   }
@@ -6525,6 +7338,7 @@ function applyProjectileEffectToBot(bot, projectile) {
     addImpact(player.x, player.y, "#b8ffd8", 16);
   } else if (effect.kind === "injector") {
     applyInjectorMark(bot, effect.markDuration ?? 4, effect.markMax ?? 3);
+    applyStatusEffect(bot, "poison", getStatusDuration(2.6), 0.58);
     if ((bot.injectorMarks ?? 0) >= 3) {
       bot.injectorMarks = 0;
       bot.injectorMarkTime = 0;
@@ -6532,6 +7346,8 @@ function applyProjectileEffectToBot(bot, projectile) {
       addEnergy(10);
       addImpact(bot.x, bot.y, "#f0b8ff", 24);
     }
+  } else if (effect.kind === "cannon") {
+    triggerStatusShellExplosion(player, projectile.x, projectile.y, effect, "player", bot);
   } else if (effect.kind === "rail") {
     if (effect.charged) {
       applyStatusEffect(bot, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
@@ -6554,12 +7370,15 @@ function applyProjectileEffectToPlayer(projectile) {
     addImpact(enemy.x, enemy.y, "#b8ffd8", 16);
   } else if (effect.kind === "injector") {
     applyInjectorMark(player, effect.markDuration ?? 4, effect.markMax ?? 3);
+    applyStatusEffect(player, "poison", getStatusDuration(2.2 * (1 - getBuildStats().ccReduction)), 0.5);
     if ((player.injectorMarks ?? 0) >= 3) {
       player.injectorMarks = 0;
       player.injectorMarkTime = 0;
       healEntity(enemy, effect.healOnConsume ?? 10);
       addImpact(player.x, player.y, "#f0b8ff", 20);
     }
+  } else if (effect.kind === "cannon") {
+    triggerStatusShellExplosion(enemy, projectile.x, projectile.y, effect, "enemy", player);
   } else if (effect.kind === "rail") {
     if (effect.charged) {
       applyStatusEffect(player, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
@@ -6624,6 +7443,60 @@ function fireEnemyInjector(targetX, targetY) {
     effect: { kind: "injector", markDuration: 4, markMax: 3, healOnConsume: 10 },
   });
   addImpact(enemy.x + Math.cos(enemy.facing) * 22, enemy.y + Math.sin(enemy.facing) * 22, "#d894ff", 12);
+  return true;
+}
+
+function fireEnemyLance(altFire = false) {
+  const facing = enemy.facing;
+  const range = altFire ? config.lanceAltRange * 0.92 : config.lancePrimaryRange * 0.88;
+  const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
+  const damage = (altFire ? config.lanceAltDamage * 0.82 : config.lancePrimaryDamage * 0.76) * getBotDamageMultiplier(player, enemy);
+  const lineStartX = enemy.x + Math.cos(facing) * 12;
+  const lineStartY = enemy.y + Math.sin(facing) * 12;
+  const lineEndX = enemy.x + Math.cos(facing) * range;
+  const lineEndY = enemy.y + Math.sin(facing) * range;
+  const lineDistance = pointToSegmentDistance(player.x, player.y, lineStartX, lineStartY, lineEndX, lineEndY);
+  const targetDistance = length(player.x - enemy.x, player.y - enemy.y);
+  const connected = lineDistance <= width + player.radius && targetDistance <= range + player.radius + 8;
+  damagePylonsAlongLine(lineStartX, lineStartY, lineEndX, lineEndY, damage * 0.35, "enemy");
+  addBeamEffect(enemy.x, enemy.y, lineEndX, lineEndY, altFire ? "#fff0a5" : "#ffd99c", altFire ? 6 : 4, 0.1);
+  addImpact(enemy.x + Math.cos(facing) * 24, enemy.y + Math.sin(facing) * 24, "#ffe4ac", altFire ? 20 : 14);
+
+  if (!connected) {
+    return false;
+  }
+
+  applyPlayerDamage(damage, altFire ? "enemy-lance-drive" : "enemy-lance");
+  if (altFire) {
+    applyStatusEffect(player, "shock", getStatusDuration(config.lanceAltShockDuration * (1 - getBuildStats().ccReduction)), 0.28);
+    player.x += Math.cos(facing) * 24;
+    player.y += Math.sin(facing) * 24;
+  } else {
+    applyStatusEffect(player, "snare", getStatusDuration(0.24 * (1 - getBuildStats().ccReduction)), 1);
+  }
+  addImpact(player.x, player.y, "#fff4c7", altFire ? 28 : 20);
+  addShake(altFire ? 8 : 5.4);
+  return true;
+}
+
+function fireEnemyCannon(targetX, targetY, altFire = false) {
+  const speed = altFire ? config.cannonAltSpeed * 0.92 : config.cannonPrimarySpeed * 0.9;
+  const damage = (altFire ? config.cannonAltDamage * 0.82 : config.cannonPrimaryDamage * 0.8) * getBotDamageMultiplier(player, enemy);
+  spawnBullet(enemy, targetX, targetY, enemyBullets, altFire ? "#c9f2ff" : "#ffb07e", speed, damage, {
+    radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+    life: 1.1,
+    trailColor: altFire ? "#e9fbff" : "#ffd0a4",
+    source: altFire ? "enemy-cannon-cryo" : "enemy-cannon-shell",
+    effect: {
+      kind: "cannon",
+      splashRadius: altFire ? 68 : config.cannonSplashRadius,
+      splashDamage: altFire ? 12 : config.cannonSplashDamage * 0.78,
+      statusType: altFire ? "freeze" : "burn",
+      statusDuration: altFire ? config.cannonFreezeDuration * 0.86 : config.cannonBurnDuration * 0.9,
+      statusMagnitude: altFire ? config.cannonFreezeMagnitude * 0.82 : config.cannonBurnMagnitude * 0.82,
+    },
+  });
+  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, altFire ? "#d6f4ff" : "#ffb07e", altFire ? 16 : 18);
   return true;
 }
 
@@ -6774,7 +7647,7 @@ function castEnemyEmp() {
     }
   }
   if (length(player.x - enemy.x, player.y - enemy.y) <= 118 + player.radius) {
-    applyStatusEffect(player, "slow", getStatusDuration(0.9), 0.34);
+    applyStatusEffect(player, "shock", getStatusDuration(0.72 * (1 - getBuildStats().ccReduction)), 0.2);
   }
 }
 
@@ -6795,7 +7668,7 @@ function castEnemyChainLightning() {
   enemy.abilityCooldowns.chainLightning = 5.8;
   addBeamEffect(enemy.x, enemy.y, player.x, player.y, "#d7bfff", 4.5, 0.14);
   applyPlayerDamage(24, "#d7bfff", player.x, player.y, true, "enemy-chain-lightning");
-  applyStatusEffect(player, "slow", getStatusDuration(0.5), 0.2);
+  applyStatusEffect(player, "shock", getStatusDuration(0.5 * (1 - getBuildStats().ccReduction)), 0.18);
   addImpact(player.x, player.y, "#d7bfff", 18);
 }
 
@@ -6971,7 +7844,7 @@ function updateEnemyShockJavelins(dt) {
     if (defeatedByJavelin) {
       if (sandbox.mode === sandboxModes.duel.key) {
         finishDuelRound("enemy");
-      } else {
+      } else if (sandbox.mode === sandboxModes.training.key) {
         resetPlayer();
       }
     }
@@ -6984,7 +7857,7 @@ function updateEnemy(dt) {
   tickEntityMarks(enemy, dt);
   updateEnemyPhantomState(dt);
 
-  if (sandbox.mode !== sandboxModes.duel.key || !enemy.alive || !isCombatLive()) {
+  if ((sandbox.mode !== sandboxModes.duel.key && sandbox.mode !== sandboxModes.survival.key) || !enemy.alive || !isCombatLive()) {
     return;
   }
 
@@ -7058,6 +7931,8 @@ function updateEnemy(dt) {
   const enemyOnSniper = enemy.weapon === weapons.sniper.key;
   const enemyOnStaff = enemy.weapon === weapons.staff.key;
   const enemyOnInjector = enemy.weapon === weapons.injector.key;
+  const enemyOnLance = enemy.weapon === weapons.lance.key;
+  const enemyOnCannon = enemy.weapon === weapons.cannon.key;
   const playerExposed =
     (player.lastMissTime ?? 0) > 0 ||
     player.fireCooldown > 0.16 ||
@@ -7069,7 +7944,22 @@ function updateEnemy(dt) {
   const targetRange = getEnemyTargetRange();
   const shouldPunish = playerExposed || playerLow;
   const behaviorProfile = getEnemyBehaviorProfile(distance, shouldPunish);
-  const shouldKite = enemyLow || (playerOnAxe && distance < 332) || (enemyOnPulse && distance < 210);
+  if (playerBehaviorModel.aggression > 0.6) {
+    behaviorProfile.retreatBias += 0.14;
+    behaviorProfile.dodgeAggression += 0.06;
+    behaviorProfile.fieldResponseDistance += 18;
+  } else if (playerBehaviorModel.aggression < 0.38) {
+    behaviorProfile.engageBias += 0.08;
+    behaviorProfile.strafeScale += 0.04;
+  }
+  if (playerBehaviorModel.rangedBias > 0.58 && (enemyOnAxe || enemyOnShotgun || enemyOnLance)) {
+    behaviorProfile.engageBias += 0.1;
+  }
+  if (playerBehaviorModel.rangedBias < 0.42 && (enemyOnPulse || enemyOnSniper || enemyOnCannon)) {
+    behaviorProfile.retreatBias += 0.08;
+    behaviorProfile.dodgeAggression += 0.04;
+  }
+  const shouldKite = enemyLow || (playerOnAxe && distance < 332) || (enemyOnPulse && distance < 210) || (enemyOnCannon && distance < 260);
   const shouldPressure = shouldPunish && distance < 420;
 
   let moveX = 0;
@@ -7113,6 +8003,7 @@ function updateEnemy(dt) {
       (enemy.dodgeTime > 0 ? config.enemyDodgeSpeed : config.enemySpeed) *
       (enemyStatus.stunned ? 0 : 1) *
       (enemy.hasteTime > 0 ? 1.12 : 1) *
+      (enemy.speedScale ?? 1) *
       difficultyProfile.strafeBias *
       enemyStatus.speedMultiplier *
       enemyFieldModifier.slowMultiplier *
@@ -7260,6 +8151,20 @@ function updateEnemy(dt) {
     if (fireEnemyInjector(targetX + player.velocityX * 0.12, targetY + player.velocityY * 0.12)) {
       enemy.shootCooldown = shouldPunish ? 0.34 : 0.42;
       enemy.postAttackMoveTime = 0.28;
+    }
+  } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 310) {
+    const committedDrive = shouldPunish || distance < 190;
+    if (fireEnemyLance(committedDrive)) {
+      enemy.shootCooldown = committedDrive ? config.lanceAltCooldown * 0.96 : config.lancePrimaryCooldown * 0.92;
+      enemy.postAttackMoveTime = committedDrive ? 0.34 : 0.18;
+    } else {
+      enemy.shootCooldown = committedDrive ? 0.48 : 0.28;
+    }
+  } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance > 220 && distance < 860) {
+    const cryoShot = playerOnAxe || playerOnShotgun || shouldPunish;
+    if (fireEnemyCannon(targetX + player.velocityX * 0.18, targetY + player.velocityY * 0.18, cryoShot)) {
+      enemy.shootCooldown = cryoShot ? config.cannonAltCooldown * 1.04 : config.cannonPrimaryCooldown * 1.08;
+      enemy.postAttackMoveTime = 0.42;
     }
   } else if (!enemyStatus.stunned && enemyOnAxe && enemy.shootCooldown <= 0 && enemy.meleeWindupTime <= 0 && enemy.attackCommitTime <= 0) {
     if ((distance < 296 && shouldPunish) || distance < 188) {
@@ -7478,6 +8383,8 @@ function applyPlayerDamage(amount, source = "hit") {
     player.alive = false;
     if (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") {
       finishDuelRound("enemy");
+    } else if (sandbox.mode === sandboxModes.survival.key) {
+      finishSurvivalRun();
     } else if (sandbox.mode === sandboxModes.training.key) {
       statusLine.textContent = "Training knockout. Resetting your build test position.";
       resetPlayer({ silent: true });
@@ -7535,7 +8442,7 @@ function resolveCombat() {
         if (defeatedByBullet) {
           if (sandbox.mode === sandboxModes.duel.key) {
             finishDuelRound("enemy");
-          } else {
+          } else if (sandbox.mode === sandboxModes.training.key) {
             resetPlayer();
           }
         }
@@ -7639,6 +8546,30 @@ function drawStatusReadout(target) {
         ctx.fillStyle = visual.stroke;
         ctx.beginPath();
         ctx.arc(sparkX, sparkY, 2.6 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (visual.wave === "embers") {
+      for (let ember = 0; ember < 3; ember += 1) {
+        const angle = performance.now() * 0.006 + ember * 1.9;
+        const emberX = Math.cos(angle) * (target.radius + 6);
+        const emberY = -target.radius - 14 + Math.sin(angle * 1.2) * 6;
+        ctx.fillStyle = visual.stroke;
+        ctx.beginPath();
+        ctx.arc(emberX, emberY, 1.8 + pulse, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (visual.wave === "droplets") {
+      for (let droplet = 0; droplet < 3; droplet += 1) {
+        const wave = Math.sin(performance.now() * 0.009 + droplet * 0.9);
+        const dropX = -8 + droplet * 8;
+        const dropY = -target.radius - 10 + wave * 4;
+        ctx.fillStyle = visual.stroke;
+        ctx.beginPath();
+        ctx.moveTo(dropX, dropY - 3);
+        ctx.lineTo(dropX + 3, dropY + 2);
+        ctx.lineTo(dropX, dropY + 6);
+        ctx.lineTo(dropX - 3, dropY + 2);
+        ctx.closePath();
         ctx.fill();
       }
     } else if (visual.wave === "ring") {
@@ -7750,6 +8681,23 @@ function drawProjectileSprite(projectile, hostile = false) {
     ctx.beginPath();
     ctx.arc(0, 0, projectile.radius + 5, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (source.includes("cannon")) {
+    const cryo = source.includes("cryo");
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(2, cryo ? -8 : -6);
+    ctx.lineTo(-10, 0);
+    ctx.lineTo(2, cryo ? 8 : 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = cryo ? "rgba(230, 252, 255, 0.88)" : "rgba(255, 233, 190, 0.88)";
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+    ctx.fillStyle = cryo ? "rgba(224, 250, 255, 0.8)" : "rgba(255, 205, 156, 0.82)";
+    ctx.beginPath();
+    ctx.arc(-6, 0, cryo ? 4 : 3, 0, Math.PI * 2);
+    ctx.fill();
   } else if (source.includes("shotgun")) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -7959,6 +8907,18 @@ function drawBot(bot) {
   if (bot.weapon === weapons.axe.key) {
     ctx.fillRect(10, -3, 20, 6);
     ctx.fillRect(24, -14, 8, 28);
+  } else if (bot.weapon === weapons.lance.key) {
+    ctx.fillRect(10, -2, 24, 4);
+    ctx.beginPath();
+    ctx.moveTo(34, 0);
+    ctx.lineTo(46, -4);
+    ctx.lineTo(50, 0);
+    ctx.lineTo(46, 4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (bot.weapon === weapons.cannon.key) {
+    ctx.fillRect(10, -6, 18, 12);
+    ctx.fillRect(24, -4, 14, 8);
   } else if (bot.weapon === weapons.shotgun.key) {
     ctx.fillRect(10, -4, 24, 8);
   } else {
@@ -8018,6 +8978,20 @@ function drawPhantomClone() {
     ctx.fillStyle = `${weaponSkin.tint}aa`;
     ctx.fillRect(10, -3, 20, 6);
     ctx.fillRect(24, -14, 8, 28);
+  } else if (phantomState.weapon === weapons.lance.key) {
+    ctx.fillStyle = `${weaponSkin.tint}bb`;
+    ctx.fillRect(10, -2, 24, 4);
+    ctx.beginPath();
+    ctx.moveTo(34, 0);
+    ctx.lineTo(46, -4);
+    ctx.lineTo(50, 0);
+    ctx.lineTo(46, 4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (phantomState.weapon === weapons.cannon.key) {
+    ctx.fillStyle = `${weaponSkin.tint}bb`;
+    ctx.fillRect(10, -6, 18, 12);
+    ctx.fillRect(24, -4, 14, 8);
   } else {
     ctx.fillStyle = `${weaponSkin.tint}bb`;
     ctx.fillRect(10, -3, 22, 6);
@@ -8058,6 +9032,18 @@ function drawEnemyPhantomClone() {
   if (enemyPhantomState.weapon === weapons.axe.key) {
     ctx.fillRect(10, -3, 20, 6);
     ctx.fillRect(24, -14, 8, 28);
+  } else if (enemyPhantomState.weapon === weapons.lance.key) {
+    ctx.fillRect(10, -2, 24, 4);
+    ctx.beginPath();
+    ctx.moveTo(34, 0);
+    ctx.lineTo(46, -4);
+    ctx.lineTo(50, 0);
+    ctx.lineTo(46, 4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (enemyPhantomState.weapon === weapons.cannon.key) {
+    ctx.fillRect(10, -6, 18, 12);
+    ctx.fillRect(24, -4, 14, 8);
   } else if (enemyPhantomState.weapon === weapons.shotgun.key) {
     ctx.fillRect(10, -4, 24, 8);
   } else {
@@ -8884,6 +9870,39 @@ function drawWorld() {
     ctx.fillStyle = weaponSkin.glow;
     ctx.fillRect(34, -3, 18, 6);
     ctx.fillRect(12, -10, 8, 20);
+  } else if (player.weapon === weapons.lance.key) {
+    ctx.fillStyle = avatar.detailColor;
+    ctx.fillRect(-4, -3, 16, 6);
+    ctx.fillStyle = weaponSkin.tint;
+    ctx.fillRect(10, -3, 28, 6);
+    ctx.beginPath();
+    ctx.moveTo(38, 0);
+    ctx.lineTo(56, -6);
+    ctx.lineTo(62, 0);
+    ctx.lineTo(56, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = weaponSkin.glow;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(60, 0);
+    ctx.stroke();
+  } else if (player.weapon === weapons.cannon.key) {
+    ctx.fillStyle = avatar.detailColor;
+    ctx.fillRect(-4, -5, 18, 10);
+    ctx.fillStyle = weaponSkin.tint;
+    ctx.fillRect(12, -8, 18, 16);
+    ctx.fillRect(24, -4, 18, 8);
+    ctx.fillStyle = weaponSkin.glow;
+    ctx.beginPath();
+    ctx.arc(42, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 231, 201, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(42, 0, 10, 0, Math.PI * 2);
+    ctx.stroke();
   } else if (player.weapon === weapons.shotgun.key) {
     ctx.fillStyle = avatar.detailColor;
     ctx.fillRect(-4, -5, 24, 10);
@@ -8947,13 +9966,23 @@ function updateHud() {
   mapName.textContent = activeLayout.name ?? activeMode.name;
   mapStatus.textContent = activeLayout.subtitle ?? activeMode.subtitle;
   roundLabel.textContent =
-    sandbox.mode === sandboxModes.duel.key ? `Round ${matchState.roundNumber}` : "Practice";
+    sandbox.mode === sandboxModes.duel.key
+      ? `Round ${matchState.roundNumber}${matchState.suddenDeathActive ? " · SD" : ""}`
+      : sandbox.mode === sandboxModes.survival.key
+        ? `Wave ${survivalState.wave}`
+        : "Practice";
   matchScore.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
+      : sandbox.mode === sandboxModes.survival.key
+        ? `${survivalState.waveKills}/${survivalState.waveTargetKills} · ${survivalState.totalKills} KOs`
       : `${getAllBots().filter((bot) => bot.alive).length} targets`;
   matchFormat.textContent =
-    sandbox.mode === sandboxModes.duel.key ? "BO3" : "Training";
+    sandbox.mode === sandboxModes.duel.key
+      ? `${duelRules.formatWins === 3 ? "BO5" : "BO3"}${duelRules.roundTimer > 0 ? ` · ${Math.ceil(matchState.roundClock)}s` : ""}`
+      : sandbox.mode === sandboxModes.survival.key
+        ? `${getEscalatedDifficultyKey(botBuildState.difficulty, survivalState.wave).toUpperCase()} · SURVIVAL`
+        : "Training";
   roundBannerLabel.textContent = matchState.bannerLabel;
   roundBannerTitle.textContent = matchState.bannerTitle;
   roundBanner.classList.toggle("visible", matchState.bannerVisible);
@@ -8984,6 +10013,16 @@ function updateHud() {
           ? weaponReady
             ? "Marks armed"
             : `Injecting ${player.fireCooldown.toFixed(2)}s`
+        : player.weapon === weapons.lance.key
+          ? weaponReady
+            ? input.altFiring
+              ? "Drive primed"
+              : "Thrust ready"
+            : `Recover ${player.fireCooldown.toFixed(2)}s`
+        : player.weapon === weapons.cannon.key
+          ? weaponReady
+            ? "Shell loaded"
+            : `Breach ${player.fireCooldown.toFixed(2)}s`
         : weaponReady
           ? "Ready"
           : `Cooling ${player.fireCooldown.toFixed(2)}s`;
@@ -9019,6 +10058,10 @@ function updateHud() {
         ? "linear-gradient(90deg, rgba(149, 255, 180, 0.45), rgba(149, 255, 180, 0.98))"
       : player.weapon === weapons.injector.key
         ? "linear-gradient(90deg, rgba(216, 140, 255, 0.45), rgba(216, 140, 255, 0.98))"
+      : player.weapon === weapons.lance.key
+        ? "linear-gradient(90deg, rgba(255, 226, 124, 0.45), rgba(255, 226, 124, 0.98))"
+      : player.weapon === weapons.cannon.key
+        ? "linear-gradient(90deg, rgba(255, 177, 106, 0.45), rgba(255, 177, 106, 0.98))"
       : "linear-gradient(90deg, rgba(119, 216, 255, 0.4), rgba(119, 216, 255, 0.95))";
   weaponMeter.style.boxShadow =
     player.weapon === weapons.axe.key
@@ -9031,6 +10074,10 @@ function updateHud() {
         ? "0 0 14px rgba(149, 255, 180, 0.24)"
       : player.weapon === weapons.injector.key
         ? "0 0 14px rgba(216, 140, 255, 0.24)"
+      : player.weapon === weapons.lance.key
+        ? "0 0 14px rgba(255, 226, 124, 0.24)"
+      : player.weapon === weapons.cannon.key
+        ? "0 0 14px rgba(255, 177, 106, 0.24)"
       : "0 0 14px rgba(119, 216, 255, 0.25)";
   playerHealthFill.style.width = `${(player.hp / buildStats.maxHp) * 100}%`;
   enemyHealthFill.style.width = primaryBot
@@ -9046,7 +10093,7 @@ function updateHud() {
     menuButton.textContent = "Menu";
   }
   if (rematchButton) {
-    rematchButton.textContent = sandbox.mode === sandboxModes.training.key ? "Build Lab" : "Rematch";
+    rematchButton.textContent = sandbox.mode === sandboxModes.training.key ? "Build Lab" : sandbox.mode === sandboxModes.survival.key ? "Restart" : "Rematch";
   }
 
   setHudSlotPresentation(slotDashIcon, slotDashName, { icon: "ability-dash", name: "Dash" });
@@ -9288,6 +10335,7 @@ function frame(time) {
   absorbEnemyProjectiles();
   resolveCombat();
   updateDuelMatch(dt);
+  updateSurvivalMode(dt);
   updateImpacts(dt);
   updateHud();
   drawWorld();
@@ -9340,6 +10388,10 @@ window.addEventListener("keydown", (event) => {
     castUltimate();
   }
 
+  if (event.code === "KeyC") {
+    input.altFiring = true;
+  }
+
   if (sandbox.mode !== sandboxModes.training.key) {
     return;
   }
@@ -9367,6 +10419,14 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "Digit6") {
     setWeapon(weapons.injector.key);
   }
+
+  if (event.code === "Digit7") {
+    setWeapon(weapons.lance.key);
+  }
+
+  if (event.code === "Digit8") {
+    setWeapon(weapons.cannon.key);
+  }
 });
 
 window.addEventListener("keyup", (event) => {
@@ -9384,6 +10444,8 @@ window.addEventListener("keyup", (event) => {
     releaseAbilityInput(1);
   } else if (event.code === "KeyF") {
     releaseAbilityInput(2);
+  } else if (event.code === "KeyC") {
+    input.altFiring = false;
   }
 });
 
@@ -9400,6 +10462,7 @@ helpToggle.addEventListener("click", () => {
 });
 
 bindPrematchButton(modeDuel, "mode-duel");
+bindPrematchButton(modeSurvival, "mode-survival");
 bindPrematchButton(modeTraining, "mode-training");
 bindPrematchButton(stepMode, "step-mode");
 bindPrematchButton(stepMap, "step-map");
@@ -9524,6 +10587,16 @@ trainingFireOn?.addEventListener("click", () => {
   statusLine.textContent = "Training bots now fire steady pulse shots.";
 });
 
+ruleFormatBo3?.addEventListener("click", () => setDuelFormatWins(2));
+ruleFormatBo5?.addEventListener("click", () => setDuelFormatWins(3));
+ruleTimerOff?.addEventListener("click", () => setDuelRoundTimer(0));
+ruleTimer60?.addEventListener("click", () => setDuelRoundTimer(60));
+ruleTimer75?.addEventListener("click", () => setDuelRoundTimer(75));
+ruleSuddenDeathOff?.addEventListener("click", () => setSuddenDeathRule(false));
+ruleSuddenDeathOn?.addEventListener("click", () => setSuddenDeathRule(true));
+ruleMirrorOff?.addEventListener("click", () => setMirrorMatchRule(false));
+ruleMirrorOn?.addEventListener("click", () => setMirrorMatchRule(true));
+
 canvas.addEventListener("mousemove", (event) => {
   updatePointer(event.clientX, event.clientY);
 });
@@ -9533,10 +10606,18 @@ canvas.addEventListener("mousedown", (event) => {
     return;
   }
   updatePointer(event.clientX, event.clientY);
+  if (event.button === 2) {
+    input.altFiring = true;
+    return;
+  }
   input.firing = true;
   if (player.weapon === weapons.sniper.key) {
     startRailSniperCharge();
   }
+});
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
 });
 
 window.addEventListener("mouseup", () => {
@@ -9544,6 +10625,7 @@ window.addEventListener("mouseup", () => {
     releaseRailSniperCharge();
   }
   input.firing = false;
+  input.altFiring = false;
 });
 
 canvas.addEventListener("mouseleave", () => {
@@ -9551,6 +10633,7 @@ canvas.addEventListener("mouseleave", () => {
     releaseRailSniperCharge();
   }
   input.firing = false;
+  input.altFiring = false;
 });
 
 canvas.addEventListener(

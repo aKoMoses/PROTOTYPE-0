@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-04-06 17:14:32
+- **Author:** Codex
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Pass 2 - AI Survival And Combat Expansion
+
+### Summary
+- Added `Survival / Wave Gauntlet` as a new playable mode in the prematch flow.
+- Expanded the status system with `Burn`, `Freeze`, `Poison`, and `Shock`, plus readable synergy interactions.
+- Added two new playable weapons: `Charge Lance` and `Heavy Cannon`, both with alt-fire support.
+- Expanded bot loadouts and AI logic so hunter builds adapt more to player style, difficulty, and survival wave scaling.
+- Added duel rule support for `BO5`, round timers, sudden death, and mirror match testing.
+- Extended the Build Lab and in-game weapon flow so the new content is visible, explainable, and testable.
+
+### Files
+- `index.html`
+- `main.js`
+- `styles.css`
+
+### Notes
+- `WORKSTREAM_SPLIT.md` remains local and is not part of this push.
+
 ## 2026-04-06 16:13:20
 - **Author:** Codex
 - **Branch:** `codex/gameplay-foundation`
@@ -29,4 +50,3 @@
 
 ### Notes
 - `WORKSTREAM_SPLIT.md` remains local and is not part of this push.
-

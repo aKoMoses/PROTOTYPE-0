@@ -56,7 +56,7 @@
       <div class="help-panel is-hidden" id="help-panel">
         <strong>Controls</strong>
         <span id="map-status">Arena data online.</span>
-        <span>Move with WASD, aim with mouse, fire with click, dash with Shift, use equipped abilities on Q / E / F, use Ultimate on R, and reset the current session with Backspace.</span>
+        <span>Move with WASD, aim with mouse, fire with click, use alt-fire with right click or C, dash with Shift, use equipped abilities on Q / E / F, use Ultimate on R, and reset the current session with Backspace.</span>
       </div>
 
       <div class="round-banner" id="round-banner">
@@ -108,6 +108,11 @@
                   <span class="mode-card__tag">1v1 Bot Duel</span>
                   <strong>Duel Map</strong>
                   <span>Best-of-3 rounds against the hunter bot.</span>
+                </button>
+                <button class="mode-card" id="mode-survival" type="button" onclick="handlePrematchAction('mode-survival')">
+                  <span class="mode-card__tag">Survival</span>
+                  <strong>Wave Gauntlet</strong>
+                  <span>Endurance test against escalating solo waves and stronger bot builds.</span>
                 </button>
                 <button class="mode-card" id="mode-training" type="button" onclick="handlePrematchAction('mode-training')">
                   <span class="mode-card__tag">Training</span>
@@ -237,6 +242,24 @@
                         <button class="toggle-chip is-active" id="bot-difficulty-normal" type="button">Normal</button>
                         <button class="toggle-chip" id="bot-difficulty-hard" type="button">Hard</button>
                         <button class="toggle-chip" id="bot-difficulty-nightmare" type="button">Nightmare</button>
+                      </div>
+                    </div>
+                    <div class="bot-config-group">
+                      <span class="label">Rules</span>
+                      <div class="toggle-strip">
+                        <button class="toggle-chip is-active" id="rule-format-bo3" type="button">BO3</button>
+                        <button class="toggle-chip" id="rule-format-bo5" type="button">BO5</button>
+                      </div>
+                      <div class="toggle-strip">
+                        <button class="toggle-chip" id="rule-timer-off" type="button">Timer Off</button>
+                        <button class="toggle-chip is-active" id="rule-timer-60" type="button">60s</button>
+                        <button class="toggle-chip" id="rule-timer-75" type="button">75s</button>
+                      </div>
+                      <div class="toggle-strip">
+                        <button class="toggle-chip" id="rule-suddendeath-off" type="button">No Sudden Death</button>
+                        <button class="toggle-chip is-active" id="rule-suddendeath-on" type="button">Sudden Death</button>
+                        <button class="toggle-chip" id="rule-mirror-off" type="button">Open Matchups</button>
+                        <button class="toggle-chip" id="rule-mirror-on" type="button">Mirror Match</button>
                       </div>
                     </div>
                     <div class="toggle-strip">
