@@ -1,16 +1,24 @@
 // Enemy AI, training bots, enemy actions
-import { config, abilityConfig, sandboxModes } from "../config.js";
+import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
-  bullets, enemyBullets, shockJavelins, enemyShockJavelins, magneticFields, supportZones, mapState } from "../state.js";
-import { clamp, length, normalize, approach } from "../utils.js";
-import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText } from "./effects.js";
+import { player, playerClone, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
+  bullets, enemyBullets, shockJavelins, enemyShockJavelins, magneticFields, supportZones, mapState,
+  tracers, trainingToolState } from "../state.js";
+import { statusLine } from "../dom.js";
+import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
+import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyMagneticField, startPulseReload, finalizePulseReload,
-  tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark } from "./combat.js";
+  tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
+  getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy } from "./combat.js";
+import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
+import { spawnEnemyJavelin } from "./abilities.js";
+import { finishDuelRound } from "./match.js";
+import { resetPlayer } from "./player.js";
 import { playWeaponFire, playAbilityCue } from "../audio.js";
+import { applyPhantomDamage } from "./phantom.js";
 
 export function updateShockJavelins(dt) {
   for (let i = shockJavelins.length - 1; i >= 0; i -= 1) {
@@ -116,6 +124,12 @@ export function getEnemyTargetRange() {
   if (weaponKey === weapons.injector.key) {
     return enemy.hp <= 72 ? 474 : 392;
   }
+  if (weaponKey === weapons.lance.key) {
+    return enemy.hp <= 72 ? 256 : hasGrapple ? 214 : 236;
+  }
+  if (weaponKey === weapons.cannon.key) {
+    return enemy.hp <= 72 ? 644 : 508;
+  }
   return enemy.hp <= 72 ? 548 : hasShield ? 430 : 404;
 }
 
@@ -190,6 +204,32 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
     };
   }
 
+  if (weaponKey === weapons.lance.key) {
+    return {
+      strafeScale: shouldPunish ? 1.18 : 1.02,
+      engageBias: hasGrapple ? 1.3 : 1.18,
+      retreatBias: enemy.hp <= 72 ? 0.88 : 0.54,
+      abilityPressureDistance: 360,
+      fieldResponseDistance: 210,
+      punishWindowDistance: distance < 300,
+      dodgeAggression: 0.9,
+      shootBurstSize: 0,
+    };
+  }
+
+  if (weaponKey === weapons.cannon.key) {
+    return {
+      strafeScale: shouldPunish ? 1.02 : 0.9,
+      engageBias: 0.88,
+      retreatBias: enemy.hp <= 72 ? 1.18 : 0.98,
+      abilityPressureDistance: 480,
+      fieldResponseDistance: 240,
+      punishWindowDistance: distance > 240 && distance < 760,
+      dodgeAggression: 0.96,
+      shootBurstSize: 0,
+    };
+  }
+
   return {
     strafeScale: shouldPunish ? 1.18 : 1,
     engageBias: 1.08,
@@ -200,6 +240,29 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
     dodgeAggression: 0.92,
     shootBurstSize: shouldPunish ? 3 : 2,
   };
+}
+
+function getEnemyFocusTarget() {
+  if (!playerClone.active || !playerClone.alive) {
+    enemy.focusTarget = "player";
+    enemy.focusTime = 0;
+    return player;
+  }
+
+  if (enemy.focusTime > 0) {
+    return enemy.focusTarget === "clone" ? playerClone : player;
+  }
+
+  const playerDistance = length(player.x - enemy.x, player.y - enemy.y);
+  const cloneDistance = length(playerClone.x - enemy.x, playerClone.y - enemy.y);
+  const cloneLikely =
+    player.decoyTime > 0 ||
+    cloneDistance < playerDistance - 24 ||
+    (cloneDistance < playerDistance + 28 && Math.random() < 0.42);
+
+  enemy.focusTarget = cloneLikely ? "clone" : "player";
+  enemy.focusTime = cloneLikely ? 0.7 : 0.34;
+  return cloneLikely ? playerClone : player;
 }
 
 export function startEnemyReload(bot = enemy) {
@@ -358,6 +421,68 @@ export function fireEnemyInjector(targetX, targetY) {
   });
   playWeaponFire(weapons.injector.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 22, enemy.y + Math.sin(enemy.facing) * 22, "#d894ff", 12);
+  return true;
+}
+
+export function fireEnemyLance(target = player, altFire = false) {
+  const range = altFire ? config.lanceAltRange : config.lancePrimaryRange;
+  const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
+  const damage = altFire ? config.lanceAltDamage * 0.78 : config.lancePrimaryDamage * 0.78;
+  const hits = collectTargetsAlongLine(enemy, enemy.facing, range, width, [target], true);
+  const endX = enemy.x + Math.cos(enemy.facing) * range;
+  const endY = enemy.y + Math.sin(enemy.facing) * range;
+
+  addBeamEffect(enemy.x, enemy.y, endX, endY, altFire ? "#ffd7a8" : "#ffe7bf", altFire ? 7 : 4, 0.12);
+  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd8ac", altFire ? 20 : 16);
+  damagePylonsAlongLine(enemy.x, enemy.y, endX, endY, damage * 0.26, "enemy");
+  playWeaponFire(weapons.lance.key, "enemy");
+
+  if (hits.length === 0) {
+    return true;
+  }
+
+  const hit = hits[0].target;
+  if (hit === playerClone) {
+    applyPhantomDamage(damage, altFire ? "lance-drive" : "lance");
+    applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration(altFire ? config.lanceAltShockDuration * 0.8 : config.lancePrimarySlowDuration * 0.8), altFire ? 1 : config.lancePrimarySlow);
+    statusLine.textContent = altFire
+      ? "Enemy lance drive cracked the phantom copy."
+      : "Enemy lance punctured the phantom copy.";
+  } else {
+    applyPlayerDamage(damage, altFire ? "lance-drive" : "lance");
+    applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration((altFire ? config.lanceAltShockDuration : config.lancePrimarySlowDuration) * (1 - getBuildStats().ccReduction)), altFire ? 1 : config.lancePrimarySlow);
+  }
+  addImpact(hit.x, hit.y, "#fff0cd", altFire ? 26 : 18);
+  addShake(altFire ? 7.2 : 4.8);
+  return true;
+}
+
+export function fireEnemyCannon(targetX, targetY, altFire = false) {
+  spawnBullet(
+    enemy,
+    targetX,
+    targetY,
+    enemyBullets,
+    altFire ? "#d6f1ff" : "#ffb483",
+    altFire ? config.cannonAltSpeed : config.cannonPrimarySpeed,
+    altFire ? config.cannonAltDamage * 0.78 : config.cannonPrimaryDamage * 0.8,
+    {
+      radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+      life: 1.08,
+      trailColor: altFire ? "#effcff" : "#ffd8ba",
+      source: altFire ? "enemy-cannon-cryo" : "enemy-cannon-shell",
+      effect: {
+        kind: "cannon",
+        splashRadius: altFire ? Math.max(58, config.cannonSplashRadius * 0.76) : config.cannonSplashRadius,
+        splashDamage: altFire ? config.cannonSplashDamage * 0.55 : config.cannonSplashDamage * 0.72,
+        statusType: altFire ? "stun" : "slow",
+        statusDuration: altFire ? config.cannonFreezeDuration : config.cannonBurnDuration,
+        statusMagnitude: altFire ? 1 : config.cannonBurnMagnitude,
+      },
+    },
+  );
+  playWeaponFire(weapons.cannon.key, "enemy");
+  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, altFire ? "#def5ff" : "#ffcca4", altFire ? 18 : 22);
   return true;
 }
 
@@ -525,13 +650,18 @@ export function castEnemyBackstep() {
   addImpact(enemy.x, enemy.y, "#fff0a8", 18);
 }
 
-export function castEnemyChainLightning() {
+export function castEnemyChainLightning(target = player) {
   enemy.abilityCooldowns.chainLightning = 5.8;
   playAbilityCue("chainLightning", "enemy");
-  addBeamEffect(enemy.x, enemy.y, player.x, player.y, "#d7bfff", 4.5, 0.14);
-  applyPlayerDamage(24, "#d7bfff", player.x, player.y, true, "enemy-chain-lightning");
-  applyStatusEffect(player, "slow", getStatusDuration(0.5), 0.2);
-  addImpact(player.x, player.y, "#d7bfff", 18);
+  addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#d7bfff", 4.5, 0.14);
+  if (target === playerClone) {
+    applyPhantomDamage(24, "enemy-chain-lightning");
+    applyStatusEffect(target, "slow", getStatusDuration(0.42), 0.2);
+  } else {
+    applyPlayerDamage(24, "enemy-chain-lightning");
+    applyStatusEffect(target, "slow", getStatusDuration(0.5), 0.2);
+  }
+  addImpact(target.x, target.y, "#d7bfff", 18);
 }
 
 export function castEnemyBlink(forward) {
@@ -555,9 +685,9 @@ export function castEnemyPhaseDash(forward) {
   addImpact(enemy.x, enemy.y, "#d2f1ff", 20);
 }
 
-export function castEnemyPulseBurst() {
+export function castEnemyPulseBurst(target = player) {
   enemy.abilityCooldowns.pulseBurst = 3.4;
-  const baseAngle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+  const baseAngle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
     const spread = -0.16 + pellet * 0.08;
     const angle = baseAngle + spread;
@@ -572,19 +702,19 @@ export function castEnemyPulseBurst() {
   addImpact(enemy.x + Math.cos(baseAngle) * 22, enemy.y + Math.sin(baseAngle) * 22, "#84dcff", 14);
 }
 
-export function castEnemyRailShot() {
+export function castEnemyRailShot(target = player) {
   enemy.abilityCooldowns.railShot = 5.3;
   playAbilityCue("railShot", "enemy");
-  fireEnemySniper(player.x + player.velocityX * 0.24, player.y + player.velocityY * 0.24);
+  fireEnemySniper(target.x + (target.velocityX ?? 0) * 0.24, target.y + (target.velocityY ?? 0) * 0.24);
 }
 
-export function castEnemyGravityWell() {
+export function castEnemyGravityWell(target = player) {
   enemy.abilityCooldowns.gravityWell = 6.1;
   supportZones.push({
     type: "gravity",
     team: "enemy",
-    x: player.x,
-    y: player.y,
+    x: target.x,
+    y: target.y,
     radius: 112,
     life: 1.9,
     maxLife: 1.9,
@@ -592,7 +722,7 @@ export function castEnemyGravityWell() {
     slow: 0.4,
   });
   playAbilityCue("gravityWell", "enemy");
-  addExplosion(player.x, player.y, 118, "#d1a2ff");
+  addExplosion(target.x, target.y, 118, "#d1a2ff");
 }
 
 export function castEnemyPhaseShift() {
@@ -650,16 +780,38 @@ export function updateEnemyShockJavelins(dt) {
       continue;
     }
 
-    if (length(javelin.x - player.x, javelin.y - player.y) > javelin.radius + player.radius) {
+    const targets = playerClone.active && playerClone.alive ? [playerClone, player] : [player];
+    let hitTarget = null;
+    for (const target of targets) {
+      if (length(javelin.x - target.x, javelin.y - target.y) <= javelin.radius + target.radius) {
+        hitTarget = target;
+        break;
+      }
+    }
+
+    if (!hitTarget) {
       continue;
     }
 
     enemyShockJavelins.splice(i, 1);
-    addImpact(player.x, player.y, javelin.charged ? "#ffd7be" : "#ffb09a", javelin.charged ? 26 : 18);
+    addImpact(hitTarget.x, hitTarget.y, javelin.charged ? "#ffd7be" : "#ffb09a", javelin.charged ? 26 : 18);
 
-    if (abilityState.dash.invulnerabilityTime > 0) {
+    if (hitTarget === player && abilityState.dash.invulnerabilityTime > 0) {
       addImpact(player.x, player.y, "#b8f9c9", 20);
       statusLine.textContent = "Clean dash through enemy javelin.";
+      continue;
+    }
+
+    if (hitTarget === playerClone) {
+      applyPhantomDamage(javelin.damage, "javelin");
+      if (javelin.stun > 0) {
+        applyStatusEffect(hitTarget, "stun", getStatusDuration(javelin.stun * 0.8), 1);
+        statusLine.textContent = "Enemy javelin stunned the phantom copy.";
+      } else {
+        applyStatusEffect(hitTarget, "slow", getStatusDuration(javelin.slowDuration * 0.8), javelin.slow);
+        statusLine.textContent = "Enemy javelin clipped the phantom copy.";
+      }
+      addShake(javelin.charged ? 6.6 : 4.8);
       continue;
     }
 
@@ -718,6 +870,7 @@ export function updateEnemy(dt) {
   enemy.abilityCooldowns.phaseShift = Math.max(0, enemy.abilityCooldowns.phaseShift - dt);
   enemy.abilityCooldowns.hologramDecoy = Math.max(0, enemy.abilityCooldowns.hologramDecoy - dt);
   enemy.abilityCooldowns.speedSurge = Math.max(0, enemy.abilityCooldowns.speedSurge - dt);
+  enemy.focusTime = Math.max(0, (enemy.focusTime ?? 0) - dt);
   player.lastMissTime = Math.max(0, (player.lastMissTime ?? 0) - dt);
   enemy.shootCooldown -= dt;
   enemy.strafeTimer += dt;
@@ -730,36 +883,42 @@ export function updateEnemy(dt) {
     finalizePulseReload(enemy);
   }
 
-  const targetX = player.decoyTime > 0 ? player.x - 44 : player.x;
-  const targetY = player.decoyTime > 0 ? player.y + 18 : player.y;
+  const focusTargetEntity = getEnemyFocusTarget();
+  const targetX = focusTargetEntity.x;
+  const targetY = focusTargetEntity.y;
+  const targetVelocityX = focusTargetEntity.velocityX ?? 0;
+  const targetVelocityY = focusTargetEntity.velocityY ?? 0;
   const dx = targetX - enemy.x;
   const dy = targetY - enemy.y;
   const distance = length(dx, dy);
   const forward = normalize(dx, dy);
   const side = { x: -forward.y, y: forward.x };
   const enemyFieldModifier = getFieldInfluence(enemy);
-  const enemyZoneEffects = getZoneEffectsForEntity(enemy);
+  const enemyZoneEffects = getZoneEffectsForEntity(enemy, dt);
   const playerLow = player.hp <= 38;
   const enemyLow = enemy.hp <= 72;
-  const playerOnAxe = player.weapon === weapons.axe.key;
-  const playerOnShotgun = player.weapon === weapons.shotgun.key;
+  const targetOnAxe = focusTargetEntity.weapon === weapons.axe.key;
   const enemyOnAxe = enemy.weapon === weapons.axe.key;
   const enemyOnShotgun = enemy.weapon === weapons.shotgun.key;
   const enemyOnPulse = enemy.weapon === weapons.pulse.key;
   const enemyOnSniper = enemy.weapon === weapons.sniper.key;
   const enemyOnStaff = enemy.weapon === weapons.staff.key;
   const enemyOnInjector = enemy.weapon === weapons.injector.key;
+  const enemyOnLance = enemy.weapon === weapons.lance.key;
+  const enemyOnCannon = enemy.weapon === weapons.cannon.key;
   const playerExposed =
-    (player.lastMissTime ?? 0) > 0 ||
-    player.fireCooldown > 0.16 ||
-    player.attackStartupTime > 0 ||
-    player.attackCommitTime > 0 ||
-    player.activeAxeStrike !== null ||
-    player.pendingAxeStrike !== null;
+    focusTargetEntity === playerClone
+      ? playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04
+      : (player.lastMissTime ?? 0) > 0 ||
+        player.fireCooldown > 0.16 ||
+        player.attackStartupTime > 0 ||
+        player.attackCommitTime > 0 ||
+        player.activeAxeStrike !== null ||
+        player.pendingAxeStrike !== null;
   const targetRange = getEnemyTargetRange();
-  const shouldPunish = playerExposed || playerLow;
+  const shouldPunish = playerExposed || playerLow || (focusTargetEntity !== player && focusTargetEntity.hp <= focusTargetEntity.maxHp * 0.42);
   const behaviorProfile = getEnemyBehaviorProfile(distance, shouldPunish);
-  const shouldKite = enemyLow || (playerOnAxe && distance < 332) || (enemyOnPulse && distance < 210);
+  const shouldKite = enemyLow || (targetOnAxe && distance < 332) || (enemyOnPulse && distance < 210);
   const shouldPressure = shouldPunish && distance < 420;
 
   let moveX = 0;
@@ -829,7 +988,7 @@ export function updateEnemy(dt) {
     !enemyStatus.stunned &&
     enemyHasAbility("magneticField") &&
     enemy.fieldCooldown <= 0 &&
-    (incomingProjectile || (playerOnAxe && distance < behaviorProfile.fieldResponseDistance))
+    (incomingProjectile || (targetOnAxe && distance < behaviorProfile.fieldResponseDistance))
   ) {
     spawnEnemyMagneticField();
   }
@@ -837,7 +996,7 @@ export function updateEnemy(dt) {
   if (!enemyStatus.stunned && enemyHasAbility("shockJavelin") && enemy.javelinCooldown <= 0 && distance > 180 && distance < 620) {
     const chargedJavelin = enemyLow || shouldPunish || distance > 360;
     if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34)) {
-      spawnEnemyJavelin(chargedJavelin);
+      spawnEnemyJavelin(chargedJavelin, focusTargetEntity);
       enemy.postAttackMoveTime = 0.62;
       enemy.shootCooldown = Math.max(enemy.shootCooldown, 0.18);
     }
@@ -871,7 +1030,7 @@ export function updateEnemy(dt) {
     castEnemyEmp();
   }
 
-  if (!enemyStatus.stunned && enemyHasAbility("backstepBurst") && enemy.abilityCooldowns.backstep <= 0 && (enemyLow || (playerOnAxe && distance < 170))) {
+  if (!enemyStatus.stunned && enemyHasAbility("backstepBurst") && enemy.abilityCooldowns.backstep <= 0 && (enemyLow || (targetOnAxe && distance < 170))) {
     castEnemyBackstep();
   }
 
@@ -883,8 +1042,8 @@ export function updateEnemy(dt) {
     castEnemyPhaseDash(shouldPunish ? forward : { x: side.x, y: side.y });
   }
 
-  if (!enemyStatus.stunned && enemyHasAbility("gravityWell") && enemy.abilityCooldowns.gravityWell <= 0 && distance > 180 && distance < 420 && (playerExposed || playerOnAxe)) {
-    castEnemyGravityWell();
+  if (!enemyStatus.stunned && enemyHasAbility("gravityWell") && enemy.abilityCooldowns.gravityWell <= 0 && distance > 180 && distance < 420 && (playerExposed || targetOnAxe)) {
+    castEnemyGravityWell(focusTargetEntity);
   }
 
   if (!enemyStatus.stunned && enemyHasAbility("phaseShift") && enemy.abilityCooldowns.phaseShift <= 0 && (enemyLow || incomingProjectile)) {
@@ -906,8 +1065,8 @@ export function updateEnemy(dt) {
   if (!enemyStatus.stunned && enemyOnPulse && enemy.burstShots > 0 && enemy.shootCooldown <= 0) {
     enemy.burstShots -= 1;
     enemy.shootCooldown = enemy.burstShots > 0 ? 0.16 : 0.84;
-    const leadX = targetX + player.velocityX * (playerExposed ? 0.22 : 0.16);
-    const leadY = targetY + player.velocityY * (playerExposed ? 0.22 : 0.16);
+    const leadX = targetX + targetVelocityX * (playerExposed ? 0.22 : 0.16);
+    const leadY = targetY + targetVelocityY * (playerExposed ? 0.22 : 0.16);
     fireEnemyPulse(leadX, leadY, shouldPunish);
   } else if (!enemyStatus.stunned && enemyOnPulse && enemy.shootCooldown <= 0 && distance < 660) {
     enemy.burstShots = behaviorProfile.shootBurstSize;
@@ -919,18 +1078,18 @@ export function updateEnemy(dt) {
       enemy.postAttackMoveTime = 0.4;
     }
   } else if (!enemyStatus.stunned && enemyHasAbility("pulseBurst") && enemy.abilityCooldowns.pulseBurst <= 0 && distance < 320 && shouldPunish) {
-    castEnemyPulseBurst();
+    castEnemyPulseBurst(focusTargetEntity);
     enemy.shootCooldown = 0.42;
   } else if (!enemyStatus.stunned && enemyHasAbility("chainLightning") && enemy.abilityCooldowns.chainLightning <= 0 && distance < 380 && (shouldPunish || playerExposed)) {
-    castEnemyChainLightning();
+    castEnemyChainLightning(focusTargetEntity);
     enemy.shootCooldown = 0.46;
   } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && distance > 280 && distance < 920) {
-    if (fireEnemySniper(targetX + player.velocityX * 0.2, targetY + player.velocityY * 0.2)) {
+    if (fireEnemySniper(targetX + targetVelocityX * 0.2, targetY + targetVelocityY * 0.2)) {
       enemy.shootCooldown = shouldPunish ? 1.08 : 1.26;
       enemy.postAttackMoveTime = 0.54;
     }
   } else if (!enemyStatus.stunned && enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 340 && shouldPunish) {
-    castEnemyRailShot();
+    castEnemyRailShot(focusTargetEntity);
     enemy.shootCooldown = 0.62;
   } else if (!enemyStatus.stunned && enemyOnStaff && enemy.shootCooldown <= 0 && distance < 480) {
     if (fireEnemyStaff(targetX, targetY)) {
@@ -938,9 +1097,19 @@ export function updateEnemy(dt) {
       enemy.postAttackMoveTime = 0.32;
     }
   } else if (!enemyStatus.stunned && enemyOnInjector && enemy.shootCooldown <= 0 && distance < 560) {
-    if (fireEnemyInjector(targetX + player.velocityX * 0.12, targetY + player.velocityY * 0.12)) {
+    if (fireEnemyInjector(targetX + targetVelocityX * 0.12, targetY + targetVelocityY * 0.12)) {
       enemy.shootCooldown = shouldPunish ? 0.34 : 0.42;
       enemy.postAttackMoveTime = 0.28;
+    }
+  } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance < 820) {
+    if (fireEnemyCannon(targetX + targetVelocityX * 0.18, targetY + targetVelocityY * 0.18, shouldPunish && distance < 260)) {
+      enemy.shootCooldown = shouldPunish ? 1.18 : 1.34;
+      enemy.postAttackMoveTime = 0.58;
+    }
+  } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 320) {
+    if (fireEnemyLance(focusTargetEntity, shouldPunish && distance < 210)) {
+      enemy.shootCooldown = shouldPunish ? 0.92 : 1.08;
+      enemy.postAttackMoveTime = 0.24;
     }
   } else if (!enemyStatus.stunned && enemyOnAxe && enemy.shootCooldown <= 0 && enemy.meleeWindupTime <= 0 && enemy.attackCommitTime <= 0) {
     if ((distance < 296 && shouldPunish) || distance < 188) {

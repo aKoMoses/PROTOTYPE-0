@@ -1,13 +1,57 @@
 // HUD updates
-import { config, sandboxModes } from "../config.js";
+import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, matchState } from "../state.js";
+import { player, enemy, abilityState, loadout, sandbox, matchState, survivalState, input } from "../state.js";
 import * as dom from "../dom.js";
 import { clamp } from "../utils.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getMapLayout } from "../maps.js";
 import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize } from "../build/loadout.js";
 import { getAllBots, getPrimaryBot } from "./combat.js";
+
+const {
+  mapName,
+  mapStatus,
+  roundLabel,
+  matchScore,
+  matchFormat,
+  roundBannerLabel,
+  roundBannerTitle,
+  roundBanner,
+  weaponName,
+  weaponIcon,
+  weaponStatus,
+  weaponMeter,
+  playerHealthFill,
+  enemyHealthFill,
+  playerHealthText,
+  enemyHealthText,
+  slotDash,
+  slotDashIcon,
+  slotDashName,
+  slotDashOverlay,
+  slotDashTimer,
+  slotAbility1,
+  slotAbility1Icon,
+  slotAbility1Name,
+  slotAbility1Overlay,
+  slotAbility1Timer,
+  slotAbility2,
+  slotAbility2Icon,
+  slotAbility2Name,
+  slotAbility2Overlay,
+  slotAbility2Timer,
+  slotAbility3,
+  slotAbility3Icon,
+  slotAbility3Name,
+  slotAbility3Overlay,
+  slotAbility3Timer,
+  ultimateSlot,
+  ultimateSlotIcon,
+  ultimateSlotName,
+  ultimateSlotOverlay,
+  ultimateSlotTimer,
+} = dom;
 
 export function updateHud() {
   const weaponReady = player.fireCooldown <= 0 && player.reloadTime <= 0;
@@ -21,13 +65,23 @@ export function updateHud() {
   mapName.textContent = activeLayout.name ?? activeMode.name;
   mapStatus.textContent = activeLayout.subtitle ?? activeMode.subtitle;
   roundLabel.textContent =
-    sandbox.mode === sandboxModes.duel.key ? `Round ${matchState.roundNumber}` : "Practice";
+    sandbox.mode === sandboxModes.duel.key
+      ? `Round ${matchState.roundNumber}`
+      : sandbox.mode === sandboxModes.survival.key
+        ? `Wave ${survivalState.wave}`
+        : "Practice";
   matchScore.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
-      : `${getAllBots().filter((bot) => bot.alive).length} targets`;
+      : sandbox.mode === sandboxModes.survival.key
+        ? `${survivalState.waveKills}/${Math.max(1, survivalState.waveTargetKills)}`
+        : `${getAllBots().filter((bot) => bot.alive).length} targets`;
   matchFormat.textContent =
-    sandbox.mode === sandboxModes.duel.key ? "BO3" : "Training";
+    sandbox.mode === sandboxModes.duel.key
+      ? "BO3"
+      : sandbox.mode === sandboxModes.survival.key
+        ? `${survivalState.totalKills} KOs`
+        : "Training";
   roundBannerLabel.textContent = matchState.bannerLabel;
   roundBannerTitle.textContent = matchState.bannerTitle;
   roundBanner.classList.toggle("visible", matchState.bannerVisible);
@@ -54,6 +108,18 @@ export function updateHud() {
         ? weaponReady
           ? "Marks armed"
           : `Injecting ${player.fireCooldown.toFixed(2)}s`
+      : player.weapon === weapons.lance.key
+        ? weaponReady
+          ? input.altFiring
+            ? "Drive primed"
+            : "Thrust ready"
+          : `Recover ${player.fireCooldown.toFixed(2)}s`
+      : player.weapon === weapons.cannon.key
+        ? weaponReady
+          ? input.altFiring
+            ? "Cryo shell ready"
+            : "Shell loaded"
+          : `Breach ${player.fireCooldown.toFixed(2)}s`
       : weaponReady
         ? "Ready"
         : `Cooling ${player.fireCooldown.toFixed(2)}s`;
@@ -84,6 +150,10 @@ export function updateHud() {
         ? "linear-gradient(90deg, rgba(149, 255, 180, 0.45), rgba(149, 255, 180, 0.98))"
       : player.weapon === weapons.injector.key
         ? "linear-gradient(90deg, rgba(216, 140, 255, 0.45), rgba(216, 140, 255, 0.98))"
+      : player.weapon === weapons.lance.key
+        ? "linear-gradient(90deg, rgba(255, 226, 124, 0.45), rgba(255, 226, 124, 0.98))"
+      : player.weapon === weapons.cannon.key
+        ? "linear-gradient(90deg, rgba(255, 177, 106, 0.45), rgba(255, 177, 106, 0.98))"
       : "linear-gradient(90deg, rgba(119, 216, 255, 0.4), rgba(119, 216, 255, 0.95))";
   weaponMeter.style.boxShadow =
     player.weapon === weapons.axe.key
@@ -96,6 +166,10 @@ export function updateHud() {
         ? "0 0 14px rgba(149, 255, 180, 0.24)"
       : player.weapon === weapons.injector.key
         ? "0 0 14px rgba(216, 140, 255, 0.24)"
+      : player.weapon === weapons.lance.key
+        ? "0 0 14px rgba(255, 226, 124, 0.24)"
+      : player.weapon === weapons.cannon.key
+        ? "0 0 14px rgba(255, 177, 106, 0.24)"
       : "0 0 14px rgba(119, 216, 255, 0.25)";
   playerHealthFill.style.width = `${(player.hp / buildStats.maxHp) * 100}%`;
   enemyHealthFill.style.width = primaryBot

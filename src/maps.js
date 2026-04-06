@@ -1,8 +1,9 @@
 // Map layouts, portals, collision, and spatial helpers
 import { arena, config, sandboxModes } from "./config.js";
-import { mapState } from "./state.js";
+import { mapState, player, abilityState, bots, sandbox, uiState, survivalEnemies } from "./state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
 import { playMapCue } from "./audio.js";
+import { addImpact, addAfterimage, addShake } from "./gameplay/effects.js";
 
 export const duelMapRegistry = {
   electroGallery: {
@@ -34,7 +35,7 @@ export const duelMapRegistry = {
 };
 
 export const buildLabVisiblePools = {
-  weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector"],
+  weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector", "lance", "cannon"],
   abilities: [
     "shockJavelin",
     "magneticField",
@@ -82,6 +83,19 @@ export const mapChoices = {
       border: "#b7d9ee",
     },
   },
+  trainingExpanse: {
+    key: "trainingExpanse",
+    name: "Wasteland Expanse",
+    subtitle: "Large scrollable proving ground with long lanes, sparse cover, and room to stress-test builds.",
+    theme: {
+      backgroundStart: "#182027",
+      backgroundEnd: "#0a0f14",
+      floorGlow: "#86c5e7",
+      laneGlow: "#8fdcff",
+      warmGlow: "#e7c07f",
+      border: "#b7d9ee",
+    },
+  },
 };
 
 const mapLayouts = {
@@ -93,6 +107,14 @@ const mapLayouts = {
     playerSpawn: { x: 262, y: 690 },
     enemySpawn: { x: 1342, y: 206 },
     trainingSpawn: { x: 262, y: 690 },
+    survivalSpawns: [
+      { x: 220, y: 180 },
+      { x: 1380, y: 180 },
+      { x: 220, y: 720 },
+      { x: 1380, y: 720 },
+      { x: 800, y: 148 },
+      { x: 800, y: 752 },
+    ],
     arenaDecor: [
       { type: "lane", x: 112, y: 116, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.12)", stroke: "rgba(135, 235, 255, 0.18)" },
       { type: "lane", x: 112, y: 666, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.1)", stroke: "rgba(255, 174, 109, 0.12)" },
@@ -126,6 +148,14 @@ const mapLayouts = {
     playerSpawn: { x: 248, y: 694 },
     enemySpawn: { x: 1332, y: 214 },
     trainingSpawn: { x: 248, y: 694 },
+    survivalSpawns: [
+      { x: 214, y: 192 },
+      { x: 1390, y: 212 },
+      { x: 214, y: 700 },
+      { x: 1388, y: 686 },
+      { x: 798, y: 176 },
+      { x: 826, y: 730 },
+    ],
     arenaDecor: [
       { type: "lane", x: 108, y: 132, w: 1384, h: 134, color: "rgba(124, 92, 66, 0.14)", stroke: "rgba(255, 194, 135, 0.14)" },
       { type: "lane", x: 108, y: 634, w: 1384, h: 142, color: "rgba(112, 84, 60, 0.13)", stroke: "rgba(255, 194, 135, 0.12)" },
@@ -170,6 +200,44 @@ const mapLayouts = {
       { x: 1304, y: 450 },
     ],
   },
+  trainingExpanse: {
+    key: "trainingExpanse",
+    name: mapChoices.trainingExpanse.name,
+    subtitle: mapChoices.trainingExpanse.subtitle,
+    theme: mapChoices.trainingExpanse.theme,
+    width: 3200,
+    height: 1800,
+    scrollable: true,
+    playerSpawn: { x: 260, y: 900 },
+    enemySpawn: { x: 2860, y: 900 },
+    trainingSpawn: { x: 260, y: 900 },
+    survivalSpawns: [],
+    arenaDecor: [
+      { type: "lane", x: 180, y: 760, w: 2840, h: 280, color: "rgba(111, 142, 164, 0.07)", stroke: "rgba(173, 223, 252, 0.12)" },
+      { type: "lane", x: 260, y: 280, w: 2680, h: 120, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
+      { type: "lane", x: 260, y: 1400, w: 2680, h: 120, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
+      { type: "bridge", x: 820, y: 820, w: 460, h: 164, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.10)" },
+      { type: "bridge", x: 1920, y: 820, w: 460, h: 164, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.10)" },
+    ],
+    obstacles: [
+      { key: "expanse-block-1", x: 980, y: 602, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-2", x: 980, y: 1092, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-3", x: 2100, y: 602, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-4", x: 2100, y: 1092, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-pillar-1", x: 1470, y: 772, w: 70, h: 256, style: "bridge-pillar" },
+      { key: "expanse-pillar-2", x: 1660, y: 772, w: 70, h: 256, style: "bridge-pillar" },
+    ],
+    bushes: [],
+    portals: [],
+    pylons: [],
+    trainingBots: [
+      { x: 920, y: 900 },
+      { x: 1240, y: 900 },
+      { x: 1560, y: 900 },
+      { x: 1880, y: 900 },
+      { x: 2200, y: 900 },
+    ],
+  },
 };
 
 
@@ -179,14 +247,16 @@ export function cloneRect(rect) {
 
 export function getSelectableMapsForMode(mode = uiState.selectedMode) {
   if (mode === sandboxModes.training.key) {
-    return [mapChoices.trainingGround];
+    return [mapChoices.trainingGround, mapChoices.trainingExpanse];
   }
   return [mapChoices.electroGallery, mapChoices.bricABroc, mapChoices.randomMap];
 }
 
 export function normalizeSelectedMap(mode, mapKey) {
   if (mode === sandboxModes.training.key) {
-    return mapChoices.trainingGround.key;
+    return mapKey === mapChoices.trainingExpanse.key
+      ? mapChoices.trainingExpanse.key
+      : mapChoices.trainingGround.key;
   }
   if (mapKey === mapChoices.randomMap.key || duelMapRegistry[mapKey]) {
     return mapKey;
@@ -197,7 +267,7 @@ export function normalizeSelectedMap(mode, mapKey) {
 export function resolveMapKey(mode, mapKey, resolveRandom = false) {
   const normalized = normalizeSelectedMap(mode, mapKey);
   if (mode === sandboxModes.training.key) {
-    return mapChoices.trainingGround.key;
+    return normalized;
   }
   if (normalized === mapChoices.randomMap.key) {
     if (!resolveRandom && duelMapRegistry[sandbox.mapKey]) {
@@ -222,6 +292,8 @@ export function getMapLayout(mode = sandbox.mode, mapKey = sandbox.mapKey) {
 export function buildMapState(mode = sandbox.mode, mapKey = sandbox.mapKey) {
   const layout = getMapLayout(mode, mapKey);
   mapState.layoutKey = layout.key;
+  arena.width = layout.width ?? 1600;
+  arena.height = layout.height ?? 900;
   mapState.decor = layout.arenaDecor.map((item) => ({ ...item }));
   mapState.obstacles = layout.obstacles.map((item) => ({ ...cloneRect(item), solid: true }));
   mapState.bushes = layout.bushes.map((item) => ({ ...cloneRect(item) }));
@@ -248,7 +320,7 @@ export function getPortalTarget(portal) {
 }
 
 export function getEntityPortalKey(entity) {
-  return entity.role ?? entity.kind ?? "player";
+  return entity.kind ?? entity.role ?? "player";
 }
 
 export function updatePortalCooldowns(dt) {
@@ -384,7 +456,11 @@ export function resolveCharacterBodyBlocking() {
     return;
   }
 
-  for (const bot of getAllBots()) {
+  const activeBots = sandbox.mode === sandboxModes.survival.key ? survivalEnemies : bots;
+  for (const bot of activeBots) {
+    if (sandbox.mode !== sandboxModes.survival.key && !bot.modes.includes(sandbox.mode)) {
+      continue;
+    }
     if (!bot.alive) {
       continue;
     }

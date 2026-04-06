@@ -1,14 +1,16 @@
 // All player ability functions (dash, javelin, field, etc.)
-import { config, abilityConfig, sandboxModes } from "../config.js";
+import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, matchState, shockJavelins, magneticFields, supportZones } from "../state.js";
+import { player, enemy, abilityState, loadout, sandbox, matchState, shockJavelins, enemyShockJavelins, magneticFields, supportZones, input } from "../state.js";
+import { statusLine } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
-import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction } from "./effects.js";
-import { getMapLayout, resolveMapCollision } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown } from "../build/loadout.js";
-import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize } from "./combat.js";
+import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
+import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
+import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile } from "../build/loadout.js";
+import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
+import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
 
 export function getJavelinProfile(mode = abilityState.javelin.mode) {
   const profile = mode === "hold" ? abilityConfig.javelin.hold : abilityConfig.javelin.tap;
@@ -216,6 +218,12 @@ export function releaseShockJavelin() {
   abilityState.javelin.chargeTime = 0;
   abilityState.javelin.cooldown = abilityConfig.javelin.cooldown;
   player.recoil = Math.max(player.recoil, 0.22);
+  queuePhantomAbility("shockJavelin", {
+    mode: abilityState.javelin.mode,
+    facing: player.facing,
+    aimX: input.mouseX,
+    aimY: input.mouseY,
+  });
   playAbilityCue("shockJavelin");
   addImpact(
     player.x + direction.x * 22,
@@ -235,8 +243,8 @@ export function releaseShockJavelin() {
     : "Shock Javelin launched.";
 }
 
-export function spawnEnemyJavelin(charged = false) {
-  const direction = normalize(player.x - enemy.x, player.y - enemy.y);
+export function spawnEnemyJavelin(charged = false, targetEntity = player) {
+  const direction = normalize((targetEntity?.x ?? player.x) - enemy.x, (targetEntity?.y ?? player.y) - enemy.y);
   const speed = charged ? 860 : 1020;
   const radius = charged ? 14 : 10;
   const damage = charged ? 14 : 10;
@@ -321,6 +329,12 @@ export function releaseMagneticField() {
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
   abilityState.field.cooldown = abilityConfig.field.cooldown;
+  queuePhantomAbility("magneticField", {
+    mode: abilityState.field.mode,
+    facing: player.facing,
+    aimX: centerX,
+    aimY: centerY,
+  });
   playAbilityCue("magneticField");
   addImpact(centerX, centerY, fieldProfile.color, isHold ? 28 : 22);
   addShake(isHold ? 6.5 : 4.2);
@@ -366,6 +380,7 @@ export function castMagneticGrapple() {
   player.attackCommitTime = 0.16;
   abilityState.grapple.cooldown = config.grappleCooldown;
   player.flash = 0.08;
+  queuePhantomAbility("magneticGrapple", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("magneticGrapple");
   addImpact(player.x, player.y, "#c5f6ff", 30);
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#9ee9ff");
@@ -381,6 +396,7 @@ export function castEnergyShield() {
   abilityState.shield.cooldown = config.shieldCooldown;
   player.shield = Math.max(player.shield, 26 + getRuneValue("defense", "primary") * 3);
   player.shieldTime = 2.4;
+  queuePhantomAbility("energyShield");
   playAbilityCue("energyShield");
   addImpact(player.x, player.y, "#9cd5ff", 28);
   addShake(4);
@@ -393,6 +409,7 @@ export function castEmpBurst() {
   }
 
   abilityState.emp.cooldown = config.boosterCooldown;
+  queuePhantomAbility("empBurst");
   playAbilityCue("empBurst");
   addImpact(player.x, player.y, "#be9dff", 34);
   addExplosion(player.x, player.y, 84, "#b99cff");
@@ -435,6 +452,7 @@ export function castBackstepBurst() {
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
+  queuePhantomAbility("backstepBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("backstepBurst");
   addAfterimage(player.x, player.y, player.facing, player.radius + 6, "#fff0a8");
   addImpact(player.x, player.y, "#fff0a8", 22);
@@ -463,6 +481,7 @@ export function castChainLightning() {
   }
 
   abilityState.chainLightning.cooldown = 5.4;
+  queuePhantomAbility("chainLightning", { facing: player.facing, aimX: firstTarget.x, aimY: firstTarget.y });
   let sourceX = player.x;
   let sourceY = player.y;
   let currentTarget = firstTarget;
@@ -508,6 +527,7 @@ export function castBlinkStep() {
   maybeTeleportEntity(player);
   abilityState.blink.cooldown = 3.4;
   player.flash = 0.1;
+  queuePhantomAbility("blinkStep", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("blinkStep");
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#7df0ff");
   addImpact(player.x, player.y, "#b3f6ff", 24);
@@ -527,6 +547,7 @@ export function castPhaseDash() {
   abilityState.phaseDash.cooldown = 4.6;
   abilityState.phaseDash.time = 0.42;
   player.ghostTime = Math.max(player.ghostTime, 0.42);
+  queuePhantomAbility("phaseDash", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("phaseDash");
   addImpact(player.x, player.y, "#b0e7ff", 30);
   addShake(5.8);
@@ -538,6 +559,7 @@ export function castPulseBurst() {
     return;
   }
   abilityState.pulseBurst.cooldown = 3.2;
+  queuePhantomAbility("pulseBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
     const spread = -0.16 + pellet * 0.08;
@@ -560,6 +582,7 @@ export function castRailShotAbility() {
     return;
   }
   abilityState.railShot.cooldown = 5.1;
+  queuePhantomAbility("railShot", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * getPerkDamageMultiplier(getPrimaryBot()), {
     radius: 7,
     life: 0.72,
@@ -579,6 +602,7 @@ export function castGravityWell() {
     return;
   }
   abilityState.gravityWell.cooldown = 5.8;
+  queuePhantomAbility("gravityWell", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   supportZones.push({
     type: "gravity",
     team: "player",
@@ -603,6 +627,7 @@ export function castPhaseShift() {
   abilityState.phaseShift.cooldown = 5.6;
   abilityState.phaseShift.time = 0.55;
   player.ghostTime = Math.max(player.ghostTime, 0.55);
+  queuePhantomAbility("phaseShift");
   playAbilityCue("phaseShift");
   addImpact(player.x, player.y, "#d2f1ff", 24);
   statusLine.textContent = "Phase Shift made you intangible for a blink.";
@@ -614,6 +639,7 @@ export function castHologramDecoy() {
   }
   abilityState.hologramDecoy.cooldown = 6.2;
   player.decoyTime = Math.max(player.decoyTime, 2.8);
+  queuePhantomAbility("hologramDecoy");
   playAbilityCue("hologramDecoy");
   addAfterimage(player.x - 46, player.y + 20, player.facing, player.radius + 8, "#caa9ff");
   addImpact(player.x, player.y, "#d8b8ff", 24);
@@ -627,6 +653,7 @@ export function castSpeedSurge() {
   abilityState.speedSurge.cooldown = 4.2;
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
+  queuePhantomAbility("speedSurge");
   playAbilityCue("speedSurge");
   addImpact(player.x, player.y, "#8dfcc7", 20);
   statusLine.textContent = "Speed Surge pushed your tempo forward.";
@@ -639,13 +666,8 @@ export function castUltimate() {
 
   if (loadout.ultimate === "phantomSplit") {
     abilityState.ultimate.cooldown = config.ultimateCooldown;
-    abilityState.ultimate.phantomTime = 2.2;
-    player.decoyTime = 2.2;
-    player.ghostTime = 0.7;
     playAbilityCue("phantomSplit");
-    addAfterimage(player.x, player.y, player.facing, player.radius + 8, "#caa3ff");
-    addImpact(player.x, player.y, "#d9bbff", 28);
-    statusLine.textContent = "Phantom Split broke your read for a short window.";
+    spawnPhantomClone();
     return;
   }
 

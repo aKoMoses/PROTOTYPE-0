@@ -592,6 +592,16 @@ export function playWeaponFire(weaponKey, owner = "player") {
     playTone({ type: "sine", frequency: 460, sweepTo: 170, duration: 0.12, gain: 0.05, filterType: "bandpass", filterFrequency: 980, pan });
     return;
   }
+  if (weaponKey === "lance") {
+    playTone({ type: "triangle", frequency: owner === "enemy" ? 220 : 260, sweepTo: 132, duration: 0.14, gain: 0.055, filterType: "bandpass", filterFrequency: 980, q: 0.8, pan });
+    playNoise({ duration: 0.05, gain: 0.028, filterType: "highpass", filterFrequency: 1600, pan });
+    return;
+  }
+  if (weaponKey === "cannon") {
+    playNoise({ duration: 0.12, gain: 0.09, filterType: "lowpass", filterFrequency: 620, q: 0.7, pan });
+    playTone({ type: "sawtooth", frequency: owner === "enemy" ? 96 : 110, sweepTo: 54, duration: 0.2, gain: 0.065, pan });
+    return;
+  }
   if (weaponKey === "axe") {
     playNoise({ duration: 0.09, gain: 0.042, filterType: "highpass", filterFrequency: 1200, pan });
     playTone({ type: "triangle", frequency: 182, sweepTo: 92, duration: 0.16, gain: 0.065, pan });
@@ -599,7 +609,7 @@ export function playWeaponFire(weaponKey, owner = "player") {
 }
 
 export function playWeaponEquip(weaponKey) {
-  const base = weaponKey === "sniper" ? 440 : weaponKey === "shotgun" ? 200 : weaponKey === "axe" ? 170 : 320;
+  const base = weaponKey === "sniper" ? 440 : weaponKey === "shotgun" ? 200 : weaponKey === "axe" ? 170 : weaponKey === "lance" ? 248 : weaponKey === "cannon" ? 150 : 320;
   playTone({ type: "triangle", frequency: base, sweepTo: base * 1.24, duration: 0.11, gain: 0.04, filterType: "lowpass", filterFrequency: 1600 });
 }
 

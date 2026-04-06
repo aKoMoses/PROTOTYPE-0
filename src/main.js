@@ -12,10 +12,12 @@ import { updateImpacts } from "./gameplay/combat.js";
 import { updatePlayer, resetPlayer, setWeapon } from "./gameplay/player.js";
 import { updateEnemy, updateEnemyShockJavelins, updateShockJavelins } from "./gameplay/enemy.js";
 import { updateTrainingBots } from "./gameplay/enemy.js";
+import { bindSurvivalDeps, startSurvivalRun, updateSurvivalEnemies, updateSurvivalMode } from "./gameplay/survival.js";
 import { drawWorld, resize } from "./gameplay/renderer.js";
 import { updateHud } from "./gameplay/hud.js";
 import { setupInputListeners } from "./gameplay/input.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./gameplay/abilities.js";
+import { updatePhantomClone } from "./gameplay/phantom.js";
 import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, initRobotWizardZoneClicks } from "./build/ui.js";
 import { setBotBuildMode } from "./build/loadout.js";
 import { bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones } from "./state.js";
@@ -24,7 +26,8 @@ import { initializeAudio, updateAudio } from "./audio.js";
 
 // Wire up cross-module dependencies
 bindMatchDeps({ resetPlayer, openPrematch, closePrematch, renderPrematch });
-bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, releaseDashInput });
+bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, releaseDashInput, restartSurvivalRun: startSurvivalRun });
+bindSurvivalDeps({ resetPlayer, openPrematch, resetBotsForMode });
 
 // Game loop
 function frame(time) {
@@ -33,7 +36,9 @@ function frame(time) {
 
   updatePortalCooldowns(dt);
   updatePlayer(dt);
+  updatePhantomClone(dt);
   updateEnemy(dt);
+  updateSurvivalEnemies(dt);
   updateTrainingBots(dt);
   resolveCharacterBodyBlocking();
   updateBullets(bullets, dt);
@@ -45,6 +50,7 @@ function frame(time) {
   absorbEnemyProjectiles();
   resolveCombat();
   updateDuelMatch(dt);
+  updateSurvivalMode(dt);
   updateImpacts(dt);
   updateAudio(dt);
   updateHud();

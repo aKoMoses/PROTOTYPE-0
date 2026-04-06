@@ -1,9 +1,11 @@
 // Loadout, build stats, rune calculations, bot loadout management
-import { config, arena } from "../config.js";
+import { config, arena, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { loadout, player, botBuildState, uiState } from "../state.js";
+import { loadout, player, enemy, botBuildState, uiState, abilityState } from "../state.js";
 import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
+import { getStatusState } from "../gameplay/combat.js";
+import { renderPrematch } from "./ui.js";
 
 export function getVisibleContentItems(group) {
   const pool = buildLabVisiblePools[group] ?? [];
@@ -126,6 +128,14 @@ export function createRandomBotLoadout() {
     {
       weapon: weapons.injector.key,
       abilities: ["shockJavelin", "empBurst", "magneticGrapple"],
+    },
+    {
+      weapon: weapons.lance.key,
+      abilities: ["magneticGrapple", "phaseDash", "energyShield"],
+    },
+    {
+      weapon: weapons.cannon.key,
+      abilities: ["gravityWell", "magneticField", "phaseShift"],
     },
   ];
 

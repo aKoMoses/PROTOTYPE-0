@@ -16,12 +16,14 @@ let _resetPlayer = null;
 let _startDuelRound = null;
 let _showRoundBanner = null;
 let _releaseDashInput = null;
+let _restartSurvivalRun = null;
 
-export function bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, releaseDashInput }) {
+export function bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, releaseDashInput, restartSurvivalRun }) {
   _resetPlayer = resetPlayer;
   _startDuelRound = startDuelRound;
   _showRoundBanner = showRoundBanner;
   _releaseDashInput = releaseDashInput;
+  _restartSurvivalRun = restartSurvivalRun;
 }
 
 export function setPrematchStep(step) {
@@ -33,6 +35,7 @@ export function setPrematchStep(step) {
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
+  dom.runeScreen?.classList.toggle("prematch-screen--active", step === "runes");
   dom.stepMode?.classList.toggle("is-active", step === "mode");
   dom.stepMap?.classList.toggle("is-active", step === "map");
   dom.stepBuild?.classList.toggle("is-active", step === "build");
@@ -69,6 +72,12 @@ export function relaunchCurrentSession() {
     return;
   }
 
+  if (sandbox.mode === sandboxModes.survival.key) {
+    _restartSurvivalRun?.({ resetProgress: true });
+    dom.statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} survival gauntlet reset. New wave one, same build.`;
+    return;
+  }
+
   _resetPlayer({ silent: true });
   resetBotsForMode(sandboxModes.training.key);
   _showRoundBanner("", "", false);
@@ -83,19 +92,37 @@ export function updatePrematchSummary() {
   const selectedUltimateTree = getSelectedRuneUltimateTree();
   const selectedAvatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
-  dom.selectedModeLabel.textContent = selectedMode.name;
-  dom.selectedMapLabel.textContent = selectedMap.name;
-  dom.selectedWeaponLabel.textContent = selectedWeapon.name;
-  dom.runePointsLabel.textContent = `${remainingPoints} remaining`;
-  dom.runePointsInline.textContent = `${remainingPoints} points remaining`;
-  dom.runeUltimateInline.textContent = selectedUltimateTree
-    ? `${content.runeTrees[selectedUltimateTree].name} ultimate active`
-    : "No ultimate selected";
-  dom.prematchDescription.textContent =
-    uiState.selectedMode === sandboxModes.training.key
-      ? "Training mode loads a clean firing lane with static bots so you can lab timing, spacing, and projectile denial."
-      : `${selectedMap.name}: ${selectedMap.subtitle}`;
-  dom.cosmeticPreviewName.textContent = selectedAvatar.name;
+  if (dom.selectedModeLabel) {
+    dom.selectedModeLabel.textContent = selectedMode.name;
+  }
+  if (dom.selectedMapLabel) {
+    dom.selectedMapLabel.textContent = selectedMap.name;
+  }
+  if (dom.selectedWeaponLabel) {
+    dom.selectedWeaponLabel.textContent = selectedWeapon.name;
+  }
+  if (dom.runePointsLabel) {
+    dom.runePointsLabel.textContent = `${remainingPoints} remaining`;
+  }
+  if (dom.runePointsInline) {
+    dom.runePointsInline.textContent = `${remainingPoints} points remaining`;
+  }
+  if (dom.runeUltimateInline) {
+    dom.runeUltimateInline.textContent = selectedUltimateTree
+      ? `${content.runeTrees[selectedUltimateTree].name} ultimate active`
+      : "No ultimate selected";
+  }
+  if (dom.prematchDescription) {
+    dom.prematchDescription.textContent =
+      uiState.selectedMode === sandboxModes.training.key
+        ? "Training mode loads a clean firing lane with static bots so you can lab timing, spacing, and projectile denial."
+        : uiState.selectedMode === sandboxModes.survival.key
+          ? `${selectedMap.name}: escalating solo waves against adaptive arena hunters.`
+        : `${selectedMap.name}: ${selectedMap.subtitle}`;
+  }
+  if (dom.cosmeticPreviewName) {
+    dom.cosmeticPreviewName.textContent = selectedAvatar.name;
+  }
 }
 
 export function renderSelectionGrid(container, items, selectedKeys, onSelect, options = {}) {
@@ -151,7 +178,7 @@ export function renderMapSelection() {
       card.classList.add("is-selected");
     }
     card.innerHTML = `
-      <span class="mode-card__tag">${uiState.selectedMode === sandboxModes.training.key ? "Training" : mapChoice.key === "randomMap" ? "Random" : "Duel Map"}</span>
+      <span class="mode-card__tag">${uiState.selectedMode === sandboxModes.training.key ? "Training" : uiState.selectedMode === sandboxModes.survival.key ? (mapChoice.key === "randomMap" ? "Random Survival" : "Survival Arena") : mapChoice.key === "randomMap" ? "Random" : "Duel Map"}</span>
       <strong>${mapChoice.name}</strong>
       <span>${mapChoice.subtitle}</span>
     `;
@@ -917,6 +944,15 @@ export function toggleRuneUltimate(treeKey) {
   }
 
   treeState.ultimate = 1;
+  renderPrematch();
+}
+
+export function resetRuneAllocation() {
+  Object.values(loadout.runes).forEach((treeState) => {
+    treeState.secondary = 0;
+    treeState.primary = 0;
+    treeState.ultimate = 0;
+  });
   renderPrematch();
 }
 

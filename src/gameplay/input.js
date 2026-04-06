@@ -3,29 +3,27 @@ import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
 import { player, input, uiState, sandbox, abilityState, loadout, botBuildState, trainingBots, trainingToolState } from "../state.js";
 import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
-  modeDuel, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
+  modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
   botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
   buildStepPrev, buildStepNext, botConfigToggle, botConfigCard,
-  continueRunes, backBuild } from "../dom.js";
+  continueRunes, backBuild, runeResetButton } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
-import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep } from "../build/ui.js";
+import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetRuneAllocation } from "../build/ui.js";
 import { setBotBuildMode } from "../build/loadout.js";
-import { resize } from "./renderer.js";
+import { resize, updateCameraState } from "./renderer.js";
 
 export function screenToArena(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scale = Math.min(rect.width / arena.width, rect.height / arena.height);
-  const offsetX = (rect.width - arena.width * scale) * 0.5;
-  const offsetY = (rect.height - arena.height * scale) * 0.5;
+  const camera = updateCameraState(rect.width, rect.height);
 
   return {
-    x: clamp((clientX - rect.left - offsetX) / scale, 0, arena.width),
-    y: clamp((clientY - rect.top - offsetY) / scale, 0, arena.height),
+    x: clamp((clientX - rect.left - camera.offsetX) / camera.scale + camera.x, 0, arena.width),
+    y: clamp((clientY - rect.top - camera.offsetY) / camera.scale + camera.y, 0, arena.height),
   };
 }
 
@@ -106,6 +104,10 @@ window.addEventListener("keydown", (event) => {
     castUltimate();
   }
 
+  if (event.code === "KeyC") {
+    input.altFiring = true;
+  }
+
   if (sandbox.mode !== sandboxModes.training.key) {
     return;
   }
@@ -133,6 +135,14 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "Digit6") {
     setWeapon(weapons.injector.key);
   }
+
+  if (event.code === "Digit7") {
+    setWeapon(weapons.lance.key);
+  }
+
+  if (event.code === "Digit8") {
+    setWeapon(weapons.cannon.key);
+  }
 });
 
 window.addEventListener("keyup", (event) => {
@@ -150,6 +160,8 @@ window.addEventListener("keyup", (event) => {
     releaseAbilityInput(1);
   } else if (event.code === "KeyF") {
     releaseAbilityInput(2);
+  } else if (event.code === "KeyC") {
+    input.altFiring = false;
   }
 });
 
@@ -166,6 +178,7 @@ helpToggle.addEventListener("click", () => {
 });
 
 bindPrematchButton(modeDuel, "mode-duel");
+bindPrematchButton(modeSurvival, "mode-survival");
 bindPrematchButton(modeTraining, "mode-training");
 bindPrematchButton(stepMode, "step-mode");
 bindPrematchButton(stepMap, "step-map");
@@ -179,6 +192,11 @@ bindPrematchButton(buildStepPrev, "build-step-prev");
 bindPrematchButton(buildStepNext, "build-step-next");
 bindPrematchButton(continueRunes, "continue-runes");
 bindPrematchButton(backBuild, "back-build");
+
+runeResetButton?.addEventListener("click", () => {
+  resetRuneAllocation();
+  statusLine.textContent = "Rune allocation reset.";
+});
 
 botConfigToggle?.addEventListener("click", () => {
   const hidden = botConfigCard?.classList.toggle("is-hidden");
@@ -303,15 +321,25 @@ canvas.addEventListener("mousedown", (event) => {
     return;
   }
   updatePointer(event.clientX, event.clientY);
+  if (event.button === 2) {
+    input.altFiring = true;
+    return;
+  }
   input.firing = true;
+});
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
 });
 
 window.addEventListener("mouseup", () => {
   input.firing = false;
+  input.altFiring = false;
 });
 
 canvas.addEventListener("mouseleave", () => {
   input.firing = false;
+  input.altFiring = false;
 });
 
 canvas.addEventListener(

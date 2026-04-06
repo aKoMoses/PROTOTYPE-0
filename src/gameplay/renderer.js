@@ -1,7 +1,7 @@
 // Canvas rendering (all draw functions)
 import { arena, config } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, input,
+import { player, playerClone, enemy, abilityState, loadout, sandbox, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   supportZones, beamEffects, mapState, globals } from "../state.js";
@@ -13,6 +13,19 @@ import { getAllBots, getStatusState } from "./combat.js";
 import { mapChoices } from "../maps.js";
 import { statusVisuals } from "../content.js";
 
+const cameraState = {
+  x: 0,
+  y: 0,
+  width: 1600,
+  height: 900,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  scrollable: false,
+  baseWidth: 1600,
+  baseHeight: 900,
+};
+
 export function resize() {
   const ratio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
@@ -20,6 +33,38 @@ export function resize() {
   canvas.width = width;
   canvas.height = height;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+export function updateCameraState(viewportWidth = canvas.clientWidth || window.innerWidth, viewportHeight = canvas.clientHeight || window.innerHeight) {
+  const layout = getMapLayout();
+  const scrollable = Boolean(layout.scrollable && (arena.width > cameraState.baseWidth || arena.height > cameraState.baseHeight));
+
+  if (!scrollable) {
+    const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
+    cameraState.x = 0;
+    cameraState.y = 0;
+    cameraState.width = arena.width;
+    cameraState.height = arena.height;
+    cameraState.scale = scale;
+    cameraState.offsetX = (viewportWidth - arena.width * scale) * 0.5;
+    cameraState.offsetY = (viewportHeight - arena.height * scale) * 0.5;
+    cameraState.scrollable = false;
+    return cameraState;
+  }
+
+  const scale = Math.min(viewportWidth / cameraState.baseWidth, viewportHeight / cameraState.baseHeight);
+  const viewWidth = viewportWidth / scale;
+  const viewHeight = viewportHeight / scale;
+
+  cameraState.x = clamp(player.x - viewWidth * 0.5, 0, Math.max(0, arena.width - viewWidth));
+  cameraState.y = clamp(player.y - viewHeight * 0.5, 0, Math.max(0, arena.height - viewHeight));
+  cameraState.width = viewWidth;
+  cameraState.height = viewHeight;
+  cameraState.scale = scale;
+  cameraState.offsetX = (viewportWidth - viewWidth * scale) * 0.5;
+  cameraState.offsetY = (viewportHeight - viewHeight * scale) * 0.5;
+  cameraState.scrollable = true;
+  return cameraState;
 }
 
 export function drawStatusReadout(target) {
@@ -156,6 +201,15 @@ export function drawProjectileSprite(projectile, hostile = false) {
     ctx.beginPath();
     ctx.arc(0, 0, projectile.radius + 5, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (source.includes("cannon")) {
+    ctx.fillStyle = color;
+    traceRoundedRect(-10, -7, 20, 14, 4);
+    ctx.fill();
+    ctx.fillStyle = hostile ? "rgba(255, 245, 224, 0.8)" : "rgba(240, 252, 255, 0.82)";
+    ctx.fillRect(4, -3, 12, 6);
+    ctx.strokeStyle = hostile ? "rgba(255, 225, 198, 0.7)" : "rgba(225, 247, 255, 0.78)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-10, -7, 20, 14);
   } else if (source.includes("shotgun")) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -279,6 +333,154 @@ export function drawActorFrame(actor, palette, options = {}) {
   ctx.restore();
 }
 
+function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0) {
+  const flashOn = actionFlash > 0;
+  if (weaponKey === weapons.axe.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-4, -4, 34, 8);
+    ctx.shadowBlur = 28;
+    ctx.shadowColor = flashOn ? glow : tint;
+    ctx.fillStyle = tint;
+    ctx.beginPath();
+    ctx.moveTo(20, -26);
+    ctx.lineTo(42, -18);
+    ctx.lineTo(38, -4);
+    ctx.lineTo(22, -9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(20, 26);
+    ctx.lineTo(42, 18);
+    ctx.lineTo(38, 4);
+    ctx.lineTo(22, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = `${glow}88`;
+    ctx.fillRect(18, -3, 18, 6);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(212, 255, 255, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(20, -22);
+    ctx.lineTo(38, -15);
+    ctx.moveTo(20, 22);
+    ctx.lineTo(38, 15);
+    ctx.moveTo(28, -4);
+    ctx.lineTo(43, -1);
+    ctx.moveTo(28, 4);
+    ctx.lineTo(43, 1);
+    ctx.stroke();
+    return;
+  }
+
+  if (weaponKey === weapons.sniper.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-4, -4, 36, 8);
+    ctx.fillStyle = tint;
+    ctx.fillRect(18, -5, 34, 10);
+    ctx.fillStyle = glow;
+    ctx.fillRect(48, -2, 12, 4);
+    ctx.fillRect(14, -9, 12, 4);
+    ctx.strokeStyle = "rgba(255, 245, 210, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(60, 0);
+    ctx.stroke();
+    return;
+  }
+
+  if (weaponKey === weapons.staff.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-3, -4, 44, 8);
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(54, 0);
+    ctx.stroke();
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(54, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(214, 255, 232, 0.82)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(54, 0, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    return;
+  }
+
+  if (weaponKey === weapons.injector.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-4, -4, 30, 8);
+    ctx.fillStyle = tint;
+    ctx.fillRect(18, -7, 20, 14);
+    ctx.fillStyle = glow;
+    ctx.fillRect(34, -3, 18, 6);
+    ctx.fillRect(12, -10, 8, 20);
+    return;
+  }
+
+  if (weaponKey === weapons.shotgun.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-4, -5, 24, 10);
+    ctx.fillStyle = tint;
+    ctx.fillRect(20, -4, 18, 8);
+    ctx.fillStyle = glow;
+    ctx.fillRect(34, -2, 6, 4);
+    return;
+  }
+
+  if (weaponKey === weapons.lance.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-4, -4, 26, 8);
+    ctx.fillStyle = tint;
+    ctx.beginPath();
+    ctx.moveTo(12, -4);
+    ctx.lineTo(44, -4);
+    ctx.lineTo(56, 0);
+    ctx.lineTo(44, 4);
+    ctx.lineTo(12, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.moveTo(48, -2);
+    ctx.lineTo(64, 0);
+    ctx.lineTo(48, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 247, 210, 0.86)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(58, 0);
+    ctx.stroke();
+    return;
+  }
+
+  if (weaponKey === weapons.cannon.key) {
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(-6, -6, 24, 12);
+    ctx.fillStyle = tint;
+    traceRoundedRect(14, -9, 30, 18, 6);
+    ctx.fill();
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(42, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(40, -3, 18, 6);
+    ctx.strokeStyle = "rgba(255, 239, 220, 0.82)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(14, -9, 30, 18);
+    return;
+  }
+
+  ctx.fillStyle = tint;
+  ctx.fillRect(-3, -5, 28, 10);
+}
+
 export function drawPendingAxeTelegraph() {
   if (!player.pendingAxeStrike || player.attackStartupTime <= 0) {
     return;
@@ -360,16 +562,13 @@ export function drawBot(bot) {
     },
     { scale: bot.role === "training" ? 0.84 : 0.9 },
   );
-
-  ctx.fillStyle = bot.role === "training" ? "#eaf8ff" : bot.accent;
-  if (bot.weapon === weapons.axe.key) {
-    ctx.fillRect(10, -3, 20, 6);
-    ctx.fillRect(24, -14, 8, 28);
-  } else if (bot.weapon === weapons.shotgun.key) {
-    ctx.fillRect(10, -4, 24, 8);
-  } else {
-    ctx.fillRect(10, -3, 22, 6);
-  }
+  drawEquippedWeapon(
+    bot.weapon,
+    bot.role === "training" ? "#355868" : "#4f2f2f",
+    bot.role === "training" ? "#bdefff" : bot.accent,
+    bot.role === "training" ? "#e9fbff" : "#ffd5be",
+    bot.flash,
+  );
 
   ctx.restore();
 
@@ -713,14 +912,14 @@ export function drawWorld() {
   const viewportHeight = canvas.clientHeight || window.innerHeight;
   ctx.clearRect(0, 0, viewportWidth, viewportHeight);
 
-  const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
-  const offsetX = (viewportWidth - arena.width * scale) * 0.5;
-  const offsetY = (viewportHeight - arena.height * scale) * 0.5;
+  const camera = updateCameraState(viewportWidth, viewportHeight);
+  const shakeX = (Math.random() - 0.5) * globals.screenShake;
+  const shakeY = (Math.random() - 0.5) * globals.screenShake;
 
   ctx.save();
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(scale, scale);
-  ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+  ctx.translate(camera.offsetX, camera.offsetY);
+  ctx.scale(camera.scale, camera.scale);
+  ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
   const activeLayout = getMapLayout();
   const theme = activeLayout.theme ?? mapChoices.electroGallery.theme;
@@ -1029,6 +1228,49 @@ export function drawWorld() {
 
   drawPendingAxeTelegraph();
 
+  if (playerClone.active && playerClone.alive) {
+    const cloneAvatar = content.avatars[playerClone.avatar] ?? content.avatars[loadout.avatar] ?? content.avatars.drifter;
+    const cloneWeaponSkin = content.weaponSkins[playerClone.weaponSkin] ?? content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
+    const cloneHitOffset = getHitReactionOffset(playerClone);
+    ctx.save();
+    const cloneRecoilOffset = (playerClone.recoil ?? 0) * 7;
+    ctx.globalAlpha = 0.82 * Math.max(0.34, playerClone.life / Math.max(0.001, playerClone.maxLife || 1));
+    ctx.translate(
+      playerClone.x + cloneHitOffset.x - Math.cos(playerClone.facing) * cloneRecoilOffset,
+      playerClone.y + cloneHitOffset.y - Math.sin(playerClone.facing) * cloneRecoilOffset,
+    );
+    ctx.rotate(playerClone.facing);
+    if (playerClone.ghostTime > 0) {
+      ctx.globalAlpha *= 0.58;
+    }
+    drawActorFrame(
+      playerClone,
+      {
+        body: playerClone.flash > 0 ? "#fff6ff" : cloneAvatar.bodyColor,
+        accent: "#d8bbff",
+        detail: cloneAvatar.detailColor,
+        variant: cloneAvatar.key,
+      },
+      { scale: 0.98 },
+    );
+    drawEquippedWeapon(playerClone.weapon, cloneAvatar.detailColor, cloneWeaponSkin.tint, cloneWeaponSkin.glow, (playerClone.slashFlash ?? 0) + (playerClone.actionFlash ?? 0));
+    if (playerClone.shield > 0) {
+      ctx.strokeStyle = "rgba(214, 188, 255, 0.9)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, playerClone.radius + 8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(225, 204, 255, 0.72)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, playerClone.radius + 11 + Math.sin(performance.now() * 0.012) * 1.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    drawOverheadHealthBar(playerClone, "#d8bbff");
+    drawStatusReadout(playerClone);
+  }
+
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
   const weaponSkin = content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
   const playerHitOffset = getHitReactionOffset(player);
@@ -1052,91 +1294,7 @@ export function drawWorld() {
     },
     { scale: 1 },
   );
-  if (player.weapon === weapons.axe.key) {
-    ctx.fillStyle = avatar.detailColor;
-    ctx.fillRect(-4, -4, 34, 8);
-    ctx.shadowBlur = 28;
-    ctx.shadowColor = player.slashFlash > 0 ? weaponSkin.glow : weaponSkin.tint;
-    ctx.fillStyle = weaponSkin.tint;
-    ctx.beginPath();
-    ctx.moveTo(20, -26);
-    ctx.lineTo(42, -18);
-    ctx.lineTo(38, -4);
-    ctx.lineTo(22, -9);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(20, 26);
-    ctx.lineTo(42, 18);
-    ctx.lineTo(38, 4);
-    ctx.lineTo(22, 9);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `${weaponSkin.glow}88`;
-    ctx.fillRect(18, -3, 18, 6);
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(212, 255, 255, 0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(20, -22);
-    ctx.lineTo(38, -15);
-    ctx.moveTo(20, 22);
-    ctx.lineTo(38, 15);
-    ctx.moveTo(28, -4);
-    ctx.lineTo(43, -1);
-    ctx.moveTo(28, 4);
-    ctx.lineTo(43, 1);
-    ctx.stroke();
-  } else if (player.weapon === weapons.sniper.key) {
-    ctx.fillStyle = avatar.detailColor;
-    ctx.fillRect(-4, -4, 36, 8);
-    ctx.fillStyle = weaponSkin.tint;
-    ctx.fillRect(18, -5, 34, 10);
-    ctx.fillStyle = weaponSkin.glow;
-    ctx.fillRect(48, -2, 12, 4);
-    ctx.fillRect(14, -9, 12, 4);
-    ctx.strokeStyle = "rgba(255, 245, 210, 0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(60, 0);
-    ctx.stroke();
-  } else if (player.weapon === weapons.staff.key) {
-    ctx.fillStyle = avatar.detailColor;
-    ctx.fillRect(-3, -4, 44, 8);
-    ctx.strokeStyle = weaponSkin.tint;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(54, 0);
-    ctx.stroke();
-    ctx.fillStyle = weaponSkin.glow;
-    ctx.beginPath();
-    ctx.arc(54, 0, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(214, 255, 232, 0.82)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(54, 0, 12, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (player.weapon === weapons.injector.key) {
-    ctx.fillStyle = avatar.detailColor;
-    ctx.fillRect(-4, -4, 30, 8);
-    ctx.fillStyle = weaponSkin.tint;
-    ctx.fillRect(18, -7, 20, 14);
-    ctx.fillStyle = weaponSkin.glow;
-    ctx.fillRect(34, -3, 18, 6);
-    ctx.fillRect(12, -10, 8, 20);
-  } else if (player.weapon === weapons.shotgun.key) {
-    ctx.fillStyle = avatar.detailColor;
-    ctx.fillRect(-4, -5, 24, 10);
-    ctx.fillStyle = weaponSkin.tint;
-    ctx.fillRect(20, -4, 18, 8);
-    ctx.fillStyle = weaponSkin.glow;
-    ctx.fillRect(34, -2, 6, 4);
-  } else {
-    ctx.fillRect(-3, -5, 28, 10);
-  }
+  drawEquippedWeapon(player.weapon, avatar.detailColor, weaponSkin.tint, weaponSkin.glow, player.slashFlash);
 
   if (player.shield > 0) {
     ctx.strokeStyle = "rgba(160, 220, 255, 0.92)";
@@ -1147,7 +1305,7 @@ export function drawWorld() {
   }
   ctx.restore();
 
-  if (abilityState.ultimate.phantomTime > 0 || player.decoyTime > 0) {
+  if (!playerClone.active && (abilityState.ultimate.phantomTime > 0 || player.decoyTime > 0)) {
     const ghostAlpha = Math.max(abilityState.ultimate.phantomTime, player.decoyTime) / 2.2;
     ctx.save();
     ctx.globalAlpha = ghostAlpha * 0.35;

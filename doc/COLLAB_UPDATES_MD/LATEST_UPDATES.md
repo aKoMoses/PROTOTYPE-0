@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-04-06 23:53:33
+- **Author:** AKOMOSES
+- **Branch:** `codex/fix-interface-buttons`
+- **Type:** Runtime Stabilization, Survival Recovery, Missing Weapons, Phantom Split Clone
+
+### Summary
+- Repaired the new UI flow and match launch path so prematch buttons, menu actions, rune flow, and in-game return actions respond correctly again.
+- Restored missing gameplay content from the desktop reference into the modular runtime: `Survival / Wave Gauntlet`, the scrollable `Wasteland Expanse`, camera follow, and related HUD / match / state wiring.
+- Ported the missing weapons `Charge Lance` and `Heavy Cannon` into content, player controls, HUD, renderer, audio, and duel bot behavior, including alt-fire support.
+- Reworked `Phantom Split` into a real temporary clone with HP, hitbox, shield, targetability, delayed action copy, and tuned 30% stat scaling over a 4-second lifetime.
+- Cleared a long series of runtime freezes caused by missing imports and broken combat paths across abilities, bot actions, projectiles, cannon splash handling, and survival / duel transitions.
+- Added a local launcher script so the game is started through Vite instead of broken `file://` loading.
+
+### Files
+- `src/gameplay/phantom.js`
+- `src/gameplay/abilities.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/enemy.js`
+- `src/gameplay/player.js`
+- `src/gameplay/weapons.js`
+- `src/gameplay/renderer.js`
+- `src/gameplay/match.js`
+- `src/gameplay/input.js`
+- `src/gameplay/hud.js`
+- `src/gameplay/survival.js`
+- `src/maps.js`
+- `src/content.js`
+- `src/config.js`
+- `src/state.js`
+- `src/build/ui.js`
+- `src/build/loadout.js`
+- `src/audio.js`
+- `src/main.js`
+- `Lancer-PROTOTYPE-0.cmd`
+
+### Notes
+- Verification completed with `npm run build`, an ESLint `no-undef` sweep on `src/**/*.js`, and targeted headless smoke tests in both `training` and `duel`.
+- `.codex-artifacts/` is kept local for temporary test captures and is not part of the pushed code.
+
+---
+
 ## 2026-04-06 22:00:00
 - **Author:** GitHub Copilot
 - **Branch:** `main`

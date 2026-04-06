@@ -7,8 +7,9 @@ import { addImpact, addShake, addAfterimage, addHealingText } from "./effects.js
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getActiveDashCooldown, getAbilityBySlot, getPulseMagazineSize } from "../build/loadout.js";
 import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerSpawn, clearStatusEffects, updateStatusEffects, tickEntityMarks, clearCombatArtifacts, getStatusState, getZoneEffectsForEntity, finalizePulseReload } from "./combat.js";
-import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
+import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackChargeLance, fireHeavyCannon, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
 import { updateDashAbility, updateJavelinAbility, updateFieldAbility, updateExtraAbilities } from "./abilities.js";
+import { resetPhantomClone } from "./phantom.js";
 import * as dom from "../dom.js";
 import { playWeaponEquip } from "../audio.js";
 
@@ -38,6 +39,10 @@ export function setWeapon(nextWeapon) {
         ? "Volt Staff equipped. Trade raw burst for sustain and field control."
       : nextWeapon === weapons.injector.key
         ? "Bio-Injector equipped. Mark targets and convert pressure into sustain."
+      : nextWeapon === weapons.lance.key
+        ? "Charge Lance equipped. Use left click for a lane puncture and C or right click for the drive."
+      : nextWeapon === weapons.cannon.key
+        ? "Heavy Cannon equipped. Siege with shell fire and cryo-control on alt fire."
       : "Pulse Rifle equipped. Keep the bot under ranged pressure.";
 }
 
@@ -78,7 +83,9 @@ export function resetPlayer({ silent = false } = {}) {
   player.decoyTime = 0;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
+  input.altFiring = false;
   clearStatusEffects(player);
+  resetPhantomClone({ silent: true });
   abilityState.dash.inputHeld = false;
   abilityState.dash.holdTime = 0;
   abilityState.dash.activeTime = 0;
@@ -137,7 +144,7 @@ export function updatePlayer(dt) {
   updateStatusEffects(player, dt);
   tickEntityMarks(player, dt);
   const playerStatus = getStatusState(player);
-  const playerZoneEffects = getZoneEffectsForEntity(player);
+  const playerZoneEffects = getZoneEffectsForEntity(player, dt);
   const buildStats = getBuildStats();
 
   updateDashAbility(dt);
@@ -217,8 +224,16 @@ export function updatePlayer(dt) {
     finalizePulseReload(player);
   }
 
-  if (combatLive && !playerStatus.stunned && input.firing && player.fireCooldown <= 0) {
-    if (player.weapon === weapons.axe.key) {
+  const wantsAltFire =
+    input.altFiring &&
+    (player.weapon === weapons.lance.key || player.weapon === weapons.cannon.key);
+
+  if (combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && (input.firing || wantsAltFire)) {
+    if (wantsAltFire && player.weapon === weapons.lance.key) {
+      attackChargeLance(true);
+    } else if (wantsAltFire && player.weapon === weapons.cannon.key) {
+      fireHeavyCannon(true);
+    } else if (player.weapon === weapons.axe.key) {
       attackElectricAxe();
     } else if (player.weapon === weapons.shotgun.key) {
       attackScrapShotgun();
@@ -228,6 +243,10 @@ export function updatePlayer(dt) {
       attackVoltStaff();
     } else if (player.weapon === weapons.injector.key) {
       attackBioInjector();
+    } else if (player.weapon === weapons.lance.key) {
+      attackChargeLance(false);
+    } else if (player.weapon === weapons.cannon.key) {
+      fireHeavyCannon(false);
     } else {
       attackPulseRifle();
     }

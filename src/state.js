@@ -55,6 +55,7 @@ export const input = {
   mouseX: arena.width * 0.5,
   mouseY: arena.height * 0.5,
   firing: false,
+  altFiring: false,
   moveTouchId: null,
   moveTouchX: 0,
   moveTouchY: 0,
@@ -101,6 +102,48 @@ export const player = {
   decoyTime: 0,
   injectorMarks: 0,
   injectorMarkTime: 0,
+};
+
+export const playerClone = {
+  active: false,
+  alive: false,
+  team: "player",
+  kind: "playerClone",
+  x: arena.width * 0.5,
+  y: arena.height * 0.5,
+  hp: 0,
+  maxHp: 0,
+  radius: Math.max(12, config.playerRadius * 0.96),
+  facing: 0,
+  flash: 0,
+  shield: 0,
+  shieldTime: 0,
+  ghostTime: 0,
+  hasteTime: 0,
+  weapon: weapons.pulse.key,
+  avatar: "drifter",
+  weaponSkin: "stock",
+  loadout: {
+    weapon: weapons.pulse.key,
+    abilities: ["shockJavelin", "magneticField", "energyShield"],
+  },
+  damageScale: config.phantomDamageScale,
+  shieldScale: config.phantomShieldScale,
+  healScale: config.phantomHealScale,
+  statusScale: config.phantomStatusScale,
+  life: 0,
+  maxLife: config.phantomDuration,
+  trail: [],
+  actionQueue: [],
+  statusEffects: [],
+  injectorMarks: 0,
+  injectorMarkTime: 0,
+  hitReactionTime: 0,
+  hitReactionX: 0,
+  hitReactionY: 0,
+  recoil: 0,
+  slashFlash: 0,
+  actionFlash: 0,
 };
 
 
@@ -221,6 +264,8 @@ export function createBot({
     dodgeVectorY: 0,
     burstShots: 0,
     shotSpread: 0,
+    focusTarget: "player",
+    focusTime: 0,
     shield: 0,
     shieldTime: 0,
     hasteTime: 0,
@@ -321,6 +366,20 @@ export const matchState = {
   introIndex: 0,
 };
 
+export const survivalState = {
+  wave: 1,
+  totalKills: 0,
+  waveKills: 0,
+  phase: "idle",
+  timer: 0,
+  waveTargetKills: 2,
+  spawnQueue: [],
+  spawnCooldown: 0,
+  maxConcurrent: 3,
+  planLabel: "Scavenger Rush",
+  completed: false,
+};
+
 export const bullets = [];
 export const enemyBullets = [];
 export const impacts = [];
@@ -339,6 +398,7 @@ export const deployableTurrets = [];
 export const supportZones = [];
 export const beamEffects = [];
 export const mapEffects = [];
+export const survivalEnemies = [];
 export const mapState = {
   layoutKey: mapChoices.electroGallery.key,
   obstacles: [],

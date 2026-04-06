@@ -1,32 +1,44 @@
 // Core combat: damage, projectiles, status effects, map interactions
 import { arena, config, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, trainingBots, bots, abilityState, loadout, sandbox, matchState,
+import { statusLine } from "../dom.js";
+import { player, playerClone, enemy, trainingBots, bots, abilityState, loadout, sandbox, matchState, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
-  mapEffects, mapState, globals, botBuildState } from "../state.js";
+  mapEffects, mapState, globals, botBuildState, trainingToolState, survivalEnemies, survivalState } from "../state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
-import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState } from "../maps.js";
+import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration } from "../build/loadout.js";
+import { finishDuelRound } from "./match.js";
+import { resetPlayer } from "./player.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue } from "../audio.js";
+import { applyPhantomDamage, resetPhantomClone } from "./phantom.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
 
 export function getAllBots() {
+  if (sandbox.mode === sandboxModes.survival.key) {
+    return survivalEnemies;
+  }
   return bots.filter((bot) => bot.modes.includes(sandbox.mode));
 }
 
 export function getPrimaryBot() {
   if (sandbox.mode === sandboxModes.duel.key) return enemy.alive ? enemy : null;
+  if (sandbox.mode === sandboxModes.survival.key) return survivalEnemies.find((bot) => bot.alive) ?? null;
   return trainingBots.find((bot) => bot.alive) ?? null;
 }
 
 export function isCombatLive() {
-  return sandbox.mode === sandboxModes.duel.key
-    ? player.alive && enemy.alive && matchState.phase === "active"
-    : player.alive;
+  if (sandbox.mode === sandboxModes.duel.key) {
+    return player.alive && enemy.alive && matchState.phase === "active";
+  }
+  if (sandbox.mode === sandboxModes.survival.key) {
+    return player.alive && survivalState.phase === "active";
+  }
+  return player.alive;
 }
 
 export function getStatusState(entity) {
@@ -68,6 +80,37 @@ export function getMoveVector() {
   }
 
   return normalize(x, y);
+}
+
+function getFriendlyTargetKey(target) {
+  return target === player ? "player" : target.kind ?? "playerClone";
+}
+
+function getFriendlyCombatTargets() {
+  const targets = [];
+  if (playerClone.active && playerClone.alive) {
+    targets.push(playerClone);
+  }
+  if (player.alive) {
+    targets.push(player);
+  }
+  return targets;
+}
+
+function getEntityFieldModifier(entity) {
+  let damageReduction = getZoneEffectsForEntity(entity).damageReduction;
+
+  for (const field of magneticFields) {
+    if (field.anchor !== "player" || field.team !== "player") {
+      continue;
+    }
+
+    if (length(entity.x - field.x, entity.y - field.y) <= field.radius) {
+      damageReduction = Math.max(damageReduction, field.damageReduction);
+    }
+  }
+
+  return { damageReduction };
 }
 
 export function spawnBullet(owner, targetX, targetY, collection, color, speed, damage, options = {}) {
@@ -132,7 +175,7 @@ export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
   const endX = pylon.x + Math.cos(pylon.fallAngle) * pylon.fallLength;
   const endY = pylon.y + Math.sin(pylon.fallAngle) * pylon.fallLength;
   const fallVector = normalize(Math.cos(pylon.fallAngle), Math.sin(pylon.fallAngle));
-  const targets = team === "player" ? getAllBots() : [player];
+  const targets = team === "player" ? getAllBots() : getFriendlyCombatTargets();
   for (const target of targets) {
     if (!target.alive) {
       continue;
@@ -144,6 +187,9 @@ export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
     if (target.team === "enemy") {
       damageBot(target, 34, pylon.color, target.x, target.y, 0);
       applyStatusEffect(target, "stun", getStatusDuration(0.8), 1);
+    } else if (target === playerClone) {
+      applyPhantomDamage(22, "pylon");
+      applyStatusEffect(target, "stun", getStatusDuration(0.4), 1);
     } else {
       const defeatedByPylon = applyPlayerDamage(22, "pylon");
       applyStatusEffect(target, "stun", getStatusDuration(0.55), 1);
@@ -275,22 +321,11 @@ export function clearCombatArtifacts() {
   supportZones.length = 0;
   beamEffects.length = 0;
   mapEffects.length = 0;
+  resetPhantomClone({ silent: true });
 }
 
 export function getPlayerFieldModifier() {
-  let damageReduction = getZoneEffectsForEntity(player).damageReduction;
-
-  for (const field of magneticFields) {
-    if (field.anchor !== "player" || field.team !== "player") {
-      continue;
-    }
-
-    if (length(player.x - field.x, player.y - field.y) <= field.radius) {
-      damageReduction = Math.max(damageReduction, field.damageReduction);
-    }
-  }
-
-  return { damageReduction };
+  return getEntityFieldModifier(player);
 }
 
 export function getFieldInfluence(target) {
@@ -330,7 +365,7 @@ export function updateSupportZones(dt) {
   }
 }
 
-export function getZoneEffectsForEntity(entity) {
+export function getZoneEffectsForEntity(entity, dt = 0) {
   let slowMultiplier = 1;
   let damageReduction = 0;
 
@@ -467,7 +502,12 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
   if (bot.hp <= 0) {
     bot.alive = false;
     addImpact(bot.x, bot.y, "#b6fff4", 42);
-    statusLine.textContent = `${bot.role === "training" ? "Training bot" : "Enemy bot"} destroyed. Press R to reset bots.`;
+    statusLine.textContent =
+      bot.role === "training"
+        ? "Training bot destroyed. Press R to reset bots."
+        : bot.role === "survival"
+          ? "Survival target destroyed. Keep clearing the wave."
+          : "Enemy bot destroyed. Press R to reset bots.";
 
     if (sandbox.mode === sandboxModes.duel.key && bot.role === "hunter") {
       finishDuelRound("player");
@@ -504,7 +544,7 @@ export function applyInjectorMark(target, duration, maxStacks = 3) {
 }
 
 export function tickEntityMarks(entity, dt) {
-  entity.injectorMarkTime = Math.max(0, entity.injectorMarkTime ?? 0 - dt);
+  entity.injectorMarkTime = Math.max(0, (entity.injectorMarkTime ?? 0) - dt);
   if ((entity.injectorMarkTime ?? 0) <= 0) {
     entity.injectorMarks = 0;
   }
@@ -546,7 +586,7 @@ export function applyProjectileEffectToBot(bot, projectile) {
   }
 }
 
-export function applyProjectileEffectToPlayer(projectile) {
+export function applyProjectileEffectToPlayer(projectile, target = player) {
   const effect = projectile.effect;
   if (!effect) {
     return;
@@ -556,15 +596,92 @@ export function applyProjectileEffectToPlayer(projectile) {
     healEntity(enemy, effect.heal ?? 0);
     addImpact(enemy.x, enemy.y, "#b8ffd8", 16);
   } else if (effect.kind === "injector") {
-    applyInjectorMark(player, effect.markDuration ?? 4, effect.markMax ?? 3);
-    if ((player.injectorMarks ?? 0) >= 3) {
-      player.injectorMarks = 0;
-      player.injectorMarkTime = 0;
+    applyInjectorMark(target, effect.markDuration ?? 4, effect.markMax ?? 3);
+    if ((target.injectorMarks ?? 0) >= 3) {
+      target.injectorMarks = 0;
+      target.injectorMarkTime = 0;
       healEntity(enemy, effect.healOnConsume ?? 10);
-      addImpact(player.x, player.y, "#f0b8ff", 20);
+      addImpact(target.x, target.y, "#f0b8ff", 20);
     }
   } else if (effect.kind === "rail") {
-    applyStatusEffect(player, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    applyStatusEffect(target, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+  }
+}
+
+function triggerCannonExplosion(projectile, impactX, impactY, team = "player", directTarget = null) {
+  const effect = projectile.effect;
+  if (effect?.kind !== "cannon") {
+    return;
+  }
+
+  const explosionColor = team === "player"
+    ? projectile.source?.includes("cryo")
+      ? "#d9f6ff"
+      : "#ffd7b8"
+    : projectile.source?.includes("cryo")
+      ? "#d8f1ff"
+      : "#ffc2a2";
+  addExplosion(impactX, impactY, effect.splashRadius ?? 72, explosionColor);
+  addImpact(impactX, impactY, projectile.source?.includes("cryo") ? "#effcff" : "#fff0d8", 26);
+  addShake(projectile.source?.includes("cryo") ? 5.2 : 7);
+
+  if (team === "player") {
+    for (const bot of getAllBots()) {
+      if (!bot.alive) {
+        continue;
+      }
+      const isDirectTarget = bot === directTarget;
+      if (!isDirectTarget && length(bot.x - impactX, bot.y - impactY) > (effect.splashRadius ?? 72) + bot.radius) {
+        continue;
+      }
+
+      if (!isDirectTarget) {
+        damageBot(bot, effect.splashDamage ?? 0, explosionColor, bot.x, bot.y, 0);
+      }
+      applyStatusEffect(
+        bot,
+        effect.statusType ?? "slow",
+        getStatusDuration(effect.statusDuration ?? 0.6),
+        effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+      );
+      addImpact(bot.x, bot.y, projectile.source?.includes("cryo") ? "#e8fbff" : "#fff0cf", isDirectTarget ? 20 : 16);
+    }
+    return;
+  }
+
+  for (const target of getFriendlyCombatTargets()) {
+    const isDirectTarget = target === directTarget;
+    if (!isDirectTarget && length(target.x - impactX, target.y - impactY) > (effect.splashRadius ?? 72) + target.radius) {
+      continue;
+    }
+
+    if (target === playerClone) {
+      if (!isDirectTarget) {
+        applyPhantomDamage(effect.splashDamage ?? 0, "cannon");
+      }
+      applyStatusEffect(
+        target,
+        effect.statusType ?? "slow",
+        getStatusDuration(effect.statusDuration ?? 0.6),
+        effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+      );
+      continue;
+    }
+
+    if (abilityState.dash.invulnerabilityTime > 0 && !isDirectTarget) {
+      continue;
+    }
+
+    const fieldModifier = getEntityFieldModifier(target);
+    if (!isDirectTarget) {
+      applyPlayerDamage((effect.splashDamage ?? 0) * (1 - fieldModifier.damageReduction), "cannon");
+    }
+    applyStatusEffect(
+      target,
+      effect.statusType ?? "slow",
+      getStatusDuration((effect.statusDuration ?? 0.6) * (1 - getBuildStats().ccReduction)),
+      effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+    );
   }
 }
 
@@ -614,11 +731,13 @@ export function absorbPlayerProjectiles() {
 export function updateBullets(collection, dt) {
   for (let i = collection.length - 1; i >= 0; i -= 1) {
     const bullet = collection[i];
+    const team = collection === bullets ? "player" : "enemy";
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
 
-    if (hitMapWithProjectile(bullet, collection === bullets ? "player" : "enemy")) {
+    if (hitMapWithProjectile(bullet, team)) {
+      triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
       collection.splice(i, 1);
       continue;
     }
@@ -630,6 +749,7 @@ export function updateBullets(collection, dt) {
       bullet.y > arena.height + 20;
 
     if (bullet.life <= 0 || out) {
+      triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
       collection.splice(i, 1);
     }
   }
@@ -715,6 +835,8 @@ export function applyPlayerDamage(amount, source = "hit") {
     player.alive = false;
     if (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") {
       finishDuelRound("enemy");
+    } else if (sandbox.mode === sandboxModes.survival.key) {
+      statusLine.textContent = "Run collapsing. Survival sequence ending.";
     } else if (sandbox.mode === sandboxModes.training.key) {
       statusLine.textContent = "Training knockout. Resetting your build test position.";
       resetPlayer({ silent: true });
@@ -732,6 +854,7 @@ export function resolveCombat() {
 
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
     const bullet = bullets[i];
+    let consumed = false;
     for (const bot of getAllBots()) {
       if (!bot.alive || bullet.hitTargets.has(bot.kind)) {
         continue;
@@ -741,11 +864,16 @@ export function resolveCombat() {
         bullet.hitTargets.add(bot.kind);
         damageBot(bot, bullet.damage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
+        triggerCannonExplosion(bullet, bullet.x, bullet.y, "player", bot);
         if (!bullet.piercing) {
           bullets.splice(i, 1);
+          consumed = true;
           break;
         }
       }
+    }
+    if (consumed) {
+      continue;
     }
   }
 
@@ -755,17 +883,33 @@ export function resolveCombat() {
 
   for (let i = enemyBullets.length - 1; i >= 0; i -= 1) {
     const bullet = enemyBullets[i];
-    if (length(bullet.x - player.x, bullet.y - player.y) <= bullet.radius + player.radius) {
-      enemyBullets.splice(i, 1);
-      addImpact(bullet.x, bullet.y, "#ff8a77", 18);
-      const playerFieldModifier = getPlayerFieldModifier();
+    let consumed = false;
+    for (const target of getFriendlyCombatTargets()) {
+      const targetKey = getFriendlyTargetKey(target);
+      if (bullet.hitTargets.has(targetKey)) {
+        continue;
+      }
 
-      if (abilityState.dash.invulnerabilityTime <= 0) {
+      if (length(bullet.x - target.x, bullet.y - target.y) > bullet.radius + target.radius) {
+        continue;
+      }
+
+      bullet.hitTargets.add(targetKey);
+      addImpact(bullet.x, bullet.y, target === playerClone ? "#e8c8ff" : "#ff8a77", target === playerClone ? 16 : 18);
+
+      if (target === playerClone) {
+        applyPhantomDamage(bullet.damage, "bullet");
+        applyProjectileEffectToPlayer(bullet, target);
+        triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
+        statusLine.textContent = "Phantom copy intercepted enemy fire.";
+      } else if (abilityState.dash.invulnerabilityTime <= 0) {
+        const playerFieldModifier = getEntityFieldModifier(target);
         const defeatedByBullet = applyPlayerDamage(
           bullet.damage * (1 - playerFieldModifier.damageReduction),
           "bullet",
         );
-        applyProjectileEffectToPlayer(bullet);
+        applyProjectileEffectToPlayer(bullet, target);
+        triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
         statusLine.textContent = playerFieldModifier.damageReduction > 0
           ? "Magnetic Field softened the incoming shot."
           : "You were hit. Use dash to break pressure.";
@@ -780,6 +924,16 @@ export function resolveCombat() {
         addImpact(player.x, player.y, "#b8f9c9", 22);
         statusLine.textContent = "Clean dash through enemy fire.";
       }
+
+      if (!bullet.piercing) {
+        enemyBullets.splice(i, 1);
+        consumed = true;
+        break;
+      }
+    }
+
+    if (consumed || !enemyBullets[i]) {
+      continue;
     }
   }
 }
@@ -841,7 +995,7 @@ export function updateImpacts(dt) {
       }
     }
 
-  screenShake = Math.max(0, screenShake - dt * 22);
+  globals.screenShake = Math.max(0, globals.screenShake - dt * 22);
 }
 
 export function getActiveBotLoadout() {
@@ -891,6 +1045,7 @@ export function refreshHunterLoadout() {
 
 export function resetBotsForMode(mode = sandbox.mode) {
   resetMapState(mode, sandbox.mapKey);
+  survivalEnemies.length = 0;
 
   if (mode === sandboxModes.duel.key) {
     refreshHunterLoadout();

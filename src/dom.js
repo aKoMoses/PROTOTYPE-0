@@ -71,6 +71,7 @@ export const stepMode = document.getElementById("step-mode");
 export const stepMap = document.getElementById("step-map");
 export const stepBuild = document.getElementById("step-build");
 export const modeDuel = document.getElementById("mode-duel");
+export const modeSurvival = document.getElementById("mode-survival");
 export const modeTraining = document.getElementById("mode-training");
 export const mapGrid = document.getElementById("map-grid");
 export const continueMap = document.getElementById("continue-map");
@@ -128,6 +129,7 @@ export const buildStepNext = document.getElementById("build-step-next");
 export const runeScreen = document.getElementById("rune-screen");
 export const continueRunes = document.getElementById("continue-runes");
 export const backBuild = document.getElementById("back-build");
+export const runeResetButton = document.getElementById("rune-reset-btn");
 export const libraryTabs = Array.from(document.querySelectorAll("[data-library]"));
 export const loadoutSlotButtons = {
   weapon: document.getElementById("loadout-slot-weapon"),

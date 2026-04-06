@@ -7,6 +7,7 @@ import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBo
 import { addImpact, addShake } from "./effects.js";
 import { getBuildStats, normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoadout } from "../build/loadout.js";
 import { setPrematchStep, resetBuildWizard, advanceBuildWizard, prevBuildWizardStep } from "../build/ui.js";
+import { startSurvivalRun } from "./survival.js";
 import * as dom from "../dom.js";
 export { relaunchCurrentSession } from "../build/ui.js";
 
@@ -158,6 +159,12 @@ export function switchSandboxMode(nextMode, nextMapKey = sandbox.mapKey) {
     return;
   }
 
+  if (nextMode === sandboxModes.survival.key) {
+    startSurvivalRun({ resetProgress: true });
+    dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Survival gauntlet initialized.`;
+    return;
+  }
+
   startDuelRound({ resetScore: true });
   dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Match flow initialized.`;
 }
@@ -194,12 +201,16 @@ export function launchSelectedSession() {
     _resetPlayer?.({ silent: true });
     resetBotsForMode(sandboxModes.training.key);
     showRoundBanner("", "", false);
+  } else if (uiState.selectedMode === sandboxModes.survival.key) {
+    startSurvivalRun({ resetProgress: true });
   } else {
     startDuelRound({ resetScore: true });
   }
 
   if (uiState.selectedMode === sandboxModes.training.key) {
     dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} started. Test ranges, hitboxes, and defensive timings.`;
+  } else if (uiState.selectedMode === sandboxModes.survival.key) {
+    dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} loaded. Survive the gauntlet and scale through the waves.`;
   } else {
     dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} loaded. Read the round and contest space cleanly.`;
   }
@@ -211,6 +222,14 @@ export function handlePrematchAction(buttonId) {
     uiState.selectedMode = sandboxModes.duel.key;
     uiState.selectedMap = normalizeSelectedMap(sandboxModes.duel.key, uiState.selectedMap);
     dom.statusLine.textContent = "Duel Map selected.";
+    _renderPrematch?.();
+    return;
+  }
+
+  if (buttonId === "mode-survival") {
+    uiState.selectedMode = sandboxModes.survival.key;
+    uiState.selectedMap = normalizeSelectedMap(sandboxModes.survival.key, uiState.selectedMap);
+    dom.statusLine.textContent = "Survival Mode selected.";
     _renderPrematch?.();
     return;
   }
