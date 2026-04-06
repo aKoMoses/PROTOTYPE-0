@@ -28,13 +28,17 @@
           <strong id="match-format">BO3</strong>
         </div>
         <span class="match-panel__status" id="status-line">Prototype 0 online.</span>
+        <div class="match-panel__actions">
+          <button class="hud-action-button" id="menu-button" type="button">Menu</button>
+          <button class="hud-action-button" id="rematch-button" type="button">Rematch</button>
+        </div>
       </div>
 
       <button class="help-toggle" id="help-toggle" type="button">Help</button>
       <div class="help-panel is-hidden" id="help-panel">
         <strong>Controls</strong>
-        <span id="map-status">Press T to switch between Duel and Training.</span>
-        <span>Move with WASD, aim with mouse, fire with click, use equipped ability slots on Shift / Q / F, trigger Overdrive with E, use Ultimate on R, swap weapons with 1 / 2 / 3, and reset match with Backspace.</span>
+        <span id="map-status">Arena data online.</span>
+        <span>Move with WASD, aim with mouse, fire with click, dash with Shift, use equipped abilities on Q / E / F, use Ultimate on R, and reset the current session with Backspace.</span>
       </div>
 
       <div class="round-banner" id="round-banner">
@@ -52,12 +56,17 @@
             </p>
             <div class="step-list">
               <button class="step-chip is-active" id="step-mode" type="button" onclick="handlePrematchAction('step-mode')">1. Mode</button>
-              <button class="step-chip" id="step-build" type="button" onclick="handlePrematchAction('step-build')">2. Build Lab</button>
+              <button class="step-chip" id="step-map" type="button" onclick="handlePrematchAction('step-map')">2. Map</button>
+              <button class="step-chip" id="step-build" type="button" onclick="handlePrematchAction('step-build')">3. Build Lab</button>
             </div>
             <div class="prematch-summary">
               <div class="summary-block">
                 <span class="label">Selected Mode</span>
                 <strong id="selected-mode-label">Duel</strong>
+              </div>
+              <div class="summary-block">
+                <span class="label">Selected Map</span>
+                <strong id="selected-map-label">Electro Gallery</strong>
               </div>
               <div class="summary-block">
                 <span class="label">Weapon</span>
@@ -89,6 +98,18 @@
                 </button>
               </div>
               <div class="screen-actions">
+                <button class="primary-button" id="continue-map" type="button" onclick="handlePrematchAction('continue-map')">Continue to Map</button>
+              </div>
+            </div>
+
+            <div class="prematch-screen" id="map-screen">
+              <div class="screen-header">
+                <span class="eyebrow">Map Select</span>
+                <h2>Choose the arena</h2>
+              </div>
+              <div class="map-grid" id="map-grid"></div>
+              <div class="screen-actions screen-actions--split">
+                <button class="secondary-button" id="back-mode" type="button" onclick="handlePrematchAction('back-mode')">Back to Mode Select</button>
                 <button class="primary-button" id="continue-build" type="button" onclick="handlePrematchAction('continue-build')">Continue to Build</button>
               </div>
             </div>
@@ -101,7 +122,7 @@
 
               <div class="lab-tabs">
                 <button class="lab-tab is-active" id="lab-tab-loadout" type="button" data-lab="loadout">LOADOUT</button>
-                <button class="lab-tab" id="lab-tab-style" type="button" data-lab="style">STYLE</button>
+                <button class="lab-tab" id="lab-tab-style" type="button" data-lab="style">COSMETICS</button>
               </div>
 
               <div class="lab-panel lab-panel--active" id="lab-loadout">
@@ -115,9 +136,9 @@
                   <div class="slot-bar__sep"></div>
                   <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-0" type="button" data-slot="ability-0">
                     <span class="slot-bar__cat">A1</span>
-                    <div class="content-icon content-icon--ability-dash" id="loadout-slot-ability-0-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ability-0-name">Vector Dash</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ability-0-meta">Mobility / outplay</span>
+                    <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-0-icon"></div>
+                    <strong class="slot-bar__name" id="loadout-slot-ability-0-name">Shock Javelin</strong>
+                    <span class="slot-bar__meta" id="loadout-slot-ability-0-meta">Offense / punish</span>
                   </button>
                   <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-1" type="button" data-slot="ability-1">
                     <span class="slot-bar__cat">A2</span>
@@ -127,9 +148,9 @@
                   </button>
                   <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-2" type="button" data-slot="ability-2">
                     <span class="slot-bar__cat">A3</span>
-                    <div class="content-icon content-icon--ability-field" id="loadout-slot-ability-2-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ability-2-name">Magnetic Field</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ability-2-meta">Defense / control</span>
+                    <div class="content-icon content-icon--ability-shield" id="loadout-slot-ability-2-icon"></div>
+                    <strong class="slot-bar__name" id="loadout-slot-ability-2-name">Energy Shield</strong>
+                    <span class="slot-bar__meta" id="loadout-slot-ability-2-meta">Defense / survive burst</span>
                   </button>
                   <div class="slot-bar__sep"></div>
                   <button class="slot-bar__slot slot-bar__slot--perk" id="loadout-slot-perk-0" type="button" data-slot="perk-0">
@@ -138,18 +159,12 @@
                     <strong class="slot-bar__name" id="loadout-slot-perk-0-name">Scavenger Plates</strong>
                     <span class="slot-bar__meta" id="loadout-slot-perk-0-meta">Bonus max HP</span>
                   </button>
-                  <button class="slot-bar__slot slot-bar__slot--perk" id="loadout-slot-perk-1" type="button" data-slot="perk-1">
-                    <span class="slot-bar__cat">P2</span>
-                    <div class="content-icon content-icon--perk-overdrive" id="loadout-slot-perk-1-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-perk-1-name">Overdrive Capacitor</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-perk-1-meta">Faster energy gain</span>
-                  </button>
                   <div class="slot-bar__sep"></div>
                   <button class="slot-bar__slot slot-bar__slot--ultimate" id="loadout-slot-ultimate" type="button" data-slot="ultimate">
                     <span class="slot-bar__cat">ULT</span>
-                    <div class="content-icon content-icon--ultimate-overload" id="loadout-slot-ultimate-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ultimate-name">Overdrive Overload</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ultimate-meta">Aggressive timing spike</span>
+                    <div class="content-icon content-icon--ultimate-phantom" id="loadout-slot-ultimate-icon"></div>
+                    <strong class="slot-bar__name" id="loadout-slot-ultimate-name">Phantom Split</strong>
+                    <span class="slot-bar__meta" id="loadout-slot-ultimate-meta">Mindgame / clutch window</span>
                   </button>
                 </div>
 
@@ -188,6 +203,43 @@
                   </div>
                   <p id="detail-description">Reliable mid-long range pressure with clean pacing and low commitment.</p>
                 </div>
+
+                <section class="build-card" id="bot-config-card">
+                  <div class="build-card__header">
+                    <span class="label" id="bot-config-label">Duel Tool</span>
+                    <strong id="bot-config-title">Hunter Bot Loadout</strong>
+                  </div>
+                  <span class="builder-copy" id="bot-config-copy">Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different.</span>
+                  <div id="bot-config-duel">
+                    <div class="toggle-strip">
+                      <button class="toggle-chip is-active" id="bot-mode-random" type="button">Randomized</button>
+                      <button class="toggle-chip" id="bot-mode-custom" type="button">Custom</button>
+                    </div>
+                    <div class="bot-config-group">
+                      <span class="label">Weapon</span>
+                      <div class="selection-grid selection-grid--compact" id="bot-weapon-grid"></div>
+                    </div>
+                    <div class="bot-config-group">
+                      <span class="label">Abilities</span>
+                      <div class="selection-grid selection-grid--compact" id="bot-ability-grid"></div>
+                    </div>
+                    <div class="validation-row validation-row--stack">
+                      <span>Active Bot Kit</span>
+                      <div class="validation-chip-list" id="bot-build-summary"></div>
+                    </div>
+                  </div>
+
+                  <div class="is-hidden" id="bot-config-training">
+                    <div class="toggle-strip">
+                      <button class="toggle-chip is-active" id="training-fire-off" type="button">Bots Silent</button>
+                      <button class="toggle-chip" id="training-fire-on" type="button">Bots Firing</button>
+                    </div>
+                    <div class="validation-row validation-row--stack">
+                      <span>Training Setup</span>
+                      <div class="validation-chip-list" id="training-build-summary"></div>
+                    </div>
+                  </div>
+                </section>
               </div>
 
               <div class="lab-panel" id="lab-style">
@@ -221,7 +273,7 @@
               </div>
 
               <div class="screen-actions screen-actions--split">
-                <button class="secondary-button" id="back-mode" type="button" onclick="handlePrematchAction('back-mode')">Back to Mode Select</button>
+                <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
                 <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Ready</button>
               </div>
             </div>
@@ -238,14 +290,9 @@
           <div class="meter meter-health meter-health-player">
             <div class="meter-fill meter-fill-player" id="player-health-fill"></div>
           </div>
-
-          <div class="hud-panel__row">
-            <span class="label">Overdrive</span>
-            <strong id="overdrive-state">Charging</strong>
-          </div>
-          <span class="hud-hint" id="overdrive-status">Build energy by hitting and perfect dodging.</span>
-          <div class="meter meter-health">
-            <div class="meter-fill meter-fill-overdrive" id="overdrive-meter"></div>
+          <div class="session-actions">
+            <button class="hud-action-button" id="hud-menu-button" type="button">Main Menu</button>
+            <button class="hud-action-button" id="hud-rematch-button" type="button">Relaunch</button>
           </div>
         </div>
 
@@ -273,27 +320,35 @@
               <span class="ability-slot__name">Dash</span>
             </div>
 
-            <div class="ability-slot" id="slot-javelin">
+            <div class="ability-slot" id="slot-ability-1">
               <span class="ability-slot__key">Q</span>
               <div class="ability-slot__icon ability-slot__icon--javelin"></div>
-              <div class="ability-slot__cooldown" id="slot-javelin-overlay"></div>
-              <span class="ability-slot__timer" id="slot-javelin-timer"></span>
+              <div class="ability-slot__cooldown" id="slot-ability-1-overlay"></div>
+              <span class="ability-slot__timer" id="slot-ability-1-timer"></span>
               <span class="ability-slot__name">Shock Javelin</span>
             </div>
 
-            <div class="ability-slot" id="slot-field">
-              <span class="ability-slot__key">F</span>
+            <div class="ability-slot" id="slot-ability-2">
+              <span class="ability-slot__key">E</span>
               <div class="ability-slot__icon ability-slot__icon--field"></div>
-              <div class="ability-slot__cooldown" id="slot-field-overlay"></div>
-              <span class="ability-slot__timer" id="slot-field-timer"></span>
+              <div class="ability-slot__cooldown" id="slot-ability-2-overlay"></div>
+              <span class="ability-slot__timer" id="slot-ability-2-timer"></span>
               <span class="ability-slot__name">Magnetic Field</span>
             </div>
 
-            <div class="ability-slot ability-slot--placeholder" id="slot-ultimate">
+            <div class="ability-slot" id="slot-ability-3">
+              <span class="ability-slot__key">F</span>
+              <div class="ability-slot__icon ability-slot__icon--field"></div>
+              <div class="ability-slot__cooldown" id="slot-ability-3-overlay"></div>
+              <span class="ability-slot__timer" id="slot-ability-3-timer"></span>
+              <span class="ability-slot__name">Energy Shield</span>
+            </div>
+
+            <div class="ability-slot" id="slot-ultimate">
               <span class="ability-slot__key">R</span>
               <div class="ability-slot__icon ability-slot__icon--ultimate"></div>
-              <div class="ability-slot__cooldown ability-slot__cooldown--full"></div>
-              <span class="ability-slot__timer">Soon</span>
+              <div class="ability-slot__cooldown" id="slot-ultimate-overlay"></div>
+              <span class="ability-slot__timer" id="slot-ultimate-timer"></span>
               <span class="ability-slot__name">Ultimate</span>
             </div>
           </div>
