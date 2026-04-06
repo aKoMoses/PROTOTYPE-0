@@ -26,6 +26,10 @@ export function bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, relea
 
 export function setPrematchStep(step) {
   uiState.prematchStep = step;
+  if (step === "build") {
+    dom.botConfigCard?.classList.add("is-hidden");
+    if (dom.botConfigToggle) dom.botConfigToggle.textContent = "Configure Bot";
+  }
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
@@ -341,13 +345,48 @@ export function updateLoadoutSummaryPanels() {
 
 // Step-by-step wizard order: weapon → abilities → perk → ultimate → runes
 const BUILD_WIZARD_STEPS = [
-  { slotKey: "weapon",    category: "weapon" },
-  { slotKey: "ability-0", category: "ability" },
-  { slotKey: "ability-1", category: "ability" },
-  { slotKey: "ability-2", category: "ability" },
-  { slotKey: "perk-0",    category: "perk" },
-  { slotKey: "ultimate",  category: "ultimate" },
-  { slotKey: "runes",     category: "runes" },
+  {
+    slotKey: "weapon",    category: "weapon",
+    title: "Choose your Weapon",
+    hint: "The weapon defines your pacing and commitment level for the whole run.",
+    colorClass: "c-weapon",
+  },
+  {
+    slotKey: "ability-0", category: "ability",
+    title: "Slot 1 \u2014 Active Ability",
+    hint: "Your first active ability. Pick a tool that shapes your opening pattern.",
+    colorClass: "c-ability",
+  },
+  {
+    slotKey: "ability-1", category: "ability",
+    title: "Slot 2 \u2014 Active Ability",
+    hint: "Second ability slot. Add depth \u2014 mobility, denial, or extra threat.",
+    colorClass: "c-ability",
+  },
+  {
+    slotKey: "ability-2", category: "ability",
+    title: "Slot 3 \u2014 Active Ability",
+    hint: "Third slot. Round out your toolkit or double down on a strategy.",
+    colorClass: "c-ability",
+  },
+  {
+    slotKey: "perk-0",    category: "perk",
+    title: "Passive Perk",
+    hint: "Lock one passive that amplifies your playstyle without cluttering your reads.",
+    colorClass: "c-perk",
+  },
+  {
+    slotKey: "ultimate",  category: "ultimate",
+    title: "Ultimate",
+    hint: "Your round-deciding spike. Pick the capstone that fits your win condition.",
+    colorClass: "c-ultimate",
+  },
+  {
+    slotKey: "runes",     category: "runes",
+    title: "Rune Allocation",
+    hint: "Distribute rune points to sharpen your combat stats.",
+    colorClass: "c-runes",
+  },
 ];
 const STEP_LABELS = {
   weapon:      "Weapon",
@@ -389,12 +428,23 @@ function updateBuildStepNav() {
   const labelEl = document.getElementById("build-step-label");
   const prevBtn = document.getElementById("build-step-prev");
   const nextBtn = document.getElementById("build-step-next");
+  const eyebrow = document.getElementById("wizard-eyebrow");
+  const titleEl = document.getElementById("wizard-title");
+  const hintEl  = document.getElementById("wizard-hint");
   if (!labelEl) return;
+  const total = BUILD_WIZARD_STEPS.length;
   const idx = uiState.buildWizardStep;
-  const step = BUILD_WIZARD_STEPS[idx] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
-  labelEl.textContent = `${idx + 1} / ${BUILD_WIZARD_STEPS.length} — ${STEP_LABELS[step.slotKey]}`;
+  const step = BUILD_WIZARD_STEPS[idx] ?? BUILD_WIZARD_STEPS[total - 1];
+  if (eyebrow) eyebrow.textContent = `Step ${idx + 1} of ${total}`;
+  if (titleEl) titleEl.textContent = step.title;
+  if (hintEl)  hintEl.textContent  = step.hint;
+  labelEl.textContent = `${idx + 1} / ${total} \u2014 ${STEP_LABELS[step.slotKey]}`;
+  // Swap color class
+  const allColorClasses = ["c-weapon", "c-ability", "c-perk", "c-ultimate", "c-runes"];
+  labelEl.classList.remove(...allColorClasses);
+  if (step.colorClass) labelEl.classList.add(step.colorClass);
   if (prevBtn) prevBtn.disabled = idx === 0;
-  if (nextBtn) nextBtn.textContent = idx >= BUILD_WIZARD_STEPS.length - 1 ? "Done ✓" : "Skip →";
+  if (nextBtn) nextBtn.textContent = idx >= total - 1 ? "Done \u2713" : "Skip \u2192";
 }
 
 function getZoneIdForSlot(slotKey) {
@@ -413,6 +463,9 @@ function getZoneIdForSlot(slotKey) {
 export function updateRobotWizard() {
   const robotSvg = document.querySelector(".robot-svg");
   if (!robotSvg) return;
+
+  // Always in spotlight mode during build wizard
+  robotSvg.classList.add("wizard-spotlight");
 
   // Determine which slots are "filled" (have a real item)
   const filled = new Set(
@@ -440,11 +493,12 @@ export function updateRobotWizard() {
       zone.classList.toggle("is-locked", isLocked);
     });
 
-    // Sync side robot-slot button state
+    // Sync summary chip state
     const slotBtn = document.getElementById(`loadout-slot-${slotKey}`);
     if (slotBtn) {
       slotBtn.classList.toggle("is-filled", isFilled);
       slotBtn.classList.toggle("is-locked", isLocked);
+      slotBtn.classList.toggle("is-active", uiState.selectedLoadoutSlot === slotKey);
     }
 
     // Sync progress pip
@@ -663,8 +717,6 @@ export function renderTrainingBotPanel() {
   if (!dom.botConfigCard || !dom.botConfigCopy) {
     return;
   }
-
-  dom.botConfigCard.classList.remove("is-hidden");
 
   if (uiState.selectedMode === sandboxModes.training.key) {
     dom.botConfigCard.classList.remove("is-randomized");

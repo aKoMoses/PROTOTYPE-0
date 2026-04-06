@@ -7,7 +7,7 @@ import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematc
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
   botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
-  buildStepPrev, buildStepNext } from "../dom.js";
+  buildStepPrev, buildStepNext, botConfigToggle, botConfigCard } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
@@ -176,6 +176,11 @@ bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
 bindPrematchButton(buildStepPrev, "build-step-prev");
 bindPrematchButton(buildStepNext, "build-step-next");
+
+botConfigToggle?.addEventListener("click", () => {
+  const hidden = botConfigCard?.classList.toggle("is-hidden");
+  if (botConfigToggle) botConfigToggle.textContent = hidden ? "Configure Bot" : "Close Bot Config";
+});
 
 /* Lab tab switching (LOADOUT / STYLE) */
 if (labTabLoadout && labTabStyle && labLoadout && labStyle) {

@@ -108,6 +108,7 @@ export const labTabStyle = document.getElementById("lab-tab-style");
 export const labLoadout = document.getElementById("lab-loadout");
 export const labStyle = document.getElementById("lab-style");
 export const runePanel = document.getElementById("rune-panel");
+export const botConfigToggle = document.getElementById("bot-config-toggle");
 export const botConfigCard = document.getElementById("bot-config-card");
 export const botConfigLabel = document.getElementById("bot-config-label");
 export const botConfigTitle = document.getElementById("bot-config-title");
