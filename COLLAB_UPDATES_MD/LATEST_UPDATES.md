@@ -7,6 +7,26 @@
 
 ---
 
+## 2026-04-06 17:40:57
+- **Author:** Codex
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Pass 2 - Survival Horde Refactor And Scrollable Test Map
+
+### Summary
+- Reworked `Survival` into a true wave-by-wave horde mode with scaling enemy compositions instead of a single repeated hunter.
+- Added multiple survival enemy tiers: `Small`, `Medium`, `Big`, `Epic`, and `Legendary`.
+- Survival now scales by wave through enemy count, composition, spawn cadence, concurrency, HP, speed, and damage pressure.
+- Added a larger scrollable training map: `Wasteland Expanse`, designed as a first real oversized test space.
+- Implemented camera-follow logic and world-space pointer conversion so large maps can scroll without breaking combat controls.
+- Preserved duel flow while keeping the new large-map behavior focused on test mode first.
+
+### Files
+- `main.js`
+- `COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+
+### Notes
+- `WORKSTREAM_SPLIT.md` remains local and is not part of this push.
+
 ## 2026-04-06 17:21:05
 - **Author:** Codex
 - **Branch:** `codex/gameplay-foundation`

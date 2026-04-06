@@ -141,6 +141,18 @@ const loadoutSlotButtons = {
 };
 
 const arena = { width: 1600, height: 900 };
+const cameraState = {
+  x: 0,
+  y: 0,
+  width: 1600,
+  height: 900,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  scrollable: false,
+  baseWidth: 1600,
+  baseHeight: 900,
+};
 
 const config = {
   playerSpeed: 420,
@@ -834,6 +846,19 @@ const mapChoices = {
       border: "#b7d9ee",
     },
   },
+  trainingExpanse: {
+    key: "trainingExpanse",
+    name: "Wasteland Expanse",
+    subtitle: "Large scrollable proving ground with long lanes, sparse cover, and room to stress-test builds.",
+    theme: {
+      backgroundStart: "#182027",
+      backgroundEnd: "#0a0f14",
+      floorGlow: "#86c5e7",
+      laneGlow: "#8fdcff",
+      warmGlow: "#e7c07f",
+      border: "#b7d9ee",
+    },
+  },
 };
 
 const mapLayouts = {
@@ -845,6 +870,14 @@ const mapLayouts = {
     playerSpawn: { x: 262, y: 690 },
     enemySpawn: { x: 1342, y: 206 },
     trainingSpawn: { x: 262, y: 690 },
+    survivalSpawns: [
+      { x: 220, y: 180 },
+      { x: 1380, y: 180 },
+      { x: 220, y: 720 },
+      { x: 1380, y: 720 },
+      { x: 800, y: 148 },
+      { x: 800, y: 752 },
+    ],
     arenaDecor: [
       { type: "lane", x: 112, y: 116, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.12)", stroke: "rgba(135, 235, 255, 0.18)" },
       { type: "lane", x: 112, y: 666, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.1)", stroke: "rgba(255, 174, 109, 0.12)" },
@@ -878,6 +911,14 @@ const mapLayouts = {
     playerSpawn: { x: 248, y: 694 },
     enemySpawn: { x: 1332, y: 214 },
     trainingSpawn: { x: 248, y: 694 },
+    survivalSpawns: [
+      { x: 180, y: 180 },
+      { x: 1420, y: 180 },
+      { x: 180, y: 720 },
+      { x: 1420, y: 720 },
+      { x: 820, y: 148 },
+      { x: 820, y: 752 },
+    ],
     arenaDecor: [
       { type: "lane", x: 108, y: 132, w: 1384, h: 134, color: "rgba(124, 92, 66, 0.14)", stroke: "rgba(255, 194, 135, 0.14)" },
       { type: "lane", x: 108, y: 634, w: 1384, h: 142, color: "rgba(112, 84, 60, 0.13)", stroke: "rgba(255, 194, 135, 0.12)" },
@@ -903,9 +944,12 @@ const mapLayouts = {
     name: mapChoices.trainingGround.name,
     subtitle: mapChoices.trainingGround.subtitle,
     theme: mapChoices.trainingGround.theme,
+    width: 1600,
+    height: 900,
     playerSpawn: { x: 186, y: 450 },
     enemySpawn: { x: 1336, y: 236 },
     trainingSpawn: { x: 186, y: 450 },
+    survivalSpawns: [],
     arenaDecor: [
       { type: "lane", x: 120, y: 362, w: 1360, h: 176, color: "rgba(111, 142, 164, 0.08)", stroke: "rgba(173, 223, 252, 0.14)" },
       { type: "bridge", x: 344, y: 422, w: 920, h: 56, color: "rgba(84, 104, 122, 0.08)", stroke: "rgba(173, 223, 252, 0.12)" },
@@ -920,6 +964,44 @@ const mapLayouts = {
       { x: 980, y: 450 },
       { x: 1142, y: 450 },
       { x: 1304, y: 450 },
+    ],
+  },
+  trainingExpanse: {
+    key: "trainingExpanse",
+    name: mapChoices.trainingExpanse.name,
+    subtitle: mapChoices.trainingExpanse.subtitle,
+    theme: mapChoices.trainingExpanse.theme,
+    width: 3200,
+    height: 1800,
+    scrollable: true,
+    playerSpawn: { x: 260, y: 900 },
+    enemySpawn: { x: 2860, y: 900 },
+    trainingSpawn: { x: 260, y: 900 },
+    survivalSpawns: [],
+    arenaDecor: [
+      { type: "lane", x: 180, y: 760, w: 2840, h: 280, color: "rgba(111, 142, 164, 0.07)", stroke: "rgba(173, 223, 252, 0.12)" },
+      { type: "lane", x: 260, y: 280, w: 2680, h: 120, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
+      { type: "lane", x: 260, y: 1400, w: 2680, h: 120, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
+      { type: "bridge", x: 820, y: 820, w: 460, h: 164, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.1)" },
+      { type: "bridge", x: 1920, y: 820, w: 460, h: 164, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.1)" },
+    ],
+    obstacles: [
+      { key: "expanse-block-1", x: 980, y: 602, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-2", x: 980, y: 1092, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-3", x: 2100, y: 602, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-block-4", x: 2100, y: 1092, w: 120, h: 106, style: "core-block" },
+      { key: "expanse-pillar-1", x: 1470, y: 772, w: 70, h: 256, style: "bridge-pillar" },
+      { key: "expanse-pillar-2", x: 1660, y: 772, w: 70, h: 256, style: "bridge-pillar" },
+    ],
+    bushes: [],
+    portals: [],
+    pylons: [],
+    trainingBots: [
+      { x: 920, y: 900 },
+      { x: 1240, y: 900 },
+      { x: 1560, y: 900 },
+      { x: 1880, y: 900 },
+      { x: 2200, y: 900 },
     ],
   },
 };
@@ -1408,6 +1490,7 @@ for (const bot of trainingBots) {
   bot.team = "enemy";
 }
 
+const survivalEnemies = [];
 const bots = [enemy, ...trainingBots];
 const sandbox = {
   mode: sandboxModes.duel.key,
@@ -1438,9 +1521,108 @@ const survivalState = {
   phase: "idle",
   timer: 0,
   waveTargetKills: 2,
+  spawnQueue: [],
+  spawnCooldown: 0,
+  maxConcurrent: 3,
+  planLabel: "Scavenger Push",
   bannerLabel: "Wave 1",
   bannerTitle: "Prepare",
   completed: false,
+};
+
+const survivalEnemyCatalog = {
+  scavenger: {
+    key: "scavenger",
+    name: "Scavenger",
+    tier: "Small",
+    cost: 1,
+    unlockWave: 1,
+    radius: 14,
+    hp: 62,
+    speed: 308,
+    ai: "melee",
+    attackRange: 30,
+    attackCooldown: 0.88,
+    damage: 12,
+    color: "#8edfff",
+    accent: "#d5f6ff",
+    scale: 0.72,
+  },
+  raider: {
+    key: "raider",
+    name: "Raider",
+    tier: "Medium",
+    cost: 1.8,
+    unlockWave: 2,
+    radius: 16,
+    hp: 94,
+    speed: 252,
+    ai: "ranged",
+    preferredRange: 290,
+    attackCooldown: 1.08,
+    projectileSpeed: 920,
+    damage: 9,
+    color: "#ffb689",
+    accent: "#ffe0c2",
+    scale: 0.8,
+  },
+  bruiser: {
+    key: "bruiser",
+    name: "Bruiser",
+    tier: "Big",
+    cost: 3.4,
+    unlockWave: 3,
+    radius: 22,
+    hp: 178,
+    speed: 194,
+    ai: "melee",
+    attackRange: 34,
+    attackCooldown: 1.18,
+    damage: 20,
+    onHit: "slow",
+    color: "#ff9577",
+    accent: "#ffd4bd",
+    scale: 1,
+  },
+  stormcaller: {
+    key: "stormcaller",
+    name: "Stormcaller",
+    tier: "Epic",
+    cost: 4.8,
+    unlockWave: 5,
+    radius: 18,
+    hp: 152,
+    speed: 224,
+    ai: "caster",
+    preferredRange: 360,
+    attackCooldown: 1.34,
+    projectileSpeed: 880,
+    damage: 11,
+    onHit: "shock",
+    color: "#caadff",
+    accent: "#eadcff",
+    scale: 0.88,
+  },
+  behemoth: {
+    key: "behemoth",
+    name: "Behemoth",
+    tier: "Legendary",
+    cost: 7.6,
+    unlockWave: 7,
+    radius: 26,
+    hp: 304,
+    speed: 168,
+    ai: "artillery",
+    preferredRange: 430,
+    attackCooldown: 1.72,
+    projectileSpeed: 760,
+    damage: 18,
+    splashDamage: 16,
+    onHit: "burn",
+    color: "#ffd39c",
+    accent: "#fff0cf",
+    scale: 1.1,
+  },
 };
 
 const playerBehaviorModel = {
@@ -1613,13 +1795,16 @@ function normalizeLoadoutSelections() {
 
 function getSelectableMapsForMode(mode = uiState.selectedMode) {
   if (mode === sandboxModes.training.key) {
-    return [mapChoices.trainingGround];
+    return [mapChoices.trainingGround, mapChoices.trainingExpanse];
   }
   return [mapChoices.electroGallery, mapChoices.bricABroc, mapChoices.randomMap];
 }
 
 function normalizeSelectedMap(mode, mapKey) {
   if (mode === sandboxModes.training.key) {
+    if (mapKey === mapChoices.trainingExpanse.key) {
+      return mapChoices.trainingExpanse.key;
+    }
     return mapChoices.trainingGround.key;
   }
   if (mapKey === mapChoices.randomMap.key || duelMapRegistry[mapKey]) {
@@ -1631,7 +1816,7 @@ function normalizeSelectedMap(mode, mapKey) {
 function resolveMapKey(mode, mapKey, resolveRandom = false) {
   const normalized = normalizeSelectedMap(mode, mapKey);
   if (mode === sandboxModes.training.key) {
-    return mapChoices.trainingGround.key;
+    return normalized;
   }
   if (normalized === mapChoices.randomMap.key) {
     if (!resolveRandom && duelMapRegistry[sandbox.mapKey]) {
@@ -1656,6 +1841,8 @@ function getMapLayout(mode = sandbox.mode, mapKey = sandbox.mapKey) {
 function buildMapState(mode = sandbox.mode, mapKey = sandbox.mapKey) {
   const layout = getMapLayout(mode, mapKey);
   mapState.layoutKey = layout.key;
+  arena.width = layout.width ?? 1600;
+  arena.height = layout.height ?? 900;
   mapState.decor = layout.arenaDecor.map((item) => ({ ...item }));
   mapState.obstacles = layout.obstacles.map((item) => ({ ...cloneRect(item), solid: true }));
   mapState.bushes = layout.bushes.map((item) => ({ ...cloneRect(item) }));
@@ -1682,7 +1869,7 @@ function getPortalTarget(portal) {
 }
 
 function getEntityPortalKey(entity) {
-  return entity.role ?? entity.kind ?? "player";
+  return entity.kind ?? entity.role ?? "player";
 }
 
 function updatePortalCooldowns(dt) {
@@ -2819,7 +3006,7 @@ function updatePrematchSummary() {
     : "No ultimate selected";
   prematchDescription.textContent =
     uiState.selectedMode === sandboxModes.training.key
-      ? "Training mode loads a clean firing lane with static bots so you can lab timing, spacing, and projectile denial."
+      ? `${selectedMap.name}: ${selectedMap.subtitle}`
       : uiState.selectedMode === sandboxModes.survival.key
         ? `${selectedMap.name}: ${selectedMap.subtitle} Enter a solo endurance gauntlet against escalating hunter builds.`
       : `${selectedMap.name}: ${selectedMap.subtitle}`;
@@ -4023,6 +4210,40 @@ function resize() {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 }
 
+function updateCameraState(viewportWidth = canvas.clientWidth || window.innerWidth, viewportHeight = canvas.clientHeight || window.innerHeight) {
+  const layout = getMapLayout();
+  const scrollable = Boolean(layout.scrollable && (arena.width > cameraState.baseWidth || arena.height > cameraState.baseHeight));
+
+  if (!scrollable) {
+    const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
+    cameraState.x = 0;
+    cameraState.y = 0;
+    cameraState.width = arena.width;
+    cameraState.height = arena.height;
+    cameraState.scale = scale;
+    cameraState.offsetX = (viewportWidth - arena.width * scale) * 0.5;
+    cameraState.offsetY = (viewportHeight - arena.height * scale) * 0.5;
+    cameraState.scrollable = false;
+    return cameraState;
+  }
+
+  const scale = Math.min(viewportWidth / cameraState.baseWidth, viewportHeight / cameraState.baseHeight);
+  const viewWidth = viewportWidth / scale;
+  const viewHeight = viewportHeight / scale;
+  const focusX = player.x;
+  const focusY = player.y;
+
+  cameraState.x = clamp(focusX - viewWidth * 0.5, 0, Math.max(0, arena.width - viewWidth));
+  cameraState.y = clamp(focusY - viewHeight * 0.5, 0, Math.max(0, arena.height - viewHeight));
+  cameraState.width = viewWidth;
+  cameraState.height = viewHeight;
+  cameraState.scale = scale;
+  cameraState.offsetX = (viewportWidth - viewWidth * scale) * 0.5;
+  cameraState.offsetY = (viewportHeight - viewHeight * scale) * 0.5;
+  cameraState.scrollable = true;
+  return cameraState;
+}
+
 function getMoveVector() {
   let x = 0;
   let y = 0;
@@ -4254,7 +4475,13 @@ function addEnergy(amount) {
 }
 
 function getAllBots() {
-  return bots.filter((bot) => bot.modes.includes(sandbox.mode));
+  if (sandbox.mode === sandboxModes.duel.key) {
+    return [enemy];
+  }
+  if (sandbox.mode === sandboxModes.survival.key) {
+    return survivalEnemies;
+  }
+  return trainingBots;
 }
 
 function getPrimaryBot() {
@@ -4483,6 +4710,7 @@ function refreshHunterLoadout() {
 
 function resetBotsForMode(mode = sandbox.mode) {
   resetMapState(mode, sandbox.mapKey);
+  survivalEnemies.length = 0;
 
   if (mode === sandboxModes.duel.key || mode === sandboxModes.survival.key) {
     refreshHunterLoadout();
@@ -4623,49 +4851,167 @@ function finishDuelRound(winner) {
 }
 
 function getSurvivalWaveProfile(wave = survivalState.wave) {
+  const budget = 4.4 + wave * 1.8 + Math.floor(wave / 3) * 0.8;
   return {
-    targetKills: Math.min(7, 2 + Math.floor((wave - 1) * 0.6)),
-    hpScale: 1 + Math.min(0.5, (wave - 1) * 0.1),
-    speedScale: 1 + Math.min(0.14, (wave - 1) * 0.022),
+    budget,
+    hpScale: 1 + Math.min(0.9, (wave - 1) * 0.08),
+    speedScale: 1 + Math.min(0.22, (wave - 1) * 0.018),
+    damageScale: 1 + Math.min(0.44, (wave - 1) * 0.045),
+    maxConcurrent: Math.min(8, 3 + Math.floor((wave - 1) / 2)),
+    spawnDelay: clamp(0.92 - wave * 0.03, 0.38, 0.92),
   };
+}
+
+function buildSurvivalWavePlan(wave = survivalState.wave) {
+  const profile = getSurvivalWaveProfile(wave);
+  const available = Object.values(survivalEnemyCatalog).filter((entry) => wave >= entry.unlockWave);
+  const queue = [];
+  let budget = profile.budget;
+
+  while (budget >= 0.95) {
+    const options = available.filter((entry) => entry.cost <= budget + 0.6);
+    const pool = options.length > 0 ? options : [available[0]];
+    const pick = pickWeightedItem(pool, (entry) => {
+      let weight = 1;
+      if (entry.tier === "Small") {
+        weight += 0.4;
+      }
+      if (entry.tier === "Medium" && wave >= 2) {
+        weight += 0.45;
+      }
+      if (entry.tier === "Big" && wave >= 3) {
+        weight += 0.5;
+      }
+      if (entry.tier === "Epic" && wave >= 5) {
+        weight += 0.5 + wave * 0.04;
+      }
+      if (entry.tier === "Legendary" && wave >= 7) {
+        weight += 0.38 + wave * 0.03;
+      }
+      return weight;
+    });
+    queue.push(pick.key);
+    budget -= pick.cost;
+    if (queue.length >= 18) {
+      break;
+    }
+  }
+
+  if (wave >= 5 && !queue.includes("stormcaller")) {
+    queue.push("stormcaller");
+  }
+  if (wave >= 8 && !queue.includes("behemoth")) {
+    queue.push("behemoth");
+  }
+
+  const tierPresence = new Set(queue.map((key) => survivalEnemyCatalog[key]?.tier).filter(Boolean));
+  const label =
+    tierPresence.has("Legendary") ? "Legendary Breakpoint"
+    : tierPresence.has("Epic") ? "Epic Pressure"
+    : tierPresence.has("Big") ? "Bruiser Push"
+    : tierPresence.has("Medium") ? "Mixed Pack"
+    : "Scavenger Rush";
+
+  return {
+    ...profile,
+    queue,
+    totalCount: queue.length,
+    label,
+  };
+}
+
+function chooseSurvivalSpawnPoint() {
+  const layout = getMapLayout(sandboxModes.survival.key, sandbox.mapKey);
+  const spawns = layout.survivalSpawns?.length ? layout.survivalSpawns : [layout.enemySpawn];
+  const sorted = [...spawns].sort((a, b) => length(b.x - player.x, b.y - player.y) - length(a.x - player.x, a.y - player.y));
+  const candidatePool = sorted.slice(0, Math.min(3, sorted.length));
+  return candidatePool[Math.floor(Math.random() * candidatePool.length)] ?? layout.enemySpawn;
+}
+
+function createSurvivalEnemy(classKey) {
+  const archetype = survivalEnemyCatalog[classKey] ?? survivalEnemyCatalog.scavenger;
+  const waveProfile = getSurvivalWaveProfile(survivalState.wave);
+  const spawn = chooseSurvivalSpawnPoint();
+  const bot = createBot({
+    kind: `survival-${classKey}-${survivalState.wave}-${survivalState.totalKills}-${Math.floor(Math.random() * 9999)}`,
+    role: "survival",
+    x: spawn.x,
+    y: spawn.y,
+    hp: Math.round(archetype.hp * waveProfile.hpScale),
+    radius: archetype.radius,
+    color: archetype.color,
+    accent: archetype.accent,
+    modes: [sandboxModes.survival.key],
+  });
+  bot.team = "enemy";
+  bot.spawnX = spawn.x;
+  bot.spawnY = spawn.y;
+  bot.survivalClass = classKey;
+  bot.survivalProfile = archetype;
+  bot.survivalTier = archetype.tier;
+  bot.survivalScale = archetype.scale;
+  bot.speedScale = waveProfile.speedScale * (archetype.speed / config.enemySpeed);
+  bot.survivalDamageScale = waveProfile.damageScale;
+  bot.shootCooldown = 0.35 + Math.random() * 0.4;
+  bot.cadence = archetype.attackCooldown;
+  bot.loadout = {
+    weapon:
+      archetype.ai === "artillery" ? weapons.cannon.key
+      : archetype.ai === "caster" ? weapons.staff.key
+      : archetype.ai === "ranged" ? weapons.pulse.key
+      : weapons.axe.key,
+    abilities: [],
+    perk: "reactiveArmor",
+    ultimate: "revivalProtocol",
+    personality: `${archetype.tier} ${archetype.name}`,
+  };
+  return bot;
+}
+
+function getAliveSurvivalEnemyCount() {
+  return survivalEnemies.filter((bot) => bot.alive).length;
+}
+
+function spawnSurvivalEnemyFromQueue() {
+  if (survivalState.spawnQueue.length === 0) {
+    return false;
+  }
+  const nextKey = survivalState.spawnQueue.shift();
+  const bot = createSurvivalEnemy(nextKey);
+  survivalEnemies.push(bot);
+  statusLine.textContent = `Wave ${survivalState.wave}: ${bot.survivalProfile.name} entering the arena.`;
+  return true;
 }
 
 function prepPlayerForSurvival(newRun = false) {
   const buildStats = getBuildStats();
-  const desiredHp = newRun ? buildStats.maxHp : clamp(player.hp + buildStats.maxHp * 0.24, 0, buildStats.maxHp);
+  const desiredHp = newRun ? buildStats.maxHp : clamp(player.hp + buildStats.maxHp * 0.22, 0, buildStats.maxHp);
   resetPlayer({ silent: true });
   clearCombatArtifacts();
+  survivalEnemies.length = 0;
   player.hp = desiredHp;
-  player.shield = Math.max(player.shield, newRun ? 0 : 18);
-  player.shieldTime = newRun ? 0 : 1.6;
+  player.shield = Math.max(player.shield, newRun ? 0 : 16);
+  player.shieldTime = newRun ? 0 : 1.4;
 }
 
-function spawnSurvivalHunter() {
-  const profile = getSurvivalWaveProfile(survivalState.wave);
-  const chosenLoadout = botBuildState.mode === "custom"
-    ? ensureBotLoadoutFilled(botBuildState.custom)
-    : createRandomBotLoadout({ wave: survivalState.wave, mirror: duelRules.mirrorMatch });
-  applyBotLoadout(enemy, chosenLoadout);
-  enemy.maxHp = Math.round(enemy.maxHp * profile.hpScale);
-  enemy.hp = enemy.maxHp;
-  enemy.speedScale = profile.speedScale;
-  enemy.wavePower = profile.hpScale;
-  enemy.spawnX = getMapLayout(sandboxModes.survival.key, sandbox.mapKey).enemySpawn.x;
-  enemy.spawnY = getMapLayout(sandboxModes.survival.key, sandbox.mapKey).enemySpawn.y;
-  respawnBot(enemy, false);
-  enemy.postAttackMoveTime = 0;
-  enemy.focusTime = 0;
-  statusLine.textContent = `Wave ${survivalState.wave}: ${enemy.loadout.personality} entering the arena.`;
+function seedSurvivalWave(resetProgress = false) {
+  const plan = buildSurvivalWavePlan(survivalState.wave);
+  survivalState.waveKills = 0;
+  survivalState.waveTargetKills = plan.totalCount;
+  survivalState.spawnQueue = [...plan.queue];
+  survivalState.spawnCooldown = plan.spawnDelay * 0.5;
+  survivalState.maxConcurrent = plan.maxConcurrent;
+  survivalState.planLabel = plan.label;
+  if (resetProgress) {
+    survivalState.totalKills = 0;
+  }
 }
 
 function startSurvivalRun({ resetProgress = true } = {}) {
   if (resetProgress) {
     survivalState.wave = 1;
-    survivalState.totalKills = 0;
   }
-  const profile = getSurvivalWaveProfile(survivalState.wave);
-  survivalState.waveKills = 0;
-  survivalState.waveTargetKills = profile.targetKills;
+  seedSurvivalWave(resetProgress);
   survivalState.phase = "wave_intro";
   survivalState.timer = 1.2;
   survivalState.completed = false;
@@ -4674,7 +5020,7 @@ function startSurvivalRun({ resetProgress = true } = {}) {
   enemy.alive = false;
   showRoundBanner(`WAVE ${survivalState.wave}`, "PREPARE", true);
   matchState.bannerStyle = "countdown";
-  statusLine.textContent = `Wave ${survivalState.wave} queued. Endure ${profile.targetKills} hunters to advance.`;
+  statusLine.textContent = `Wave ${survivalState.wave} queued. ${survivalState.waveTargetKills} targets incoming - ${survivalState.planLabel}.`;
 }
 
 function finishSurvivalRun() {
@@ -4688,22 +5034,21 @@ function finishSurvivalRun() {
   statusLine.textContent = `Run over. ${survivalState.totalKills} hunters eliminated before the collapse.`;
 }
 
-function handleSurvivalEnemyDefeated() {
+function handleSurvivalEnemyDefeated(defeatedBot = null) {
+  if (defeatedBot) {
+    const index = survivalEnemies.indexOf(defeatedBot);
+    if (index >= 0) {
+      survivalEnemies.splice(index, 1);
+    }
+  }
   survivalState.totalKills += 1;
   survivalState.waveKills += 1;
-  enemy.alive = false;
-  if (survivalState.waveKills >= survivalState.waveTargetKills) {
+  if (survivalState.waveKills >= survivalState.waveTargetKills && survivalState.spawnQueue.length === 0 && getAliveSurvivalEnemyCount() === 0) {
     survivalState.phase = "wave_clear";
     survivalState.timer = config.survivalWaveIntermission;
     showRoundBanner(`WAVE ${survivalState.wave}`, "CLEARED", true);
     matchState.bannerStyle = "fight";
-    statusLine.textContent = `Wave ${survivalState.wave} cleared. Brace for the next hunter cycle.`;
-  } else {
-    survivalState.phase = "spawn_next";
-    survivalState.timer = config.survivalWavePause;
-    showRoundBanner(`WAVE ${survivalState.wave}`, `NEXT ${survivalState.waveKills + 1}/${survivalState.waveTargetKills}`, true);
-    matchState.bannerStyle = "countdown";
-    statusLine.textContent = `Wave ${survivalState.wave}: hunter ${survivalState.waveKills + 1} incoming.`;
+    statusLine.textContent = `Wave ${survivalState.wave} cleared. Brace for the next push.`;
   }
 }
 
@@ -4714,37 +5059,45 @@ function updateSurvivalMode(dt) {
 
   if (survivalState.phase === "active") {
     showRoundBanner("", "", false);
+    survivalState.spawnCooldown = Math.max(0, survivalState.spawnCooldown - dt);
+    while (
+      survivalState.spawnQueue.length > 0 &&
+      survivalState.spawnCooldown <= 0 &&
+      getAliveSurvivalEnemyCount() < survivalState.maxConcurrent
+    ) {
+      spawnSurvivalEnemyFromQueue();
+      survivalState.spawnCooldown += getSurvivalWaveProfile(survivalState.wave).spawnDelay;
+    }
+
+    if (survivalState.spawnQueue.length === 0 && getAliveSurvivalEnemyCount() === 0) {
+      survivalState.phase = "wave_clear";
+      survivalState.timer = config.survivalWaveIntermission;
+      showRoundBanner(`WAVE ${survivalState.wave}`, "CLEARED", true);
+      matchState.bannerStyle = "fight";
+      statusLine.textContent = `Wave ${survivalState.wave} cleared. Prep for the next escalation.`;
+    }
     return;
   }
 
   survivalState.timer = Math.max(0, survivalState.timer - dt);
 
   if (survivalState.phase === "wave_intro" && survivalState.timer <= 0) {
-    spawnSurvivalHunter();
     survivalState.phase = "active";
-    showRoundBanner("", "", false);
-    return;
-  }
-
-  if (survivalState.phase === "spawn_next" && survivalState.timer <= 0) {
-    spawnSurvivalHunter();
-    survivalState.phase = "active";
+    survivalState.spawnCooldown = 0.1;
     showRoundBanner("", "", false);
     return;
   }
 
   if (survivalState.phase === "wave_clear" && survivalState.timer <= 0) {
     survivalState.wave += 1;
-    const profile = getSurvivalWaveProfile(survivalState.wave);
-    survivalState.waveKills = 0;
-    survivalState.waveTargetKills = profile.targetKills;
+    seedSurvivalWave(false);
     survivalState.phase = "wave_intro";
     survivalState.timer = 1.2;
     prepPlayerForSurvival(false);
     resetMapState(sandboxModes.survival.key, sandbox.mapKey);
     showRoundBanner(`WAVE ${survivalState.wave}`, "PREPARE", true);
     matchState.bannerStyle = "countdown";
-    statusLine.textContent = `Wave ${survivalState.wave} ready. Endure ${profile.targetKills} hunter pushes.`;
+    statusLine.textContent = `Wave ${survivalState.wave} ready. ${survivalState.waveTargetKills} targets incoming - ${survivalState.planLabel}.`;
     return;
   }
 
@@ -6111,12 +6464,15 @@ function damageBot(bot, damage, color, impactX, impactY, energyGain) {
 
     bot.alive = false;
     addImpact(bot.x, bot.y, "#b6fff4", 42);
-    statusLine.textContent = `${bot.role === "training" ? "Training bot" : "Enemy bot"} destroyed. Press R to reset bots.`;
+    statusLine.textContent =
+      sandbox.mode === sandboxModes.survival.key && bot.role === "survival"
+        ? `${bot.survivalProfile?.name ?? "Survival target"} down. Keep the lane clear.`
+        : `${bot.role === "training" ? "Training bot" : "Enemy bot"} destroyed. Press R to reset bots.`;
 
     if (sandbox.mode === sandboxModes.duel.key && bot.role === "hunter") {
       finishDuelRound("player");
-    } else if (sandbox.mode === sandboxModes.survival.key && bot.role === "hunter") {
-      handleSurvivalEnemyDefeated();
+    } else if (sandbox.mode === sandboxModes.survival.key && (bot.role === "hunter" || bot.role === "survival")) {
+      handleSurvivalEnemyDefeated(bot);
     }
   }
 
@@ -7363,6 +7719,8 @@ function applyProjectileEffectToBot(bot, projectile) {
     }
   } else if (effect.kind === "cannon") {
     triggerStatusShellExplosion(player, projectile.x, projectile.y, effect, "player", bot);
+  } else if (effect.kind === "status-shot" && effect.statusType) {
+    applyStatusEffect(bot, effect.statusType, getStatusDuration(effect.statusDuration ?? 0.5), effect.statusMagnitude ?? 0.18);
   } else if (effect.kind === "rail") {
     if (effect.charged) {
       applyStatusEffect(bot, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
@@ -7394,6 +7752,8 @@ function applyProjectileEffectToPlayer(projectile) {
     }
   } else if (effect.kind === "cannon") {
     triggerStatusShellExplosion(enemy, projectile.x, projectile.y, effect, "enemy", player);
+  } else if (effect.kind === "status-shot" && effect.statusType) {
+    applyStatusEffect(player, effect.statusType, getStatusDuration((effect.statusDuration ?? 0.5) * (1 - getBuildStats().ccReduction)), effect.statusMagnitude ?? 0.18);
   } else if (effect.kind === "rail") {
     if (effect.charged) {
       applyStatusEffect(player, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
@@ -8221,6 +8581,134 @@ function updateEnemy(dt) {
   }
 }
 
+function fireSurvivalRangedShot(bot, profile, targetX, targetY) {
+  const leadX = targetX + player.velocityX * 0.12;
+  const leadY = targetY + player.velocityY * 0.12;
+  spawnBullet(bot, leadX, leadY, enemyBullets, profile.color, profile.projectileSpeed ?? 900, profile.damage * (bot.survivalDamageScale ?? 1), {
+    radius: profile.tier === "Epic" ? 5.5 : 4.5,
+    life: 1,
+    trailColor: profile.accent,
+    source: `survival-${profile.key}`,
+    effect: profile.onHit === "shock"
+      ? { kind: "status-shot", statusType: "shock", statusDuration: 0.42, statusMagnitude: 0.18 }
+      : undefined,
+  });
+  addImpact(bot.x + Math.cos(bot.facing) * 22, bot.y + Math.sin(bot.facing) * 22, profile.accent, profile.tier === "Epic" ? 18 : 12);
+}
+
+function fireSurvivalArtilleryShot(bot, profile, targetX, targetY) {
+  spawnBullet(bot, targetX, targetY, enemyBullets, profile.color, profile.projectileSpeed ?? 760, profile.damage * (bot.survivalDamageScale ?? 1), {
+    radius: 8,
+    life: 1.1,
+    trailColor: profile.accent,
+    source: `survival-${profile.key}`,
+    effect: {
+      kind: "cannon",
+      splashRadius: 76,
+      splashDamage: (profile.splashDamage ?? 14) * (bot.survivalDamageScale ?? 1),
+      statusType: profile.onHit === "burn" ? "burn" : "slow",
+      statusDuration: profile.onHit === "burn" ? 1.8 : 0.6,
+      statusMagnitude: profile.onHit === "burn" ? 0.42 : 0.18,
+    },
+  });
+  addImpact(bot.x + Math.cos(bot.facing) * 24, bot.y + Math.sin(bot.facing) * 24, profile.accent, 18);
+}
+
+function updateSurvivalEnemies(dt) {
+  if (sandbox.mode !== sandboxModes.survival.key) {
+    return;
+  }
+
+  for (let index = survivalEnemies.length - 1; index >= 0; index -= 1) {
+    const bot = survivalEnemies[index];
+    bot.flash = Math.max(0, bot.flash - dt);
+    updateStatusEffects(bot, dt);
+    tickEntityMarks(bot, dt);
+
+    if (!bot.alive) {
+      continue;
+    }
+
+    const profile = bot.survivalProfile ?? survivalEnemyCatalog.scavenger;
+    const botStatus = getStatusState(bot);
+    const beingPulled = updateEntityPull(bot, dt);
+    bot.shootCooldown = Math.max(0, (bot.shootCooldown ?? 0) - dt);
+    bot.shieldTime = Math.max(0, (bot.shieldTime ?? 0) - dt);
+    if (bot.shieldTime <= 0) {
+      bot.shield = 0;
+    }
+
+    const dx = player.x - bot.x;
+    const dy = player.y - bot.y;
+    const distance = length(dx, dy);
+    const forward = normalize(dx, dy);
+    const side = { x: -forward.y, y: forward.x };
+    const field = getFieldInfluence(bot);
+    const zones = getZoneEffectsForEntity(bot);
+    let moveX = 0;
+    let moveY = 0;
+
+    if (!beingPulled && !botStatus.stunned) {
+      if (profile.ai === "melee") {
+        if (distance > (profile.attackRange ?? 32) + player.radius + 6) {
+          moveX += forward.x * 1.08;
+          moveY += forward.y * 1.08;
+        }
+        moveX += side.x * Math.sin(performance.now() * 0.002 + index) * 0.34;
+        moveY += side.y * Math.sin(performance.now() * 0.002 + index) * 0.34;
+      } else {
+        const preferredRange = profile.preferredRange ?? 300;
+        if (distance > preferredRange + 40) {
+          moveX += forward.x * 0.86;
+          moveY += forward.y * 0.86;
+        } else if (distance < preferredRange - 64) {
+          moveX -= forward.x * 0.92;
+          moveY -= forward.y * 0.92;
+        }
+        moveX += side.x * (Math.sin(performance.now() * 0.0016 + index * 0.8) >= 0 ? 0.72 : -0.72);
+        moveY += side.y * (Math.sin(performance.now() * 0.0016 + index * 0.8) >= 0 ? 0.72 : -0.72);
+      }
+    }
+
+    const desired = normalize(moveX, moveY);
+    const speed = (profile.speed ?? config.enemySpeed) * (getSurvivalWaveProfile(survivalState.wave).speedScale) * botStatus.speedMultiplier * field.slowMultiplier * zones.slowMultiplier;
+    if (!beingPulled && !botStatus.stunned) {
+      bot.x = clamp(bot.x + desired.x * speed * dt, bot.radius, arena.width - bot.radius);
+      bot.y = clamp(bot.y + desired.y * speed * dt, bot.radius, arena.height - bot.radius);
+    }
+
+    resolveMapCollision(bot);
+    maybeTeleportEntity(bot);
+    bot.facing = Math.atan2(player.y - bot.y, player.x - bot.x);
+
+    if (botStatus.stunned || bot.shootCooldown > 0) {
+      continue;
+    }
+
+    if (profile.ai === "melee") {
+      if (distance <= (profile.attackRange ?? 30) + player.radius) {
+        applyPlayerDamage((profile.damage ?? 12) * (bot.survivalDamageScale ?? 1), `survival-${profile.key}`);
+        if (profile.onHit === "slow") {
+          applyStatusEffect(player, "slow", getStatusDuration(0.6 * (1 - getBuildStats().ccReduction)), 0.24);
+        }
+        addImpact(player.x, player.y, profile.accent, profile.tier === "Big" ? 22 : 16);
+        addShake(profile.tier === "Big" ? 6.2 : 4.4);
+        bot.shootCooldown = profile.attackCooldown;
+      }
+    } else if (profile.ai === "ranged" || profile.ai === "caster") {
+      if (distance < (profile.preferredRange ?? 300) + 220) {
+        fireSurvivalRangedShot(bot, profile, player.x, player.y);
+        bot.shootCooldown = profile.attackCooldown;
+      }
+    } else if (profile.ai === "artillery") {
+      if (distance < (profile.preferredRange ?? 420) + 260) {
+        fireSurvivalArtilleryShot(bot, profile, player.x + player.velocityX * 0.18, player.y + player.velocityY * 0.18);
+        bot.shootCooldown = profile.attackCooldown;
+      }
+    }
+  }
+}
+
 function updateTrainingBots(dt) {
   for (const bot of trainingBots) {
     bot.flash = Math.max(0, bot.flash - dt);
@@ -8902,8 +9390,15 @@ function drawBot(bot) {
   }
 
   const visibleToPlayer = canSeeTarget(player, bot);
-  const hiddenAlpha = bot.role === "training" ? 0.42 : 0.18;
+  const hiddenAlpha = bot.role === "training" ? 0.42 : bot.role === "survival" ? 0.26 : 0.18;
   const hitOffset = getHitReactionOffset(bot);
+  const survivalProfile = bot.role === "survival" ? bot.survivalProfile : null;
+  const variant =
+    bot.role === "training" ? "ghostwire"
+    : bot.role === "survival" && survivalProfile?.tier === "Legendary" ? "ironmaw"
+    : bot.role === "survival" && survivalProfile?.tier === "Epic" ? "ghostwire"
+    : "warhound";
+  const drawScale = bot.role === "training" ? 0.84 : bot.role === "survival" ? (bot.survivalScale ?? 0.86) : 0.9;
 
   ctx.save();
   ctx.globalAlpha = visibleToPlayer ? 1 : hiddenAlpha;
@@ -8914,14 +9409,19 @@ function drawBot(bot) {
     {
       body: bot.flash > 0 ? "#f7fbff" : bot.color,
       accent: bot.accent,
-      detail: bot.role === "training" ? "#355868" : "#4f2f2f",
-      variant: bot.role === "training" ? "ghostwire" : "warhound",
+      detail: bot.role === "training" ? "#355868" : bot.role === "survival" ? "#3b3230" : "#4f2f2f",
+      variant,
     },
-    { scale: bot.role === "training" ? 0.84 : 0.9 },
+    { scale: drawScale },
   );
 
   ctx.fillStyle = bot.role === "training" ? "#eaf8ff" : bot.accent;
-  if (bot.weapon === weapons.axe.key) {
+  if (bot.role === "survival" && survivalProfile?.ai === "artillery") {
+    ctx.fillRect(10, -7, 18, 14);
+    ctx.fillRect(24, -5, 16, 10);
+  } else if (bot.role === "survival" && (survivalProfile?.ai === "ranged" || survivalProfile?.ai === "caster")) {
+    ctx.fillRect(10, -4, 22, 8);
+  } else if (bot.weapon === weapons.axe.key) {
     ctx.fillRect(10, -3, 20, 6);
     ctx.fillRect(24, -14, 8, 28);
   } else if (bot.weapon === weapons.lance.key) {
@@ -8950,6 +9450,13 @@ function drawBot(bot) {
     ctx.beginPath();
     ctx.arc(bot.x, bot.y, bot.radius + 8, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (bot.role === "survival" && visibleToPlayer && survivalProfile?.tier) {
+    ctx.save();
+    ctx.font = "600 10px Trebuchet MS";
+    ctx.textAlign = "center";
+    ctx.fillStyle = survivalProfile.tier === "Legendary" ? "#fff1bf" : survivalProfile.tier === "Epic" ? "#ead8ff" : "rgba(235,245,255,0.84)";
+    ctx.fillText(survivalProfile.tier.toUpperCase(), bot.x, bot.y - bot.radius - 32);
+    ctx.restore();
   }
 
   if (visibleToPlayer) {
@@ -9448,14 +9955,14 @@ function drawWorld() {
   const viewportHeight = canvas.clientHeight || window.innerHeight;
   ctx.clearRect(0, 0, viewportWidth, viewportHeight);
 
-  const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
-  const offsetX = (viewportWidth - arena.width * scale) * 0.5;
-  const offsetY = (viewportHeight - arena.height * scale) * 0.5;
+  const camera = updateCameraState(viewportWidth, viewportHeight);
+  const shakeX = (Math.random() - 0.5) * screenShake;
+  const shakeY = (Math.random() - 0.5) * screenShake;
 
   ctx.save();
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(scale, scale);
-  ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+  ctx.translate(camera.offsetX, camera.offsetY);
+  ctx.scale(camera.scale, camera.scale);
+  ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
   const activeLayout = getMapLayout();
   const theme = activeLayout.theme ?? mapChoices.electroGallery.theme;
@@ -9992,13 +10499,13 @@ function updateHud() {
     sandbox.mode === sandboxModes.duel.key
       ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
       : sandbox.mode === sandboxModes.survival.key
-        ? `${survivalState.waveKills}/${survivalState.waveTargetKills} · ${survivalState.totalKills} KOs`
+        ? `${survivalState.waveKills}/${survivalState.waveTargetKills} · ${getAliveSurvivalEnemyCount()} alive`
       : `${getAllBots().filter((bot) => bot.alive).length} targets`;
   matchFormat.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? `${duelRules.formatWins === 3 ? "BO5" : "BO3"}${duelRules.roundTimer > 0 ? ` · ${Math.ceil(matchState.roundClock)}s` : ""}`
       : sandbox.mode === sandboxModes.survival.key
-        ? `${getEscalatedDifficultyKey(botBuildState.difficulty, survivalState.wave).toUpperCase()} · SURVIVAL`
+        ? `${getEscalatedDifficultyKey(botBuildState.difficulty, survivalState.wave).toUpperCase()} · ${survivalState.totalKills} KOs`
         : "Training";
   roundBannerLabel.textContent = matchState.bannerLabel;
   roundBannerTitle.textContent = matchState.bannerTitle;
@@ -10293,13 +10800,11 @@ function setHudSlotPresentation(slotIcon, slotName, ability) {
 
 function screenToArena(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scale = Math.min(rect.width / arena.width, rect.height / arena.height);
-  const offsetX = (rect.width - arena.width * scale) * 0.5;
-  const offsetY = (rect.height - arena.height * scale) * 0.5;
+  const camera = updateCameraState(rect.width, rect.height);
 
   return {
-    x: clamp((clientX - rect.left - offsetX) / scale, 0, arena.width),
-    y: clamp((clientY - rect.top - offsetY) / scale, 0, arena.height),
+    x: clamp((clientX - rect.left - camera.offsetX) / camera.scale + camera.x, 0, arena.width),
+    y: clamp((clientY - rect.top - camera.offsetY) / camera.scale + camera.y, 0, arena.height),
   };
 }
 
@@ -10341,6 +10846,7 @@ function frame(time) {
   updatePortalCooldowns(dt);
   updatePlayer(dt);
   updateEnemy(dt);
+  updateSurvivalEnemies(dt);
   updateTrainingBots(dt);
   resolveCharacterBodyBlocking();
   updateBullets(bullets, dt);
