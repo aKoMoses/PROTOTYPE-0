@@ -1,0 +1,287 @@
+// HUD updates
+import { config, sandboxModes } from "../config.js";
+import { content, weapons } from "../content.js";
+import { player, enemy, abilityState, loadout, sandbox, matchState } from "../state.js";
+import * as dom from "../dom.js";
+import { clamp } from "../utils.js";
+import { sanitizeIconClass } from "../utils.js";
+import { getMapLayout } from "../maps.js";
+import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize } from "../build/loadout.js";
+import { getAllBots, getPrimaryBot } from "./combat.js";
+
+export function updateHud() {
+  const weaponReady = player.fireCooldown <= 0 && player.reloadTime <= 0;
+  const activeWeapon = weapons[player.weapon] ?? weapons.pulse;
+  const activeMode = sandboxModes[sandbox.mode];
+  const activeLayout = getMapLayout(sandbox.mode);
+  const primaryBot = getPrimaryBot();
+  const buildStats = getBuildStats();
+  const slotAbilities = [getAbilityBySlot(0), getAbilityBySlot(1), getAbilityBySlot(2)];
+  const selectedUltimate = content.ultimates[loadout.ultimate] ?? content.ultimates.phantomSplit;
+  mapName.textContent = activeLayout.name ?? activeMode.name;
+  mapStatus.textContent = activeLayout.subtitle ?? activeMode.subtitle;
+  roundLabel.textContent =
+    sandbox.mode === sandboxModes.duel.key ? `Round ${matchState.roundNumber}` : "Practice";
+  matchScore.textContent =
+    sandbox.mode === sandboxModes.duel.key
+      ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
+      : `${getAllBots().filter((bot) => bot.alive).length} targets`;
+  matchFormat.textContent =
+    sandbox.mode === sandboxModes.duel.key ? "BO3" : "Training";
+  roundBannerLabel.textContent = matchState.bannerLabel;
+  roundBannerTitle.textContent = matchState.bannerTitle;
+  roundBanner.classList.toggle("visible", matchState.bannerVisible);
+  roundBanner.classList.toggle("countdown", matchState.bannerStyle === "countdown");
+  roundBanner.classList.toggle("fight", matchState.bannerStyle === "fight");
+  weaponName.textContent = activeWeapon.name;
+  weaponIcon.className = `content-icon content-icon--${sanitizeIconClass(activeWeapon.icon)}`;
+  weaponStatus.textContent =
+    player.weapon === weapons.pulse.key && player.reloadTime > 0
+      ? `Reload ${player.reloadTime.toFixed(1)}s`
+      : player.weapon === weapons.pulse.key
+        ? `Ammo ${player.ammo}/${getPulseMagazineSize()}`
+      : player.weapon === weapons.axe.key && player.comboTimer > 0
+      ? `Combo ${player.comboStep}/3`
+      : player.weapon === weapons.sniper.key
+        ? weaponReady
+          ? "Rail primed"
+          : `Rechamber ${player.fireCooldown.toFixed(2)}s`
+      : player.weapon === weapons.staff.key
+        ? weaponReady
+          ? "Sustain beam ready"
+          : `Cycling ${player.fireCooldown.toFixed(2)}s`
+      : player.weapon === weapons.injector.key
+        ? weaponReady
+          ? "Marks armed"
+          : `Injecting ${player.fireCooldown.toFixed(2)}s`
+      : weaponReady
+        ? "Ready"
+        : `Cooling ${player.fireCooldown.toFixed(2)}s`;
+  const pulseMeterRatio = player.reloadTime > 0
+    ? 1 - player.reloadTime / config.pulseReloadTime
+    : player.ammo / getPulseMagazineSize();
+  weaponMeter.style.width = `${
+    Math.max(
+      0,
+      Math.min(
+        100,
+        (
+          player.weapon === weapons.pulse.key
+            ? pulseMeterRatio
+            : 1 - player.fireCooldown / activeWeapon.cooldown
+        ) * 100,
+      ),
+    )
+  }%`;
+  weaponMeter.style.background =
+    player.weapon === weapons.axe.key
+      ? "linear-gradient(90deg, rgba(158, 247, 199, 0.45), rgba(158, 247, 199, 0.98))"
+      : player.weapon === weapons.shotgun.key
+        ? "linear-gradient(90deg, rgba(255, 157, 98, 0.45), rgba(255, 157, 98, 0.98))"
+      : player.weapon === weapons.sniper.key
+        ? "linear-gradient(90deg, rgba(255, 211, 117, 0.45), rgba(255, 211, 117, 0.98))"
+      : player.weapon === weapons.staff.key
+        ? "linear-gradient(90deg, rgba(149, 255, 180, 0.45), rgba(149, 255, 180, 0.98))"
+      : player.weapon === weapons.injector.key
+        ? "linear-gradient(90deg, rgba(216, 140, 255, 0.45), rgba(216, 140, 255, 0.98))"
+      : "linear-gradient(90deg, rgba(119, 216, 255, 0.4), rgba(119, 216, 255, 0.95))";
+  weaponMeter.style.boxShadow =
+    player.weapon === weapons.axe.key
+      ? "0 0 14px rgba(158, 247, 199, 0.24)"
+      : player.weapon === weapons.shotgun.key
+        ? "0 0 14px rgba(255, 157, 98, 0.24)"
+      : player.weapon === weapons.sniper.key
+        ? "0 0 14px rgba(255, 211, 117, 0.24)"
+      : player.weapon === weapons.staff.key
+        ? "0 0 14px rgba(149, 255, 180, 0.24)"
+      : player.weapon === weapons.injector.key
+        ? "0 0 14px rgba(216, 140, 255, 0.24)"
+      : "0 0 14px rgba(119, 216, 255, 0.25)";
+  playerHealthFill.style.width = `${(player.hp / buildStats.maxHp) * 100}%`;
+  enemyHealthFill.style.width = primaryBot
+    ? `${(Math.max(0, primaryBot.hp) / primaryBot.maxHp) * 100}%`
+      : "0%";
+  playerHealthText.textContent = `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""}`;
+  enemyHealthText.textContent = primaryBot
+    ? primaryBot.alive
+      ? `${Math.ceil(primaryBot.hp)} / ${primaryBot.maxHp}`
+      : "Down"
+    : "--";
+
+  setHudSlotPresentation(slotDashIcon, slotDashName, { icon: "ability-dash", name: "Dash" });
+  setHudSlotPresentation(slotAbility1Icon, slotAbility1Name, slotAbilities[0] ?? content.abilities.shockJavelin);
+  setHudSlotPresentation(slotAbility2Icon, slotAbility2Name, slotAbilities[1] ?? content.abilities.magneticField);
+  setHudSlotPresentation(slotAbility3Icon, slotAbility3Name, slotAbilities[2] ?? content.abilities.energyShield);
+  setHudSlotPresentation(ultimateSlotIcon, ultimateSlotName, selectedUltimate);
+
+  updateAbilitySlot(slotDash, slotDashOverlay, slotDashTimer, getAbilityHudState("dash"));
+  updateAbilitySlot(slotAbility1, slotAbility1Overlay, slotAbility1Timer, getAbilityHudState(slotAbilities[0]?.key));
+  updateAbilitySlot(slotAbility2, slotAbility2Overlay, slotAbility2Timer, getAbilityHudState(slotAbilities[1]?.key));
+  updateAbilitySlot(slotAbility3, slotAbility3Overlay, slotAbility3Timer, getAbilityHudState(slotAbilities[2]?.key));
+  updateAbilitySlot(ultimateSlot, ultimateSlotOverlay, ultimateSlotTimer, {
+    ready: abilityState.ultimate.cooldown <= 0,
+    charging: false,
+    cooldownRatio: abilityState.ultimate.cooldown <= 0 ? 0 : abilityState.ultimate.cooldown / config.ultimateCooldown,
+    timer: abilityState.ultimate.cooldown <= 0 ? "" : abilityState.ultimate.cooldown.toFixed(1),
+  });
+}
+
+export function updateAbilitySlot(slot, overlay, timerLabel, state) {
+  slot.classList.toggle("ready", state.ready);
+  slot.classList.toggle("charging", state.charging);
+  const clampedRatio = Math.max(0, Math.min(1, state.cooldownRatio ?? 1));
+  const degrees = Math.round(clampedRatio * 360);
+  const shadowColor = state.charging ? "rgba(55, 33, 10, 0.82)" : "rgba(6, 10, 14, 0.88)";
+  const clearColor = state.charging ? "rgba(55, 33, 10, 0.16)" : "rgba(6, 10, 14, 0.12)";
+  overlay.style.background = `conic-gradient(from -90deg, ${shadowColor} 0deg ${degrees}deg, ${clearColor} ${degrees}deg 360deg)`;
+  overlay.style.opacity = state.ready && !state.charging ? "0" : "1";
+  timerLabel.textContent = state.timer;
+}
+
+export function getAbilityHudState(abilityKey) {
+  switch (abilityKey) {
+    case "dash": {
+      const ready = abilityState.dash.charges > 0;
+      return {
+        ready,
+        charging: abilityState.dash.inputHeld && abilityState.dash.activeTime <= 0,
+        cooldownRatio: ready ? 0 : Math.max(0, Math.min(1, abilityState.dash.rechargeTimer / getActiveDashCooldown())),
+        timer: abilityState.dash.activeTime > 0 ? "GO" : ready ? "" : abilityState.dash.rechargeTimer.toFixed(1),
+      };
+    }
+    case "shockJavelin":
+      return {
+        ready: abilityState.javelin.cooldown <= 0,
+        charging: abilityState.javelin.charging,
+        cooldownRatio:
+          abilityState.javelin.cooldown <= 0
+            ? 0
+            : Math.max(0, Math.min(1, abilityState.javelin.cooldown / abilityConfig.javelin.cooldown)),
+        timer: abilityState.javelin.charging
+          ? abilityState.javelin.chargeTime >= abilityConfig.javelin.chargeThreshold
+            ? "MAX"
+            : "..."
+          : abilityState.javelin.cooldown <= 0
+            ? ""
+            : abilityState.javelin.cooldown.toFixed(1),
+      };
+    case "magneticField":
+      return {
+        ready: abilityState.field.cooldown <= 0,
+        charging: abilityState.field.charging,
+        cooldownRatio:
+          abilityState.field.cooldown <= 0
+            ? 0
+            : Math.max(0, Math.min(1, abilityState.field.cooldown / abilityConfig.field.cooldown)),
+        timer: abilityState.field.charging
+          ? abilityState.field.chargeTime >= abilityConfig.field.chargeThreshold
+            ? "MAX"
+            : "..."
+          : abilityState.field.cooldown <= 0
+            ? ""
+            : abilityState.field.cooldown.toFixed(1),
+      };
+    case "magneticGrapple":
+      return {
+        ready: abilityState.grapple.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.grapple.cooldown <= 0 ? 0 : abilityState.grapple.cooldown / config.grappleCooldown,
+        timer: abilityState.grapple.cooldown <= 0 ? "" : abilityState.grapple.cooldown.toFixed(1),
+      };
+    case "energyShield":
+      return {
+        ready: abilityState.shield.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.shield.cooldown <= 0 ? 0 : abilityState.shield.cooldown / config.shieldCooldown,
+        timer: abilityState.shield.cooldown <= 0 ? "" : abilityState.shield.cooldown.toFixed(1),
+      };
+    case "empBurst":
+      return {
+        ready: abilityState.emp.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.emp.cooldown <= 0 ? 0 : abilityState.emp.cooldown / config.boosterCooldown,
+        timer: abilityState.emp.cooldown <= 0 ? "" : abilityState.emp.cooldown.toFixed(1),
+      };
+    case "backstepBurst":
+      return {
+        ready: abilityState.backstep.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.backstep.cooldown <= 0 ? 0 : abilityState.backstep.cooldown / 3.6,
+        timer: abilityState.backstep.cooldown <= 0 ? "" : abilityState.backstep.cooldown.toFixed(1),
+      };
+    case "chainLightning":
+      return {
+        ready: abilityState.chainLightning.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.chainLightning.cooldown <= 0 ? 0 : abilityState.chainLightning.cooldown / 5.4,
+        timer: abilityState.chainLightning.cooldown <= 0 ? "" : abilityState.chainLightning.cooldown.toFixed(1),
+      };
+    case "blinkStep":
+      return {
+        ready: abilityState.blink.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.blink.cooldown <= 0 ? 0 : abilityState.blink.cooldown / 3.4,
+        timer: abilityState.blink.cooldown <= 0 ? "" : abilityState.blink.cooldown.toFixed(1),
+      };
+    case "phaseDash":
+      return {
+        ready: abilityState.phaseDash.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.phaseDash.cooldown <= 0 ? 0 : abilityState.phaseDash.cooldown / 4.6,
+        timer: abilityState.phaseDash.time > 0 ? "PHASE" : abilityState.phaseDash.cooldown <= 0 ? "" : abilityState.phaseDash.cooldown.toFixed(1),
+      };
+    case "pulseBurst":
+      return {
+        ready: abilityState.pulseBurst.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.pulseBurst.cooldown <= 0 ? 0 : abilityState.pulseBurst.cooldown / 3.2,
+        timer: abilityState.pulseBurst.cooldown <= 0 ? "" : abilityState.pulseBurst.cooldown.toFixed(1),
+      };
+    case "railShot":
+      return {
+        ready: abilityState.railShot.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.railShot.cooldown <= 0 ? 0 : abilityState.railShot.cooldown / 5.1,
+        timer: abilityState.railShot.cooldown <= 0 ? "" : abilityState.railShot.cooldown.toFixed(1),
+      };
+    case "gravityWell":
+      return {
+        ready: abilityState.gravityWell.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.gravityWell.cooldown <= 0 ? 0 : abilityState.gravityWell.cooldown / 5.8,
+        timer: abilityState.gravityWell.cooldown <= 0 ? "" : abilityState.gravityWell.cooldown.toFixed(1),
+      };
+    case "phaseShift":
+      return {
+        ready: abilityState.phaseShift.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.phaseShift.cooldown <= 0 ? 0 : abilityState.phaseShift.cooldown / 5.6,
+        timer: abilityState.phaseShift.time > 0 ? "SHIFT" : abilityState.phaseShift.cooldown <= 0 ? "" : abilityState.phaseShift.cooldown.toFixed(1),
+      };
+    case "hologramDecoy":
+      return {
+        ready: abilityState.hologramDecoy.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.hologramDecoy.cooldown <= 0 ? 0 : abilityState.hologramDecoy.cooldown / 6.2,
+        timer: abilityState.hologramDecoy.cooldown <= 0 ? "" : abilityState.hologramDecoy.cooldown.toFixed(1),
+      };
+    case "speedSurge":
+      return {
+        ready: abilityState.speedSurge.cooldown <= 0,
+        charging: false,
+        cooldownRatio: abilityState.speedSurge.cooldown <= 0 ? 0 : abilityState.speedSurge.cooldown / 4.2,
+        timer: abilityState.speedSurge.cooldown <= 0 ? "" : abilityState.speedSurge.cooldown.toFixed(1),
+      };
+    default:
+      return { ready: false, charging: false, cooldownRatio: 1, timer: "NA" };
+  }
+}
+
+export function setHudSlotPresentation(slotIcon, slotName, ability) {
+  if (!slotIcon || !slotName || !ability) {
+    return;
+  }
+  slotIcon.className = `ability-slot__icon content-icon content-icon--${sanitizeIconClass(ability.icon)}`;
+  slotName.textContent = ability.name;
+}
+
