@@ -1,0 +1,650 @@
+/* ================================================================
+   PROTOTYPE-0  ·  SHELL UI  V2
+   Premium dark-launcher aesthetic — inspired by top-tier game clients
+   Palette: deep navy-black / gold / hextech-cyan
+   ================================================================ */
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────────── */
+:root {
+  --sh-deep:        #050810;
+  --sh-panel:       #07090f;
+  --sh-surface:     #0b0e1a;
+  --sh-card:        #0d1122;
+
+  --sh-gold:        #c89b3c;
+  --sh-gold-hi:     #e4b84a;
+  --sh-gold-dim:    rgba(200, 155, 60, 0.15);
+  --sh-cyan:        #0bc4e3;
+  --sh-cyan-dim:    rgba(11, 196, 227, 0.12);
+
+  --sh-text:        #f0e6d3;
+  --sh-text-mid:    #a89278;
+  --sh-text-muted:  #525260;
+
+  --sh-border-gold: rgba(200, 155, 60, 0.2);
+  --sh-border-sub:  rgba(255, 255, 255, 0.055);
+
+  --sh-w:           292px;
+  --sh-r:           3px;
+}
+
+/* ── PAGE ───────────────────────────────────────────────────────── */
+.app-shell-page {
+  overflow: hidden;
+  background: var(--sh-deep);
+  color-scheme: dark;
+}
+
+/* ── SHELL GRID ─────────────────────────────────────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sh-w) minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ── SIDEBAR ────────────────────────────────────────────────────── */
+.app-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--sh-panel);
+  border-right: 1px solid var(--sh-border-gold);
+  overflow: hidden;
+}
+
+/* Top iridescent accent line */
+.app-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--sh-cyan) 30%,
+    var(--sh-gold) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Right-edge glowing separator */
+.app-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 60px; bottom: 60px;
+  right: 0;
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(200, 155, 60, 0.55) 25%,
+    rgba(200, 155, 60, 0.12) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── BRAND ──────────────────────────────────────────────────────── */
+.app-brand {
+  flex-shrink: 0;
+  display: grid;
+  gap: 4px;
+  padding: 26px 22px 20px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--sh-border-sub);
+  color: var(--sh-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.app-brand:hover {
+  background: rgba(200, 155, 60, 0.025);
+}
+
+.app-brand__eyebrow {
+  font-size: 0.6rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--sh-gold);
+  font-weight: 600;
+}
+
+.app-brand__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.app-brand__copy {
+  font-size: 0.7rem;
+  color: var(--sh-text-muted);
+  letter-spacing: 0.05em;
+  margin-top: 3px;
+}
+
+/* ── NAVIGATION ─────────────────────────────────────────────────── */
+.shell-nav {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0;
+}
+
+.shell-nav__button {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 15px 20px 15px 22px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--sh-border-sub);
+  color: var(--sh-text-mid);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  overflow: hidden;
+}
+
+/* Active indicator bar */
+.shell-nav__button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: transparent;
+  transition: background 0.22s, box-shadow 0.22s;
+}
+
+/* Hover gold sweep */
+.shell-nav__button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(200, 155, 60, 0.06), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.shell-nav__button:hover {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--sh-text);
+}
+
+.shell-nav__button:hover::after {
+  opacity: 1;
+}
+
+.shell-nav__button--active {
+  background: linear-gradient(90deg, rgba(200, 155, 60, 0.09) 0%, transparent 100%);
+  color: var(--sh-text);
+}
+
+.shell-nav__button--active::before {
+  background: var(--sh-gold);
+  box-shadow:
+    0 0 6px rgba(200, 155, 60, 0.9),
+    0 0 16px rgba(200, 155, 60, 0.45);
+}
+
+.shell-nav__label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+.shell-nav__meta {
+  font-size: 0.7rem;
+  color: var(--sh-text-muted);
+  letter-spacing: 0.04em;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── PLAY BUTTON ────────────────────────────────────────────────── */
+.shell-play-button {
+  flex-shrink: 0;
+  margin: 18px 18px 12px;
+  height: 54px;
+  border-radius: var(--sh-r);
+  border: 1px solid rgba(200, 155, 60, 0.55);
+  background: linear-gradient(180deg, #c99640 0%, #7e5c18 100%);
+  color: #fff6e2;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 4px 22px rgba(200, 155, 60, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  transition: filter 0.18s, box-shadow 0.18s;
+}
+
+/* Shimmer sweep on hover */
+.shell-play-button::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; bottom: 0;
+  width: 60%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.14),
+    transparent
+  );
+  transition: left 0.55s ease;
+}
+
+.shell-play-button:hover {
+  filter: brightness(1.14);
+  box-shadow:
+    0 6px 32px rgba(200, 155, 60, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.shell-play-button:hover::before {
+  left: 140%;
+}
+
+/* ── SIDEBAR FOOTER ─────────────────────────────────────────────── */
+.shell-sidebar__footer {
+  margin-top: auto;
+  padding: 14px 22px 16px;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sh-text-muted);
+  border-top: 1px solid var(--sh-border-sub);
+}
+
+/* ── WORKSPACE ──────────────────────────────────────────────────── */
+.app-workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sh-deep);
+}
+
+/* ── SHELL VIEWS ────────────────────────────────────────────────── */
+.shell-view {
+  position: absolute;
+  inset: 0;
+  display: none;
+  min-width: 0;
+  min-height: 0;
+}
+
+.shell-view.is-active {
+  display: block;
+}
+
+.shell-view--landing {
+  overflow: auto;
+}
+
+/* ── LANDING ────────────────────────────────────────────────────── */
+.landing-view {
+  min-height: 100%;
+  padding: 34px 40px;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  background:
+    radial-gradient(ellipse 55% 45% at 88% 0%,  rgba(11, 196, 227, 0.11) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 55% at 10% 75%, rgba(200, 155, 60, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse 30% 30% at 55% 50%, rgba(11, 196, 227, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #090c1a 0%, #060810 100%);
+  position: relative;
+}
+
+/* Subtle scanlines */
+.landing-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent  0px,
+    transparent  2px,
+    rgba(255, 255, 255, 0.011) 2px,
+    rgba(255, 255, 255, 0.011) 3px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HERO ───────────────────────────────────────────────────────── */
+.landing-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 210px;
+  gap: 32px;
+  align-items: center;
+  padding: 44px 48px;
+  border: 1px solid var(--sh-border-gold);
+  border-radius: var(--sh-r);
+  background: linear-gradient(180deg, rgba(11, 16, 30, 0.97) 0%, rgba(7, 9, 18, 0.99) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 28px 64px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+/* Gold corner bracket — top left */
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 56px; height: 56px;
+  border-top: 1px solid rgba(200, 155, 60, 0.7);
+  border-left: 1px solid rgba(200, 155, 60, 0.7);
+}
+
+/* Cyan corner bracket — bottom right */
+.landing-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 56px; height: 56px;
+  border-bottom: 1px solid rgba(11, 196, 227, 0.5);
+  border-right: 1px solid rgba(11, 196, 227, 0.5);
+}
+
+.landing-eyebrow {
+  margin: 0 0 16px;
+  font-size: 0.62rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--sh-cyan);
+  font-weight: 600;
+}
+
+.landing-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3.8vw, 4.2rem);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--sh-text);
+  max-width: 14ch;
+}
+
+.landing-hero__lede {
+  margin: 18px 0 0;
+  color: var(--sh-text-mid);
+  font-size: 0.84rem;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+  max-width: 44ch;
+}
+
+.landing-hero__actions {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+/* Primary CTA — gold gradient */
+.landing-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 22px;
+  border-radius: var(--sh-r);
+  border: 1px solid rgba(200, 155, 60, 0.55);
+  background: linear-gradient(180deg, #c99640 0%, #7e5c18 100%);
+  color: #fff6e2;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 4px 20px rgba(200, 155, 60, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: filter 0.18s, box-shadow 0.18s;
+}
+
+.landing-primary:hover {
+  filter: brightness(1.12);
+  box-shadow:
+    0 6px 28px rgba(200, 155, 60, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Secondary CTA */
+.landing-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 22px;
+  border-radius: var(--sh-r);
+  border: 1px solid var(--sh-border-gold);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--sh-text-mid);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.landing-secondary:hover {
+  background: rgba(200, 155, 60, 0.07);
+  border-color: rgba(200, 155, 60, 0.42);
+  color: var(--sh-text);
+}
+
+/* ── CARD GRID ──────────────────────────────────────────────────── */
+.landing-card-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.landing-card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 30px 30px 26px;
+  border-radius: var(--sh-r);
+  border: 1px solid var(--sh-border-gold);
+  background: linear-gradient(180deg, rgba(11, 15, 28, 0.95) 0%, rgba(7, 9, 18, 0.97) 100%);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.38);
+  color: var(--sh-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+/* Top-left corner bracket */
+.landing-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 18px; height: 18px;
+  border-top: 1px solid var(--sh-gold);
+  border-left: 1px solid var(--sh-gold);
+  opacity: 0.65;
+  transition: opacity 0.2s, width 0.2s, height 0.2s;
+}
+
+/* Bottom-right corner bracket */
+.landing-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 18px; height: 18px;
+  border-bottom: 1px solid var(--sh-gold);
+  border-right: 1px solid var(--sh-gold);
+  opacity: 0.3;
+  transition: opacity 0.2s, width 0.2s, height 0.2s;
+}
+
+.landing-card:hover {
+  border-color: rgba(200, 155, 60, 0.42);
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 44px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(200, 155, 60, 0.1);
+}
+
+.landing-card:hover::before,
+.landing-card:hover::after {
+  opacity: 1;
+  width: 26px;
+  height: 26px;
+}
+
+.landing-card__tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--sh-cyan);
+  font-weight: 600;
+}
+
+.landing-card strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+}
+
+.landing-card p {
+  margin: 0;
+  color: var(--sh-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+/* ── GAME VIEW ──────────────────────────────────────────────────── */
+.shell-view--game {
+  background: #0a0d10;
+}
+
+.shell-view--game .game-shell {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── DEV VIEW ───────────────────────────────────────────────────── */
+.shell-view--dev {
+  overflow: auto;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(200, 155, 60, 0.08), transparent 28%),
+    linear-gradient(180deg, #0a0d1c 0%, #060810 100%);
+}
+
+.dev-shell--embedded {
+  width: 100%;
+  margin: 0;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-right: none;
+    border-bottom: 1px solid var(--sh-border-gold);
+  }
+
+  .app-sidebar::before {
+    top: auto; bottom: 0;
+    left: 0; right: 0;
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--sh-gold), transparent);
+  }
+
+  .app-sidebar::after {
+    display: none;
+  }
+
+  .app-brand {
+    border-bottom: none;
+    flex: 1;
+    padding: 8px 10px;
+  }
+
+  .shell-nav {
+    flex-direction: row;
+    padding: 0;
+  }
+
+  .shell-nav__button {
+    padding: 10px 16px;
+    border-bottom: none;
+  }
+
+  .shell-play-button {
+    margin: 0;
+    height: 42px;
+  }
+
+  .shell-sidebar__footer {
+    display: none;
+  }
+
+  .landing-view {
+    padding: 20px 18px;
+  }
+
+  .landing-hero {
+    grid-template-columns: 1fr;
+    padding: 28px 24px;
+  }
+
+  .landing-hero__actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

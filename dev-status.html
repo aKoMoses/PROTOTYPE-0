@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prototype 0 | Dev Status</title>
+    <link rel="stylesheet" href="./dev-status.css" />
+  </head>
+  <body>
+    <main class="dev-shell">
+      <section class="hero-panel">
+        <div class="hero-panel__copy">
+          <p class="eyebrow">Developer View</p>
+          <h1>Prototype-0 status board</h1>
+          <p class="hero-panel__lede">
+            Vue synthétique du projet basée sur la documentation produit et le dernier changelog.
+          </p>
+        </div>
+        <div class="hero-panel__actions">
+          <a class="hero-link" href="./index.html">Ouvrir le prototype</a>
+          <a class="hero-link hero-link--ghost" href="./doc/DOCUMENTATION.md">Documentation source</a>
+          <a class="hero-link hero-link--ghost" href="./doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md">Changelog source</a>
+        </div>
+      </section>
+
+      <section class="status-strip" id="status-strip">
+        <article class="status-card status-card--loading">
+          <span class="status-card__label">Chargement</span>
+          <strong>Lecture des documents en cours…</strong>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="dashboard-panel dashboard-panel--wide" id="overview-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Snapshot</span>
+            <h2>Projet</h2>
+          </div>
+          <div class="empty-state">Chargement du snapshot produit…</div>
+        </article>
+
+        <article class="dashboard-panel" id="latest-update-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Latest Pass</span>
+            <h2>Changelog</h2>
+          </div>
+          <div class="empty-state">Chargement du dernier lot de changements…</div>
+        </article>
+
+        <article class="dashboard-panel" id="flow-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Loop</span>
+            <h2>Flow joueur</h2>
+          </div>
+          <div class="empty-state">Chargement du flow principal…</div>
+        </article>
+
+        <article class="dashboard-panel dashboard-panel--wide" id="architecture-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Code Map</span>
+            <h2>Architecture</h2>
+          </div>
+          <div class="empty-state">Chargement de la structure code…</div>
+        </article>
+
+        <article class="dashboard-panel" id="controls-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Controls</span>
+            <h2>Inputs</h2>
+          </div>
+          <div class="empty-state">Chargement des contrôles…</div>
+        </article>
+
+        <article class="dashboard-panel" id="principles-panel">
+          <div class="panel-header">
+            <span class="eyebrow">Guardrails</span>
+            <h2>Principes</h2>
+          </div>
+          <div class="empty-state">Chargement des principes de dev…</div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./dev-status.js"></script>
+  </body>
+</html>

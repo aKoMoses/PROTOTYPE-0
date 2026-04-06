@@ -5,9 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prototype 0</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./shell-ui.css" />
   </head>
-  <body>
-    <div class="game-shell">
+  <body class="app-shell-page">
+    <div class="app-shell">
+      <aside class="app-sidebar">
+        <button class="app-brand" type="button" data-shell-view="landing">
+          <span class="app-brand__eyebrow">Prototype-0</span>
+          <strong class="app-brand__title">Arena Shell</strong>
+          <span class="app-brand__copy">Scrap-tech duel prototype</span>
+        </button>
+
+        <div class="shell-nav">
+          <button class="shell-nav__button shell-nav__button--active" type="button" data-shell-view="game">
+            <span class="shell-nav__label">Main Game</span>
+            <span class="shell-nav__meta">Combat live</span>
+          </button>
+          <button class="shell-nav__button" type="button" data-shell-view="dev">
+            <span class="shell-nav__label">Dev Status</span>
+            <span class="shell-nav__meta">Projet en un coup d'oeil</span>
+          </button>
+        </div>
+
+        <button class="shell-play-button" type="button" data-shell-view="game">Play</button>
+
+        <div class="shell-sidebar__footer">
+          <span>Deux vues, une seule shell.</span>
+        </div>
+      </aside>
+
+      <main class="app-workspace">
+        <section class="shell-view shell-view--landing is-active" id="shell-view-landing">
+          <div class="landing-view">
+            <section class="landing-hero">
+              <div class="landing-hero__copy">
+                <p class="landing-eyebrow">Prototype-0</p>
+                <h1>Une entrée propre pour jouer ou piloter le prototype.</h1>
+                <p class="landing-hero__lede">Choisis la vue. Pas de bruit. Juste l'arène et l'état du projet.</p>
+              </div>
+              <div class="landing-hero__actions">
+                <button class="landing-primary" type="button" data-shell-view="game">Lancer le jeu</button>
+                <button class="landing-secondary" type="button" data-shell-view="dev">Ouvrir Dev Status</button>
+              </div>
+            </section>
+
+            <section class="landing-card-grid">
+              <button class="landing-card" type="button" data-shell-view="game">
+                <span class="landing-card__tag">Main Game</span>
+                <strong>Interface actuelle</strong>
+                <p>Duel, Build Lab, HUD, match flow.</p>
+              </button>
+              <button class="landing-card" type="button" data-shell-view="dev">
+                <span class="landing-card__tag">Dev Status</span>
+                <strong>Vue projet</strong>
+                <p>Architecture, updates, flow, principes.</p>
+              </button>
+            </section>
+          </div>
+        </section>
+
+        <section class="shell-view shell-view--game" id="shell-view-game">
+          <div class="game-shell">
       <canvas id="game" aria-label="Prototype 0 arena"></canvas>
 
       <div class="match-panel" id="match-panel">
@@ -31,6 +89,7 @@
         <div class="match-panel__actions">
           <button class="hud-action-button" id="menu-button" type="button">Menu</button>
           <button class="hud-action-button" id="rematch-button" type="button">Rematch</button>
+          <a class="hud-action-button" href="./dev-status.html" target="_blank" rel="noreferrer">Dev Board</a>
         </div>
         <div class="audio-panel" id="audio-panel">
           <div class="audio-panel__header">
@@ -94,6 +153,9 @@
                 <span class="label">Rune Points</span>
                 <strong id="rune-points-label">15 remaining</strong>
               </div>
+            </div>
+            <div class="prematch-sidebar__actions">
+              <a class="hud-action-button" href="./dev-status.html" target="_blank" rel="noreferrer">Open Dev Board</a>
             </div>
           </aside>
 
@@ -418,8 +480,89 @@
           <div class="joystick-stick" id="move-stick"></div>
         </div>
       </div>
+          </div>
+        </section>
+
+        <section class="shell-view shell-view--dev" id="shell-view-dev">
+          <main class="dev-shell dev-shell--embedded">
+            <section class="hero-panel">
+              <div class="hero-panel__copy">
+                <p class="eyebrow">Developer View</p>
+                <h1>Prototype-0 status board</h1>
+                <p class="hero-panel__lede">
+                  Vue synthétique du projet basée sur la documentation produit et le dernier changelog.
+                </p>
+              </div>
+              <div class="hero-panel__actions">
+                <button class="hero-link" type="button" data-shell-view="game">Retour au jeu</button>
+                <a class="hero-link hero-link--ghost" href="./doc/DOCUMENTATION.md">Documentation source</a>
+                <a class="hero-link hero-link--ghost" href="./doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md">Changelog source</a>
+              </div>
+            </section>
+
+            <section class="status-strip" id="status-strip">
+              <article class="status-card status-card--loading">
+                <span class="status-card__label">Chargement</span>
+                <strong>Lecture des documents en cours…</strong>
+              </article>
+            </section>
+
+            <section class="dashboard-grid">
+              <article class="dashboard-panel dashboard-panel--wide" id="overview-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Snapshot</span>
+                  <h2>Projet</h2>
+                </div>
+                <div class="empty-state">Chargement du snapshot produit…</div>
+              </article>
+
+              <article class="dashboard-panel" id="latest-update-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Latest Pass</span>
+                  <h2>Changelog</h2>
+                </div>
+                <div class="empty-state">Chargement du dernier lot de changements…</div>
+              </article>
+
+              <article class="dashboard-panel" id="flow-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Loop</span>
+                  <h2>Flow joueur</h2>
+                </div>
+                <div class="empty-state">Chargement du flow principal…</div>
+              </article>
+
+              <article class="dashboard-panel dashboard-panel--wide" id="architecture-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Code Map</span>
+                  <h2>Architecture</h2>
+                </div>
+                <div class="empty-state">Chargement de la structure code…</div>
+              </article>
+
+              <article class="dashboard-panel" id="controls-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Controls</span>
+                  <h2>Inputs</h2>
+                </div>
+                <div class="empty-state">Chargement des contrôles…</div>
+              </article>
+
+              <article class="dashboard-panel" id="principles-panel">
+                <div class="panel-header">
+                  <span class="eyebrow">Guardrails</span>
+                  <h2>Principes</h2>
+                </div>
+                <div class="empty-state">Chargement des principes de dev…</div>
+              </article>
+            </section>
+          </main>
+        </section>
+      </main>
     </div>
 
     <script src="./main.js"></script>
+    <script type="module" src="./dev-status.js"></script>
+    <script type="module" src="./shell-ui.js"></script>
   </body>
 </html>

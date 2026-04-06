@@ -67,6 +67,63 @@
 ### Notes
 - `WORKSTREAM_SPLIT.md` remains local and is not part of this push.
 
+## 2026-04-06 17:02:40
+- **Author:** GitHub Copilot
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Main Shell Landing Pass
+
+### Summary
+- Reworked the main interface into a real app shell with a fixed sidebar and a right-side workspace.
+- Added a lightweight landing page with a short hero and two cards to enter either the game or the developer view.
+- Embedded the current game UI as one internal view and embedded Dev Status as the second internal view, both switched through the same shell navigation.
+
+### Files
+- `index.html`
+- `shell-ui.css`
+- `shell-ui.js`
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+
+### Notes
+- The gameplay DOM was preserved inside its own shell view to avoid changing the current game logic wiring.
+
+## 2026-04-06 16:53:17
+- **Author:** GitHub Copilot
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Main UI Access For Dev Board
+
+### Summary
+- Added a direct `Dev Board` shortcut in the main match panel so the developer page is reachable from the primary interface.
+- Added the same access point in the Build Lab sidebar so the dashboard stays available before entering a match.
+- Reused the existing HUD action button styling so the new entry fits the current interface without extra UI noise.
+
+### Files
+- `index.html`
+- `styles.css`
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+
+### Notes
+- The shortcut opens the developer page in a separate tab to avoid interrupting the current session.
+
+## 2026-04-06 16:47:08
+- **Author:** GitHub Copilot
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Developer Status Board
+
+### Summary
+- Added a dedicated developer page that gives a one-glance visual overview of the project state.
+- Wired the page to read `doc/DOCUMENTATION.md` and `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md` directly so the dashboard stays aligned with the source docs.
+- Organized the view into project snapshot, latest pass, player flow, architecture map, controls, and development guardrails.
+
+### Files
+- `dev-status.html`
+- `dev-status.css`
+- `dev-status.js`
+- `vite.config.js`
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+
+### Notes
+- The page is intended for developer use and works when served through Vite or another static server.
+
 ## 2026-04-06 16:13:20
 - **Author:** Codex
 - **Branch:** `codex/gameplay-foundation`
@@ -89,3 +146,4 @@
 
 ### Notes
 - `WORKSTREAM_SPLIT.md` remains local and is not part of this push.
+
