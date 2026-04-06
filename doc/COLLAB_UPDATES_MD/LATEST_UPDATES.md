@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-04-06 18:00:00
+- **Author:** GitHub Copilot
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Project Reorganization & Dev Tooling Pass
+
+### Summary
+- Reorganized all documentation into a dedicated `doc/` folder: `DOCUMENTATION.md`, `EVOLUTIONS.md`, and `COLLAB_UPDATES_MD/` are now under `doc/`.
+- Removed stale root-level files: `COLLABORATOR_BRIEF.md`, `GAME_VISION.md`, `ROADMAP.md`, `TODO_COLLAB.md`, `mainold.js`.
+- Added a dedicated developer status board (`dev-status.html`, `dev-status.css`, `dev-status.js`) providing a one-glance overview of project state, architecture, and latest updates.
+- Added a main app shell (`shell-ui.css`, `shell-ui.js`) with a fixed sidebar, a landing page, and internal views for the game and the dev board.
+- Added `vite.config.js` to expose `dev-status.html` as a second entry point.
+- Added a direct `Dev Board` shortcut from the main match panel and Build Lab sidebar.
+- Merged and reconciled changelog entries from parallel Codex workstream after rebase conflict resolution.
+
+### Files
+- `index.html`
+- `styles.css`
+- `dev-status.html`
+- `dev-status.css`
+- `dev-status.js`
+- `shell-ui.css`
+- `shell-ui.js`
+- `vite.config.js`
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+
+### Notes
+- All Codex survival/combat entries from this session have been preserved and merged into the unified log.
+
 ## 2026-04-06 17:40:57
 - **Author:** Codex
 - **Branch:** `codex/gameplay-foundation`
