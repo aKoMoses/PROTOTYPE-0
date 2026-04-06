@@ -6,7 +6,7 @@ import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelect
 import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBotsForMode, refreshHunterLoadout } from "./combat.js";
 import { addImpact, addShake } from "./effects.js";
 import { getBuildStats, normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoadout } from "../build/loadout.js";
-import { setPrematchStep } from "../build/ui.js";
+import { setPrematchStep, resetBuildWizard, advanceBuildWizard, prevBuildWizardStep } from "../build/ui.js";
 import * as dom from "../dom.js";
 export { relaunchCurrentSession } from "../build/ui.js";
 
@@ -236,8 +236,21 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "step-build" || buttonId === "continue-build") {
+    resetBuildWizard();
     setPrematchStep("build");
     dom.statusLine.textContent = "Build phase open. Lock the loadout, then press Ready.";
+    return;
+  }
+
+  if (buttonId === "build-step-prev") {
+    prevBuildWizardStep();
+    _renderPrematch?.();
+    return;
+  }
+
+  if (buttonId === "build-step-next") {
+    advanceBuildWizard();
+    _renderPrematch?.();
     return;
   }
 

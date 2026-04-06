@@ -8,8 +8,8 @@ import { player, enemy, trainingBots, bots, abilityState, loadout, sandbox, matc
   mapEffects, mapState, globals, botBuildState } from "../state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
-import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown } from "../build/loadout.js";
+import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState } from "../maps.js";
+import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration } from "../build/loadout.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue } from "../audio.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";

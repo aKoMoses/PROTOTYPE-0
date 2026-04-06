@@ -29,9 +29,9 @@ export function setPrematchStep(step) {
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
-  dom.stepMode.classList.toggle("is-active", step === "mode");
-  dom.stepMap.classList.toggle("is-active", step === "map");
-  dom.stepBuild.classList.toggle("is-active", step === "build");
+  dom.stepMode?.classList.toggle("is-active", step === "mode");
+  dom.stepMap?.classList.toggle("is-active", step === "map");
+  dom.stepBuild?.classList.toggle("is-active", step === "build");
 }
 
 export function syncPrematchState() {
@@ -339,6 +339,145 @@ export function updateLoadoutSummaryPanels() {
   dom.powerControl.style.width = `${control}%`;
 }
 
+// Step-by-step wizard order: weapon → abilities → perk → ultimate → runes
+const BUILD_WIZARD_STEPS = [
+  { slotKey: "weapon",    category: "weapon" },
+  { slotKey: "ability-0", category: "ability" },
+  { slotKey: "ability-1", category: "ability" },
+  { slotKey: "ability-2", category: "ability" },
+  { slotKey: "perk-0",    category: "perk" },
+  { slotKey: "ultimate",  category: "ultimate" },
+  { slotKey: "runes",     category: "runes" },
+];
+const STEP_LABELS = {
+  weapon:      "Weapon",
+  "ability-0": "Ability 1",
+  "ability-1": "Ability 2",
+  "ability-2": "Ability 3",
+  "perk-0":    "Passive Perk",
+  ultimate:    "Ultimate",
+  runes:       "Runes",
+};
+const WIZARD_SEQUENCE = BUILD_WIZARD_STEPS.filter((s) => s.slotKey !== "runes").map((s) => s.slotKey);
+
+export function resetBuildWizard() {
+  uiState.buildWizardStep = 0;
+}
+
+export function advanceBuildWizard() {
+  const next = uiState.buildWizardStep + 1;
+  if (next < BUILD_WIZARD_STEPS.length) {
+    uiState.buildWizardStep = next;
+  }
+}
+
+export function prevBuildWizardStep() {
+  const prev = uiState.buildWizardStep - 1;
+  if (prev >= 0) {
+    uiState.buildWizardStep = prev;
+  }
+}
+
+export function goToBuildWizardStep(slotKey) {
+  const idx = BUILD_WIZARD_STEPS.findIndex((s) => s.slotKey === slotKey);
+  if (idx >= 0) {
+    uiState.buildWizardStep = idx;
+  }
+}
+
+function updateBuildStepNav() {
+  const labelEl = document.getElementById("build-step-label");
+  const prevBtn = document.getElementById("build-step-prev");
+  const nextBtn = document.getElementById("build-step-next");
+  if (!labelEl) return;
+  const idx = uiState.buildWizardStep;
+  const step = BUILD_WIZARD_STEPS[idx] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
+  labelEl.textContent = `${idx + 1} / ${BUILD_WIZARD_STEPS.length} — ${STEP_LABELS[step.slotKey]}`;
+  if (prevBtn) prevBtn.disabled = idx === 0;
+  if (nextBtn) nextBtn.textContent = idx >= BUILD_WIZARD_STEPS.length - 1 ? "Done ✓" : "Skip →";
+}
+
+function getZoneIdForSlot(slotKey) {
+  // SVG zone data-zone mapping
+  const map = {
+    weapon: "weapon",
+    "ability-0": "ability-0",
+    "ability-1": "ability-1",
+    "ability-2": "ability-2",
+    "perk-0": "perk-0",
+    ultimate: "ultimate",
+  };
+  return map[slotKey] ?? slotKey;
+}
+
+export function updateRobotWizard() {
+  const robotSvg = document.querySelector(".robot-svg");
+  if (!robotSvg) return;
+
+  // Determine which slots are "filled" (have a real item)
+  const filled = new Set(
+    WIZARD_SEQUENCE.filter((slotKey) => !!getLoadoutItemForSlot(slotKey)),
+  );
+
+  // Determine first unfilled slot = current wizard step
+  const firstUnfilled = WIZARD_SEQUENCE.find((s) => !filled.has(s)) ?? null;
+
+  // Unlock up to and including the first unfilled slot
+  const unlockedUntil = firstUnfilled
+    ? WIZARD_SEQUENCE.indexOf(firstUnfilled)
+    : WIZARD_SEQUENCE.length - 1;
+
+  WIZARD_SEQUENCE.forEach((slotKey, idx) => {
+    const zoneId = getZoneIdForSlot(slotKey);
+    const zones = robotSvg.querySelectorAll(`[data-zone="${zoneId}"]`);
+    const isFilled = filled.has(slotKey);
+    const isActive = uiState.selectedLoadoutSlot === slotKey;
+    const isLocked = idx > unlockedUntil + 1;
+
+    zones.forEach((zone) => {
+      zone.classList.toggle("is-filled", isFilled);
+      zone.classList.toggle("is-active", isActive);
+      zone.classList.toggle("is-locked", isLocked);
+    });
+
+    // Sync side robot-slot button state
+    const slotBtn = document.getElementById(`loadout-slot-${slotKey}`);
+    if (slotBtn) {
+      slotBtn.classList.toggle("is-filled", isFilled);
+      slotBtn.classList.toggle("is-locked", isLocked);
+    }
+
+    // Sync progress pip
+    const pip = document.querySelector(`.robot-wizard__step[data-step="${slotKey}"]`);
+    if (pip) {
+      pip.classList.toggle("is-filled", isFilled);
+      pip.classList.toggle("is-active", isActive && !isFilled);
+    }
+  });
+
+  // Full robot glow when all slots filled
+  robotSvg.classList.toggle("is-complete", filled.size === WIZARD_SEQUENCE.length);
+}
+
+export function initRobotWizardZoneClicks() {
+  const robotSvg = document.querySelector(".robot-svg");
+  if (!robotSvg) return;
+
+  WIZARD_SEQUENCE.forEach((slotKey) => {
+    const zoneId = getZoneIdForSlot(slotKey);
+    const zones = robotSvg.querySelectorAll(`[data-zone="${zoneId}"]`);
+    zones.forEach((zone) => {
+      zone.setAttribute("role", "button");
+      zone.setAttribute("aria-label", slotKey);
+      zone.style.cursor = "pointer";
+      zone.addEventListener("click", () => {
+        const btn = document.getElementById(`loadout-slot-${slotKey}`);
+        if (btn) btn.click();
+      });
+    });
+  });
+}
+
 export function updateLoadoutSlots() {
   const slotDescriptors = [
     { key: "weapon", type: "weapon" },
@@ -374,6 +513,8 @@ export function updateLoadoutSlots() {
       meta.textContent = item.role ?? item.description;
     }
   });
+
+  updateRobotWizard();
 }
 
 export function getCategoryTargetSlot(category) {
@@ -432,12 +573,26 @@ export function assignLoadoutItem(category, slotKey, itemKey) {
     loadout.perks = [itemKey];
   }
 
+  // Auto-advance wizard when this slot matches the current step
+  const currentWizardStep = BUILD_WIZARD_STEPS[uiState.buildWizardStep];
+  if (currentWizardStep && currentWizardStep.slotKey === slotKey) {
+    advanceBuildWizard();
+  }
+
   uiState.selectedLoadoutSlot = slotKey;
   uiState.selectedDetail = { type: category, key: itemKey };
   renderPrematch();
 }
 
 export function renderBuildLibrary() {
+  // Sync category and selected slot from current wizard step
+  const wizardStep = BUILD_WIZARD_STEPS[uiState.buildWizardStep] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
+  uiState.buildCategory = wizardStep.category;
+  if (wizardStep.slotKey !== "runes") {
+    uiState.selectedLoadoutSlot = wizardStep.slotKey;
+  }
+  updateBuildStepNav();
+
   const isRunesTab = uiState.buildCategory === "runes";
 
   dom.buildLibraryGrid.style.display = isRunesTab ? "none" : "";
@@ -508,6 +663,8 @@ export function renderTrainingBotPanel() {
   if (!dom.botConfigCard || !dom.botConfigCopy) {
     return;
   }
+
+  dom.botConfigCard.classList.remove("is-hidden");
 
   if (uiState.selectedMode === sandboxModes.training.key) {
     dom.botConfigCard.classList.remove("is-randomized");

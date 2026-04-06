@@ -27,6 +27,7 @@ export const uiState = {
   selectedMode: sandboxModes.duel.key,
   selectedMap: "electroGallery",
   buildCategory: "weapon",
+  buildWizardStep: 0,
   selectedLoadoutSlot: "weapon",
   selectedDetail: { type: "weapon", key: weapons.pulse.key },
 };

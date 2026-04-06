@@ -125,40 +125,6 @@
 
       <div class="prematch-overlay" id="prematch-overlay">
         <div class="prematch-shell">
-          <aside class="prematch-sidebar">
-            <span class="eyebrow">Prototype 0</span>
-            <h1>Build Lab</h1>
-            <p id="prematch-description">
-              Pick the combat sandbox, lock a build shell, then drop into the arena.
-            </p>
-            <div class="step-list">
-              <button class="step-chip is-active" id="step-mode" type="button" onclick="handlePrematchAction('step-mode')">1. Mode</button>
-              <button class="step-chip" id="step-map" type="button" onclick="handlePrematchAction('step-map')">2. Map</button>
-              <button class="step-chip" id="step-build" type="button" onclick="handlePrematchAction('step-build')">3. Build Lab</button>
-            </div>
-            <div class="prematch-summary">
-              <div class="summary-block">
-                <span class="label">Selected Mode</span>
-                <strong id="selected-mode-label">Duel</strong>
-              </div>
-              <div class="summary-block">
-                <span class="label">Selected Map</span>
-                <strong id="selected-map-label">Electro Gallery</strong>
-              </div>
-              <div class="summary-block">
-                <span class="label">Weapon</span>
-                <strong id="selected-weapon-label">Pulse Rifle</strong>
-              </div>
-              <div class="summary-block">
-                <span class="label">Rune Points</span>
-                <strong id="rune-points-label">15 remaining</strong>
-              </div>
-            </div>
-            <div class="prematch-sidebar__actions">
-              <a class="hud-action-button" href="./dev-status.html" target="_blank" rel="noreferrer">Open Dev Board</a>
-            </div>
-          </aside>
-
           <section class="prematch-main">
             <div class="prematch-screen prematch-screen--active" id="mode-screen">
               <div class="screen-header">
@@ -166,24 +132,24 @@
                 <h2>Choose the sandbox</h2>
               </div>
               <div class="mode-grid">
-                <button class="mode-card is-selected" id="mode-duel" type="button" onclick="handlePrematchAction('mode-duel')">
+                <button class="mode-card is-selected" id="mode-duel" type="button">
                   <span class="mode-card__tag">1v1 Bot Duel</span>
                   <strong>Duel Map</strong>
                   <span>Best-of-3 rounds against the hunter bot.</span>
                 </button>
-                <button class="mode-card" id="mode-survival" type="button" onclick="handlePrematchAction('mode-survival')">
+                <button class="mode-card" id="mode-survival" type="button">
                   <span class="mode-card__tag">Survival</span>
                   <strong>Wave Gauntlet</strong>
                   <span>Endurance test against escalating solo waves and stronger bot builds.</span>
                 </button>
-                <button class="mode-card" id="mode-training" type="button" onclick="handlePrematchAction('mode-training')">
+                <button class="mode-card" id="mode-training" type="button">
                   <span class="mode-card__tag">Training</span>
                   <strong>Training Map</strong>
                   <span>Five static bots lined up for range, cleave, and status tests.</span>
                 </button>
               </div>
               <div class="screen-actions">
-                <button class="primary-button" id="continue-map" type="button" onclick="handlePrematchAction('continue-map')">Continue to Map</button>
+                <button class="primary-button" id="continue-map" type="button">Continue to Map</button>
               </div>
             </div>
 
@@ -194,15 +160,15 @@
               </div>
               <div class="map-grid" id="map-grid"></div>
               <div class="screen-actions screen-actions--split">
-                <button class="secondary-button" id="back-mode" type="button" onclick="handlePrematchAction('back-mode')">Back to Mode Select</button>
-                <button class="primary-button" id="continue-build" type="button" onclick="handlePrematchAction('continue-build')">Continue to Build</button>
+                <button class="secondary-button" id="back-mode" type="button">Back to Mode Select</button>
+                <button class="primary-button" id="continue-build" type="button">Continue to Build</button>
               </div>
             </div>
 
             <div class="prematch-screen" id="build-screen">
               <div class="screen-header">
-                <span class="eyebrow">Build Lab</span>
-                <h2>Assemble your combat kit</h2>
+                <span class="eyebrow">Unit Assembly</span>
+                <h2>Configure your combat unit</h2>
               </div>
 
               <div class="lab-tabs">
@@ -211,46 +177,204 @@
               </div>
 
               <div class="lab-panel lab-panel--active" id="lab-loadout">
-                <div class="slot-bar">
-                  <button class="slot-bar__slot slot-bar__slot--weapon is-active" id="loadout-slot-weapon" type="button" data-slot="weapon">
-                    <span class="slot-bar__cat">WPN</span>
-                    <div class="content-icon content-icon--weapon-pulse" id="loadout-slot-weapon-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-weapon-name">Pulse Rifle</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-weapon-meta">Baseline ranged pressure</span>
-                  </button>
-                  <div class="slot-bar__sep"></div>
-                  <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-0" type="button" data-slot="ability-0">
-                    <span class="slot-bar__cat">A1</span>
-                    <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-0-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ability-0-name">Shock Javelin</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ability-0-meta">Offense / punish</span>
-                  </button>
-                  <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-1" type="button" data-slot="ability-1">
-                    <span class="slot-bar__cat">A2</span>
-                    <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-1-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ability-1-name">Shock Javelin</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ability-1-meta">Offense / punish</span>
-                  </button>
-                  <button class="slot-bar__slot slot-bar__slot--ability" id="loadout-slot-ability-2" type="button" data-slot="ability-2">
-                    <span class="slot-bar__cat">A3</span>
-                    <div class="content-icon content-icon--ability-shield" id="loadout-slot-ability-2-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ability-2-name">Energy Shield</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ability-2-meta">Defense / survive burst</span>
-                  </button>
-                  <div class="slot-bar__sep"></div>
-                  <button class="slot-bar__slot slot-bar__slot--perk" id="loadout-slot-perk-0" type="button" data-slot="perk-0">
-                    <span class="slot-bar__cat">P1</span>
-                    <div class="content-icon content-icon--perk-armor" id="loadout-slot-perk-0-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-perk-0-name">Scavenger Plates</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-perk-0-meta">Bonus max HP</span>
-                  </button>
-                  <div class="slot-bar__sep"></div>
-                  <button class="slot-bar__slot slot-bar__slot--ultimate" id="loadout-slot-ultimate" type="button" data-slot="ultimate">
-                    <span class="slot-bar__cat">ULT</span>
-                    <div class="content-icon content-icon--ultimate-phantom" id="loadout-slot-ultimate-icon"></div>
-                    <strong class="slot-bar__name" id="loadout-slot-ultimate-name">Phantom Split</strong>
-                    <span class="slot-bar__meta" id="loadout-slot-ultimate-meta">Mindgame / clutch window</span>
-                  </button>
+                <!-- ROBOT WIZARD -->
+                <div class="robot-wizard">
+                  <!-- Robot SVG -->
+                  <div class="robot-wizard__frame">
+                    <svg class="robot-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <!-- Glow defs -->
+                      <defs>
+                        <filter id="robot-glow" x="-40%" y="-40%" width="180%" height="180%">
+                          <feGaussianBlur stdDeviation="4" result="blur"/>
+                          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                        <filter id="robot-glow-strong" x="-60%" y="-60%" width="220%" height="220%">
+                          <feGaussianBlur stdDeviation="7" result="blur"/>
+                          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                      </defs>
+
+                      <!-- HEAD (Ultimate) -->
+                      <g class="robot-zone robot-zone--ultimate" data-zone="ultimate">
+                        <!-- Antenna -->
+                        <line x1="100" y1="4" x2="100" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="100" cy="4" r="3" fill="currentColor"/>
+                        <!-- Head shell -->
+                        <rect x="68" y="18" width="64" height="50" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Visor -->
+                        <rect x="76" y="29" width="48" height="18" rx="4" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1"/>
+                        <!-- Visor scanline -->
+                        <line x1="78" y1="38" x2="122" y2="38" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.5"/>
+                        <!-- Eye dots -->
+                        <circle cx="89" cy="38" r="3.5" fill="currentColor" fill-opacity="0.5"/>
+                        <circle cx="111" cy="38" r="3.5" fill="currentColor" fill-opacity="0.5"/>
+                        <!-- Chin vents -->
+                        <line x1="84" y1="55" x2="116" y2="55" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+                        <line x1="88" y1="60" x2="112" y2="60" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+                        <!-- ULT label -->
+                        <text x="100" y="73" text-anchor="middle" class="robot-zone-label">ULT</text>
+                      </g>
+
+                      <!-- NECK connector -->
+                      <rect x="90" y="68" width="20" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" class="robot-connector"/>
+
+                      <!-- TORSO (Weapon) -->
+                      <g class="robot-zone robot-zone--weapon" data-zone="weapon">
+                        <!-- Main body -->
+                        <rect x="56" y="78" width="88" height="76" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Chest plate separators -->
+                        <line x1="100" y1="82" x2="100" y2="150" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.3"/>
+                        <!-- Core reactor circle -->
+                        <circle cx="100" cy="116" r="18" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.2"/>
+                        <circle cx="100" cy="116" r="10" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1"/>
+                        <circle cx="100" cy="116" r="4" fill="currentColor" fill-opacity="0.6"/>
+                        <!-- Rivet dots -->
+                        <circle cx="64" cy="86" r="2" fill="currentColor" fill-opacity="0.4"/>
+                        <circle cx="136" cy="86" r="2" fill="currentColor" fill-opacity="0.4"/>
+                        <circle cx="64" cy="144" r="2" fill="currentColor" fill-opacity="0.4"/>
+                        <circle cx="136" cy="144" r="2" fill="currentColor" fill-opacity="0.4"/>
+                        <!-- Shoulder sockets -->
+                        <circle cx="56" cy="96" r="7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.6"/>
+                        <circle cx="144" cy="96" r="7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.6"/>
+                        <!-- WPN label -->
+                        <text x="100" y="158" text-anchor="middle" class="robot-zone-label">WPN</text>
+                      </g>
+
+                      <!-- LEFT ARM (Ability 0) -->
+                      <g class="robot-zone robot-zone--ability robot-zone--ability-0" data-zone="ability-0">
+                        <!-- Upper arm -->
+                        <rect x="24" y="90" width="24" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Elbow joint -->
+                        <ellipse cx="36" cy="136" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
+                        <!-- Forearm -->
+                        <rect x="22" y="140" width="28" height="38" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Arm detail line -->
+                        <line x1="36" y1="98" x2="36" y2="128" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.4"/>
+                        <!-- A1 label -->
+                        <text x="36" y="188" text-anchor="middle" class="robot-zone-label">A1</text>
+                      </g>
+
+                      <!-- RIGHT ARM (Ability 1) -->
+                      <g class="robot-zone robot-zone--ability robot-zone--ability-1" data-zone="ability-1">
+                        <!-- Upper arm -->
+                        <rect x="152" y="90" width="24" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Elbow joint -->
+                        <ellipse cx="164" cy="136" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
+                        <!-- Forearm -->
+                        <rect x="150" y="140" width="28" height="38" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Arm detail line -->
+                        <line x1="164" y1="98" x2="164" y2="128" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.4"/>
+                        <!-- A2 label -->
+                        <text x="164" y="188" text-anchor="middle" class="robot-zone-label">A2</text>
+                      </g>
+
+                      <!-- HIP connector -->
+                      <rect x="70" y="154" width="60" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" class="robot-connector"/>
+
+                      <!-- CENTER ARM / Module (Ability 2) - chest bottom module -->
+                      <g class="robot-zone robot-zone--ability robot-zone--ability-2" data-zone="ability-2">
+                        <rect x="82" y="166" width="36" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="100" cy="179" r="6" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="1"/>
+                        <text x="100" y="203" text-anchor="middle" class="robot-zone-label">A3</text>
+                      </g>
+
+                      <!-- LEGS (Perk) -->
+                      <g class="robot-zone robot-zone--perk" data-zone="perk-0">
+                        <!-- Left leg upper -->
+                        <rect x="64" y="205" width="30" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Left knee joint -->
+                        <ellipse cx="79" cy="251" rx="10" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
+                        <!-- Left shin -->
+                        <rect x="64" y="254" width="30" height="36" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Left foot -->
+                        <rect x="60" y="288" width="38" height="12" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+
+                        <!-- Right leg upper -->
+                        <rect x="106" y="205" width="30" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Right knee joint -->
+                        <ellipse cx="121" cy="251" rx="10" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
+                        <!-- Right shin -->
+                        <rect x="106" y="254" width="30" height="36" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <!-- Right foot -->
+                        <rect x="102" y="288" width="38" height="12" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+
+                        <!-- Leg detail lines -->
+                        <line x1="79" y1="212" x2="79" y2="242" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.35"/>
+                        <line x1="121" y1="212" x2="121" y2="242" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.35"/>
+                        <!-- PK label -->
+                        <text x="100" y="316" text-anchor="middle" class="robot-zone-label">PERK</text>
+                      </g>
+                    </svg>
+
+                    <!-- Progress indicator -->
+                    <div class="robot-wizard__progress">
+                      <span class="robot-wizard__step robot-wizard__step--weapon" data-step="weapon"></span>
+                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-0"></span>
+                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-1"></span>
+                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-2"></span>
+                      <span class="robot-wizard__step robot-wizard__step--perk" data-step="perk-0"></span>
+                      <span class="robot-wizard__step robot-wizard__step--ultimate" data-step="ultimate"></span>
+                    </div>
+                  </div>
+
+                  <!-- Side panels: slot buttons (hidden visually, kept for JS compat) -->
+                  <div class="robot-wizard__slots">
+                    <!-- Weapon -->
+                    <button class="robot-slot robot-slot--weapon" id="loadout-slot-weapon" type="button" data-slot="weapon" data-zone="weapon">
+                      <span class="robot-slot__cat">WPN</span>
+                      <div class="content-icon content-icon--weapon-pulse" id="loadout-slot-weapon-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-weapon-name">Pulse Rifle</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-weapon-meta">Baseline ranged pressure</span>
+                      </div>
+                    </button>
+
+                    <!-- Abilities -->
+                    <button class="robot-slot robot-slot--ability" id="loadout-slot-ability-0" type="button" data-slot="ability-0" data-zone="ability-0">
+                      <span class="robot-slot__cat">A1</span>
+                      <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-0-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-ability-0-name">Shock Javelin</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-ability-0-meta">Offense / punish</span>
+                      </div>
+                    </button>
+                    <button class="robot-slot robot-slot--ability" id="loadout-slot-ability-1" type="button" data-slot="ability-1" data-zone="ability-1">
+                      <span class="robot-slot__cat">A2</span>
+                      <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-1-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-ability-1-name">Shock Javelin</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-ability-1-meta">Offense / punish</span>
+                      </div>
+                    </button>
+                    <button class="robot-slot robot-slot--ability" id="loadout-slot-ability-2" type="button" data-slot="ability-2" data-zone="ability-2">
+                      <span class="robot-slot__cat">A3</span>
+                      <div class="content-icon content-icon--ability-shield" id="loadout-slot-ability-2-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-ability-2-name">Energy Shield</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-ability-2-meta">Defense / survive burst</span>
+                      </div>
+                    </button>
+
+                    <!-- Perk -->
+                    <button class="robot-slot robot-slot--perk" id="loadout-slot-perk-0" type="button" data-slot="perk-0" data-zone="perk-0">
+                      <span class="robot-slot__cat">P1</span>
+                      <div class="content-icon content-icon--perk-armor" id="loadout-slot-perk-0-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-perk-0-name">Scavenger Plates</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-perk-0-meta">Bonus max HP</span>
+                      </div>
+                    </button>
+
+                    <!-- Ultimate -->
+                    <button class="robot-slot robot-slot--ultimate" id="loadout-slot-ultimate" type="button" data-slot="ultimate" data-zone="ultimate">
+                      <span class="robot-slot__cat">ULT</span>
+                      <div class="content-icon content-icon--ultimate-phantom" id="loadout-slot-ultimate-icon"></div>
+                      <div class="robot-slot__info">
+                        <strong class="robot-slot__name" id="loadout-slot-ultimate-name">Phantom Split</strong>
+                        <span class="robot-slot__meta" id="loadout-slot-ultimate-meta">Mindgame / clutch window</span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="power-mini">
@@ -266,6 +390,12 @@
                   <button class="cat-tab cat-tab--perk" id="library-tab-perk" type="button" data-library="perk">Perks</button>
                   <button class="cat-tab cat-tab--ultimate" id="library-tab-ultimate" type="button" data-library="ultimate">Ultimate</button>
                   <button class="cat-tab cat-tab--runes" id="library-tab-runes" type="button" data-library="runes">Runes</button>
+                </div>
+
+                <div class="build-step-nav" id="build-step-nav">
+                  <button class="step-nav-btn" id="build-step-prev" type="button">← Back</button>
+                  <span class="step-nav-label" id="build-step-label">1 / 7 — Weapon</span>
+                  <button class="step-nav-btn" id="build-step-next" type="button">Skip →</button>
                 </div>
 
                 <div class="item-list" id="build-library-grid"></div>
@@ -290,7 +420,7 @@
                   <div class="detail-values" id="detail-values"></div>
                 </div>
 
-                <section class="build-card" id="bot-config-card">
+                <section class="build-card is-hidden" id="bot-config-card">
                   <div class="build-card__header">
                     <span class="label" id="bot-config-label">Duel Tool</span>
                     <strong id="bot-config-title">Hunter Bot Loadout</strong>
@@ -386,8 +516,8 @@
               </div>
 
               <div class="screen-actions screen-actions--split">
-                <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
-                <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Ready</button>
+                <button class="secondary-button" id="back-map" type="button">Back to Map Select</button>
+                <button class="primary-button" id="start-session" type="button">Deploy Unit</button>
               </div>
             </div>
           </section>
@@ -561,7 +691,7 @@
       </main>
     </div>
 
-    <script src="./main.js"></script>
+    <script type="module" src="./src/main.js"></script>
     <script type="module" src="./dev-status.js"></script>
     <script type="module" src="./shell-ui.js"></script>
   </body>

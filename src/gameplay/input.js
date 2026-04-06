@@ -6,12 +6,13 @@ import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematc
   modeDuel, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
-  botModeRandom, botModeCustom, trainingFireOff, trainingFireOn } from "../dom.js";
+  botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
+  buildStepPrev, buildStepNext } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
-import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot } from "../build/ui.js";
+import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep } from "../build/ui.js";
 import { setBotBuildMode } from "../build/loadout.js";
 import { resize } from "./renderer.js";
 
@@ -173,6 +174,8 @@ bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
+bindPrematchButton(buildStepPrev, "build-step-prev");
+bindPrematchButton(buildStepNext, "build-step-next");
 
 /* Lab tab switching (LOADOUT / STYLE) */
 if (labTabLoadout && labTabStyle && labLoadout && labStyle) {
@@ -224,6 +227,7 @@ Object.entries(loadoutSlotButtons).forEach(([slotKey, button]) => {
             : slotKey;
 
   button.addEventListener("click", () => {
+    goToBuildWizardStep(normalizedSlot);
     uiState.selectedLoadoutSlot = normalizedSlot;
     uiState.buildCategory = getSlotCategory(normalizedSlot);
     const item = getLoadoutItemForSlot(normalizedSlot);

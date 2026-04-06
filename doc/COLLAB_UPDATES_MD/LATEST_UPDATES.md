@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-04-06 20:00:00
+- **Author:** GitHub Copilot
+- **Branch:** `codex/gameplay-foundation`
+- **Type:** Build Lab Step-by-Step Wizard
+
+### Summary
+- Added a guided step-by-step wizard to the Build Lab: players are walked through Weapon → Ability 1–3 → Passive Perk → Ultimate → Runes in sequence.
+- Added `BUILD_WIZARD_STEPS`, `resetBuildWizard`, `advanceBuildWizard`, `prevBuildWizardStep`, `goToBuildWizardStep`, `updateBuildStepNav`, and `initRobotWizardZoneClicks` to `src/build/ui.js`.
+- Added `buildWizardStep` field to `uiState` in `src/state.js`.
+- Added `buildStepPrev` / `buildStepNext` DOM refs in `src/dom.js`.
+- Bound `build-step-prev` and `build-step-next` buttons in `src/gameplay/input.js`; clicking a loadout slot now jumps directly to its wizard step.
+- Wired wizard reset and prev/next actions into `handlePrematchAction` in `src/gameplay/match.js`.
+- Called `initRobotWizardZoneClicks()` on startup in `src/main.js`.
+- Added step-nav markup and wizard styles in `index.html` and `styles.css`.
+- Removed stale root-level `main.js` (old monolithic file, fully superseded by `src/`).
+- Minor `dev-status.css` style polish.
+
+### Files
+- `src/build/ui.js`
+- `src/state.js`
+- `src/dom.js`
+- `src/gameplay/input.js`
+- `src/gameplay/match.js`
+- `src/main.js`
+- `index.html`
+- `styles.css`
+- `dev-status.css`
+- `main.js` (deleted)
+
+### Notes
+- The wizard "Skip →" / "Done ✓" button text updates automatically based on the current step position.
+- Optional chaining guards added to `setPrematchStep` step indicators to survive missing DOM nodes.
+
+---
+
 ## 2026-04-06 18:00:00
 - **Author:** GitHub Copilot
 - **Branch:** `codex/gameplay-foundation`
