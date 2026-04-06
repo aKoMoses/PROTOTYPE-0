@@ -158,7 +158,7 @@ const config = {
   pulseDamage: 11,
   pulseMagazineSize: 12,
   pulseReloadTime: 1.18,
-  statusTickInterval: 0.5,
+  statusTickInterval: 0.6,
   railChargeThreshold: 0.34,
   railMaxCharge: 0.9,
   railTapDamage: 30,
@@ -215,23 +215,23 @@ const config = {
   lanceAltWidth: 26,
   lanceAltDamage: 62,
   lanceAltCooldown: 1.06,
-  lanceAltShockDuration: 0.48,
+  lanceAltShockDuration: 0.42,
   cannonPrimaryDamage: 34,
   cannonPrimarySpeed: 760,
   cannonPrimaryCooldown: 0.84,
   cannonPrimaryRadius: 8,
   cannonSplashRadius: 82,
   cannonSplashDamage: 26,
-  cannonBurnDuration: 2.4,
-  cannonBurnMagnitude: 0.72,
+  cannonBurnDuration: 2,
+  cannonBurnMagnitude: 0.58,
   cannonAltDamage: 24,
   cannonAltSpeed: 980,
   cannonAltCooldown: 1.12,
   cannonAltRadius: 7,
-  cannonFreezeDuration: 1.2,
-  cannonFreezeMagnitude: 0.52,
-  survivalWavePause: 1.8,
-  survivalWaveIntermission: 2.4,
+  cannonFreezeDuration: 0.95,
+  cannonFreezeMagnitude: 0.4,
+  survivalWavePause: 2.1,
+  survivalWaveIntermission: 3,
   enemyRadius: 20,
   enemyMaxHp: 380,
   enemySpeed: 246,
@@ -2031,8 +2031,8 @@ function handleStatusImmediateEffects(entity, type) {
     }
     if (type === "shock") {
       player.pendingAxeStrike = null;
-      player.attackStartupTime = Math.min(player.attackStartupTime, 0.06);
-      player.fireCooldown = Math.max(player.fireCooldown, 0.18);
+      player.attackStartupTime = Math.min(player.attackStartupTime, 0.05);
+      player.fireCooldown = Math.max(player.fireCooldown, 0.12);
     }
     return;
   }
@@ -2042,8 +2042,8 @@ function handleStatusImmediateEffects(entity, type) {
   entity.pendingSniperShot = null;
   if (type === "shock") {
     entity.pendingMeleeStrike = null;
-    entity.meleeWindupTime = Math.min(entity.meleeWindupTime, 0.06);
-    entity.shootCooldown = Math.max(entity.shootCooldown, 0.22);
+    entity.meleeWindupTime = Math.min(entity.meleeWindupTime, 0.05);
+    entity.shootCooldown = Math.max(entity.shootCooldown, 0.16);
   }
 }
 
@@ -2126,8 +2126,8 @@ function updateStatusEffects(entity, dt) {
       while (effect.tickTimer <= 0 && effect.time > 0) {
         effect.tickTimer += config.statusTickInterval;
         const tickDamage = effect.type === "burn"
-          ? 4 + effect.magnitude * 4
-          : 3 + effect.magnitude * 3;
+          ? 2.6 + effect.magnitude * 2.8
+          : 2.2 + effect.magnitude * 2.5;
         damageEntityByStatus(entity, tickDamage, effect.type, effect.type === "burn" ? "#ff9a70" : "#b6ff7e");
       }
     }
@@ -2414,6 +2414,15 @@ function createRandomBotLoadout(options = {}) {
 
   const selectedArchetype = pickWeightedItem(archetypes, (archetype) => {
     let weight = 1;
+    if (wave <= 2 && archetype.weapon === weapons.lance.key) {
+      weight *= 0.45;
+    }
+    if (wave <= 3 && archetype.weapon === weapons.cannon.key) {
+      weight *= 0.28;
+    }
+    if (wave <= 2 && archetype.weapon === weapons.sniper.key) {
+      weight *= 0.72;
+    }
     if (playerStyle.rangedBias > 0.58 && archetype.tags.includes("anti-range")) {
       weight += 1.3;
     }
@@ -2431,6 +2440,12 @@ function createRandomBotLoadout(options = {}) {
     }
     if (wave >= 4 && archetype.tags.includes("support")) {
       weight += 0.4;
+    }
+    if (wave >= 4 && archetype.weapon === weapons.lance.key) {
+      weight += 0.32;
+    }
+    if (wave >= 5 && archetype.weapon === weapons.cannon.key) {
+      weight += 0.46;
     }
     return weight;
   });
@@ -3973,7 +3988,7 @@ function getStatusState(entity) {
       slow = Math.max(slow, effect.magnitude);
     } else if (effect.type === "freeze") {
       frozen = true;
-      slow = Math.max(slow, 0.42 + effect.magnitude * 0.4);
+      slow = Math.max(slow, 0.32 + effect.magnitude * 0.28);
     } else if (effect.type === "shock") {
       shocked = true;
       shockTime = Math.max(shockTime, effect.time);
@@ -4354,7 +4369,7 @@ function getActiveBotLoadout() {
 function getEscalatedDifficultyKey(baseKey = botBuildState.difficulty, wave = survivalState.wave) {
   const keys = ["easy", "normal", "hard", "nightmare"];
   const startIndex = Math.max(0, keys.indexOf(baseKey));
-  const waveOffset = sandbox.mode === sandboxModes.survival.key ? Math.floor(Math.max(0, wave - 1) / 2) : 0;
+  const waveOffset = sandbox.mode === sandboxModes.survival.key ? Math.floor(Math.max(0, wave - 1) / 3) : 0;
   return keys[Math.min(keys.length - 1, startIndex + waveOffset)] ?? baseKey;
 }
 
@@ -4609,20 +4624,20 @@ function finishDuelRound(winner) {
 
 function getSurvivalWaveProfile(wave = survivalState.wave) {
   return {
-    targetKills: Math.min(8, 2 + Math.floor((wave - 1) * 0.85)),
-    hpScale: 1 + (wave - 1) * 0.14,
-    speedScale: 1 + Math.min(0.18, (wave - 1) * 0.03),
+    targetKills: Math.min(7, 2 + Math.floor((wave - 1) * 0.6)),
+    hpScale: 1 + Math.min(0.5, (wave - 1) * 0.1),
+    speedScale: 1 + Math.min(0.14, (wave - 1) * 0.022),
   };
 }
 
 function prepPlayerForSurvival(newRun = false) {
   const buildStats = getBuildStats();
-  const desiredHp = newRun ? buildStats.maxHp : clamp(player.hp + buildStats.maxHp * 0.18, 0, buildStats.maxHp);
+  const desiredHp = newRun ? buildStats.maxHp : clamp(player.hp + buildStats.maxHp * 0.24, 0, buildStats.maxHp);
   resetPlayer({ silent: true });
   clearCombatArtifacts();
   player.hp = desiredHp;
-  player.shield = Math.max(player.shield, newRun ? 0 : 14);
-  player.shieldTime = newRun ? 0 : 1.4;
+  player.shield = Math.max(player.shield, newRun ? 0 : 18);
+  player.shieldTime = newRun ? 0 : 1.6;
 }
 
 function spawnSurvivalHunter() {
@@ -7126,10 +7141,10 @@ function getEnemyTargetRange() {
     return enemy.hp <= 72 ? 474 : 392;
   }
   if (weaponKey === weapons.lance.key) {
-    return enemy.hp <= 72 ? 264 : 226;
+    return enemy.hp <= 72 ? 252 : 214;
   }
   if (weaponKey === weapons.cannon.key) {
-    return enemy.hp <= 72 ? 636 : 520;
+    return enemy.hp <= 72 ? 612 : 500;
   }
   return enemy.hp <= 72 ? 548 : hasShield ? 430 : 404;
 }
@@ -7207,25 +7222,25 @@ function getEnemyBehaviorProfile(distance, shouldPunish) {
 
   if (weaponKey === weapons.lance.key) {
     return {
-      strafeScale: shouldPunish ? 1.16 : 0.98,
-      engageBias: hasGrapple ? 1.3 : 1.14,
-      retreatBias: enemy.hp <= 72 ? 0.96 : 0.58,
-      abilityPressureDistance: 360,
+      strafeScale: shouldPunish ? 1.12 : 1,
+      engageBias: hasGrapple ? 1.24 : 1.08,
+      retreatBias: enemy.hp <= 72 ? 1.02 : 0.66,
+      abilityPressureDistance: 334,
       fieldResponseDistance: 208,
-      punishWindowDistance: distance < 300,
-      dodgeAggression: 0.94,
+      punishWindowDistance: distance < 272,
+      dodgeAggression: 0.98,
       shootBurstSize: 0,
     };
   }
 
   if (weaponKey === weapons.cannon.key) {
     return {
-      strafeScale: shouldPunish ? 1.02 : 0.92,
-      engageBias: 0.74,
-      retreatBias: enemy.hp <= 72 ? 1.2 : 1.04,
-      abilityPressureDistance: 460,
+      strafeScale: shouldPunish ? 1 : 0.94,
+      engageBias: 0.68,
+      retreatBias: enemy.hp <= 72 ? 1.24 : 1.08,
+      abilityPressureDistance: 430,
       fieldResponseDistance: 262,
-      punishWindowDistance: distance > 260 && distance < 760,
+      punishWindowDistance: distance > 280 && distance < 720,
       dodgeAggression: 1,
       shootBurstSize: 0,
     };
@@ -7450,7 +7465,7 @@ function fireEnemyLance(altFire = false) {
   const facing = enemy.facing;
   const range = altFire ? config.lanceAltRange * 0.92 : config.lancePrimaryRange * 0.88;
   const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
-  const damage = (altFire ? config.lanceAltDamage * 0.82 : config.lancePrimaryDamage * 0.76) * getBotDamageMultiplier(player, enemy);
+  const damage = (altFire ? config.lanceAltDamage * 0.74 : config.lancePrimaryDamage * 0.72) * getBotDamageMultiplier(player, enemy);
   const lineStartX = enemy.x + Math.cos(facing) * 12;
   const lineStartY = enemy.y + Math.sin(facing) * 12;
   const lineEndX = enemy.x + Math.cos(facing) * range;
@@ -7468,11 +7483,11 @@ function fireEnemyLance(altFire = false) {
 
   applyPlayerDamage(damage, altFire ? "enemy-lance-drive" : "enemy-lance");
   if (altFire) {
-    applyStatusEffect(player, "shock", getStatusDuration(config.lanceAltShockDuration * (1 - getBuildStats().ccReduction)), 0.28);
+    applyStatusEffect(player, "shock", getStatusDuration(config.lanceAltShockDuration * (1 - getBuildStats().ccReduction)), 0.2);
     player.x += Math.cos(facing) * 24;
     player.y += Math.sin(facing) * 24;
   } else {
-    applyStatusEffect(player, "snare", getStatusDuration(0.24 * (1 - getBuildStats().ccReduction)), 1);
+    applyStatusEffect(player, "snare", getStatusDuration(0.2 * (1 - getBuildStats().ccReduction)), 1);
   }
   addImpact(player.x, player.y, "#fff4c7", altFire ? 28 : 20);
   addShake(altFire ? 8 : 5.4);
@@ -7481,7 +7496,7 @@ function fireEnemyLance(altFire = false) {
 
 function fireEnemyCannon(targetX, targetY, altFire = false) {
   const speed = altFire ? config.cannonAltSpeed * 0.92 : config.cannonPrimarySpeed * 0.9;
-  const damage = (altFire ? config.cannonAltDamage * 0.82 : config.cannonPrimaryDamage * 0.8) * getBotDamageMultiplier(player, enemy);
+  const damage = (altFire ? config.cannonAltDamage * 0.74 : config.cannonPrimaryDamage * 0.76) * getBotDamageMultiplier(player, enemy);
   spawnBullet(enemy, targetX, targetY, enemyBullets, altFire ? "#c9f2ff" : "#ffb07e", speed, damage, {
     radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
     life: 1.1,
@@ -7490,10 +7505,10 @@ function fireEnemyCannon(targetX, targetY, altFire = false) {
     effect: {
       kind: "cannon",
       splashRadius: altFire ? 68 : config.cannonSplashRadius,
-      splashDamage: altFire ? 12 : config.cannonSplashDamage * 0.78,
+      splashDamage: altFire ? 10 : config.cannonSplashDamage * 0.7,
       statusType: altFire ? "freeze" : "burn",
-      statusDuration: altFire ? config.cannonFreezeDuration * 0.86 : config.cannonBurnDuration * 0.9,
-      statusMagnitude: altFire ? config.cannonFreezeMagnitude * 0.82 : config.cannonBurnMagnitude * 0.82,
+      statusDuration: altFire ? config.cannonFreezeDuration * 0.8 : config.cannonBurnDuration * 0.82,
+      statusMagnitude: altFire ? config.cannonFreezeMagnitude * 0.74 : config.cannonBurnMagnitude * 0.76,
     },
   });
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, altFire ? "#d6f4ff" : "#ffb07e", altFire ? 16 : 18);
@@ -7611,7 +7626,7 @@ function castEnemyGrapple(forward) {
   const aimX = player.x + forward.x * config.grappleRange;
   const aimY = player.y + forward.y * config.grappleRange;
   const { target, endX, endY } = findGrappleTarget(enemy, aimX, aimY, [player]);
-  enemy.abilityCooldowns.grapple = config.grappleCooldown + 0.6;
+  enemy.abilityCooldowns.grapple = config.grappleCooldown + 0.85;
   addBeamEffect(enemy.x, enemy.y, target ? target.x : endX, target ? target.y : endY, "#ffd7b0", 4, 0.14);
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
   if (!target) {
@@ -7619,7 +7634,7 @@ function castEnemyGrapple(forward) {
   }
   startPullEffect(enemy, player, "#ffd7b0");
   applyStatusEffect(player, "snare", getStatusDuration(config.grappleSnareDuration * (1 - getBuildStats().ccReduction)), 1);
-  applyPlayerDamage(Math.round(config.grappleDamage * 0.7), "bullet");
+  applyPlayerDamage(Math.round(config.grappleDamage * 0.55), "bullet");
 }
 
 function castEnemyShield() {
@@ -8056,8 +8071,10 @@ function updateEnemy(dt) {
     !enemyStatus.stunned &&
     enemyHasAbility("magneticGrapple") &&
     enemy.abilityCooldowns.grapple <= 0 &&
+    distance < config.grappleRange * 0.9 &&
     distance > targetRange + 120 &&
-    (shouldPunish || distance > behaviorProfile.abilityPressureDistance)
+    (shouldPunish || distance > behaviorProfile.abilityPressureDistance) &&
+    (!incomingProjectile || shouldPunish)
   ) {
     castEnemyGrapple(forward);
   }
@@ -8153,18 +8170,18 @@ function updateEnemy(dt) {
       enemy.postAttackMoveTime = 0.28;
     }
   } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 310) {
-    const committedDrive = shouldPunish || distance < 190;
+    const committedDrive = ((shouldPunish || enemyLow) && distance < 236) || distance < 164;
     if (fireEnemyLance(committedDrive)) {
-      enemy.shootCooldown = committedDrive ? config.lanceAltCooldown * 0.96 : config.lancePrimaryCooldown * 0.92;
-      enemy.postAttackMoveTime = committedDrive ? 0.34 : 0.18;
+      enemy.shootCooldown = committedDrive ? config.lanceAltCooldown * 1.08 : config.lancePrimaryCooldown * 0.96;
+      enemy.postAttackMoveTime = committedDrive ? 0.42 : 0.2;
     } else {
-      enemy.shootCooldown = committedDrive ? 0.48 : 0.28;
+      enemy.shootCooldown = committedDrive ? 0.62 : 0.32;
     }
   } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance > 220 && distance < 860) {
-    const cryoShot = playerOnAxe || playerOnShotgun || shouldPunish;
+    const cryoShot = ((playerOnAxe || playerOnShotgun) && distance < 420) || (shouldPunish && enemyLow && distance < 360);
     if (fireEnemyCannon(targetX + player.velocityX * 0.18, targetY + player.velocityY * 0.18, cryoShot)) {
-      enemy.shootCooldown = cryoShot ? config.cannonAltCooldown * 1.04 : config.cannonPrimaryCooldown * 1.08;
-      enemy.postAttackMoveTime = 0.42;
+      enemy.shootCooldown = cryoShot ? config.cannonAltCooldown * 1.16 : config.cannonPrimaryCooldown * 1.1;
+      enemy.postAttackMoveTime = cryoShot ? 0.48 : 0.38;
     }
   } else if (!enemyStatus.stunned && enemyOnAxe && enemy.shootCooldown <= 0 && enemy.meleeWindupTime <= 0 && enemy.attackCommitTime <= 0) {
     if ((distance < 296 && shouldPunish) || distance < 188) {
