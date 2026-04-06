@@ -1745,7 +1745,7 @@ body {
   bottom: 14px;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(360px, 1fr) minmax(220px, 250px);
+  grid-template-columns: minmax(220px, 250px) minmax(420px, 1fr) minmax(220px, 250px);
   gap: 12px;
   align-items: end;
   pointer-events: none;
@@ -1761,11 +1761,11 @@ body {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 }
 
-.hud-panel--stats .hud-hint {
+.hud-panel--weapon .hud-hint {
   font-size: 0.72rem;
 }
 
-.hud-panel--abilities {
+.hud-panel--core {
   gap: 8px;
 }
 
@@ -1774,8 +1774,8 @@ body {
   width: min(250px, 100%);
 }
 
-.hud-panel--stats {
-  width: min(280px, 100%);
+.hud-panel--weapon {
+  width: min(250px, 100%);
 }
 
 .weapon-pill {
@@ -1879,7 +1879,7 @@ body {
   z-index: 1;
   display: grid;
   place-items: center;
-  font-size: 1.02rem;
+  font-size: 1.12rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-shadow:
@@ -2307,7 +2307,8 @@ body {
 .item-list::-webkit-scrollbar-thumb { background: rgba(119, 216, 255, 0.24); border-radius: 999px; }
 
 .item-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -2348,10 +2349,23 @@ body {
   flex-shrink: 0;
 }
 
+.item-row__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .item-row__name {
   font-size: 0.8rem;
   font-weight: 600;
-  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-row__meta {
+  font-size: 0.66rem;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2368,6 +2382,20 @@ body {
 
 .item-row__state--preview {
   color: var(--gold);
+}
+
+.item-group {
+  display: grid;
+  gap: 8px;
+}
+
+.item-group__title {
+  padding: 6px 2px 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* ──────────────────── RUNE PANEL ──────────────────── */
@@ -2585,6 +2613,30 @@ body {
   color: var(--muted);
 }
 
+.detail-values {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.detail-values__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 0.74rem;
+  color: var(--text);
+}
+
+.detail-values__bullet {
+  width: 6px;
+  height: 6px;
+  margin-top: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(119, 216, 255, 0.28);
+}
+
 /* ──────────────────── STYLE PANEL (cosmetics) ──────────────────── */
 .style-layout {
   display: grid;
@@ -2693,7 +2745,7 @@ body {
   }
 
   .hud-panel--target,
-  .hud-panel--stats {
+  .hud-panel--weapon {
     width: auto;
   }
 

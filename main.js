@@ -86,6 +86,7 @@ const detailIcon = document.getElementById("detail-icon");
 const detailName = document.getElementById("detail-name");
 const detailMeta = document.getElementById("detail-meta");
 const detailDescription = document.getElementById("detail-description");
+const detailValues = document.getElementById("detail-values");
 const detailFloat = document.getElementById("detail-float");
 const powerOffense = document.getElementById("power-offense");
 const powerDefense = document.getElementById("power-defense");
@@ -107,6 +108,10 @@ const botConfigTitle = document.getElementById("bot-config-title");
 const botConfigCopy = document.getElementById("bot-config-copy");
 const botConfigDuel = document.getElementById("bot-config-duel");
 const botConfigTraining = document.getElementById("bot-config-training");
+const botDifficultyEasy = document.getElementById("bot-difficulty-easy");
+const botDifficultyNormal = document.getElementById("bot-difficulty-normal");
+const botDifficultyHard = document.getElementById("bot-difficulty-hard");
+const botDifficultyNightmare = document.getElementById("bot-difficulty-nightmare");
 const botModeRandom = document.getElementById("bot-mode-random");
 const botModeCustom = document.getElementById("bot-mode-custom");
 const botWeaponGrid = document.getElementById("bot-weapon-grid");
@@ -145,14 +150,14 @@ const config = {
   pulseReloadTime: 1.18,
   railChargeThreshold: 0.34,
   railMaxCharge: 0.9,
-  railTapDamage: 28,
-  railChargeDamage: 42,
+  railTapDamage: 30,
+  railChargeDamage: 52,
   railTapSpeed: 1980,
-  railChargeSpeed: 2360,
-  railDistanceRamp: 0.52,
-  railChargeDistanceRamp: 0.72,
+  railChargeSpeed: 2580,
+  railDistanceRamp: 0.68,
+  railChargeDistanceRamp: 1,
   railChargeSnare: 0.42,
-  railChargeSnareDuration: 0.8,
+  railChargeSnareDuration: 0.9,
   axeComboReset: 0.72,
   axeCommitSpeed: 940,
   axeCommitDuration: 0.12,
@@ -180,9 +185,17 @@ const config = {
   fieldHoldSlow: 0.62,
   portalReuseCooldown: 10,
   grappleCooldown: 4.2,
+  grappleRange: 360,
+  grappleWidth: 34,
+  grappleDamage: 18,
+  grapplePullSpeed: 1260,
+  grappleSnareDuration: 0.72,
+  grapplePullDuration: 0.3,
   shieldCooldown: 5.2,
   boosterCooldown: 6.5,
   ultimateCooldown: 14,
+  phantomDuration: 3,
+  phantomReplayDelay: 0.16,
   enemyRadius: 20,
   enemyMaxHp: 380,
   enemySpeed: 246,
@@ -517,26 +530,26 @@ const content = {
     resourceConverter: { key: "resourceConverter", name: "Resource Converter", role: "Utility", description: "Convert pressure into energy or sustain.", icon: "ability-convert", category: "utility", state: "locked" },
   },
   perks: {
-    omnivampCore: { key: "omnivampCore", name: "Omnivamp Core", description: "Heal slightly from damage dealt.", icon: "perk-vamp", state: "playable" },
-    executionRelay: { key: "executionRelay", name: "Execution Relay", description: "Deal bonus damage to slowed targets.", icon: "perk-execution", state: "playable" },
-    adrenalSurge: { key: "adrenalSurge", name: "Adrenal Surge", description: "Gain attack speed after using mobility.", icon: "perk-adrenal", state: "playable" },
-    predatorInstinct: { key: "predatorInstinct", name: "Predator Instinct", description: "Low-health targets take more damage.", icon: "perk-predator", state: "playable" },
-    comboDriver: { key: "comboDriver", name: "Combo Driver", description: "Electro Axe finisher hits harder.", icon: "perk-combo", state: "playable" },
-    scavengerPlates: { key: "scavengerPlates", name: "Scavenger Plates", description: "Increase max HP.", icon: "perk-plates", state: "playable" },
-    reactiveArmor: { key: "reactiveArmor", name: "Reactive Armor", description: "Reduce incoming damage.", icon: "perk-armor", state: "playable" },
-    combatRecovery: { key: "combatRecovery", name: "Combat Recovery", description: "Recover health when disengaged.", icon: "perk-recovery", state: "playable" },
-    shockBuffer: { key: "shockBuffer", name: "Shock Buffer", description: "Reduce crowd-control duration.", icon: "perk-buffer", state: "playable" },
-    lastStandBuffer: { key: "lastStandBuffer", name: "Last Stand Buffer", description: "Once per round survive fatal damage.", icon: "perk-laststand", state: "playable" },
-    dashCooling: { key: "dashCooling", name: "Dash Cooling", description: "Reduce dash cooldown.", icon: "perk-cooling", state: "playable" },
-    ghostCircuit: { key: "ghostCircuit", name: "Ghost Circuit", description: "Brief phasing after dash.", icon: "perk-ghost", state: "playable" },
-    overdriveCapacitor: { key: "overdriveCapacitor", name: "Overdrive Capacitor", description: "Legacy perk retired from the competitive ruleset.", icon: "perk-capacitor", state: "locked" },
-    abilityLeech: { key: "abilityLeech", name: "Ability Leech", description: "Ability hits restore a little health.", icon: "perk-leech", state: "playable" },
-    staticMomentum: { key: "staticMomentum", name: "Static Momentum", description: "Applying control grants speed.", icon: "perk-momentum", state: "playable" },
-    tacticalHaste: { key: "tacticalHaste", name: "Tactical Haste", description: "Ability hits grant a short haste.", icon: "perk-haste", state: "playable" },
-    cloneFailover: { key: "cloneFailover", name: "Clone Failover", description: "Emergency decoy at low HP.", icon: "perk-clone", state: "playable" },
-    arcFeedback: { key: "arcFeedback", name: "Arc Feedback", description: "Burst damage grants a small shield.", icon: "perk-feedback", state: "playable" },
-    overclockTrigger: { key: "overclockTrigger", name: "Overclock Trigger", description: "Legacy perk retired from the competitive ruleset.", icon: "perk-trigger", state: "locked" },
-    utilityBattery: { key: "utilityBattery", name: "Utility Battery", description: "Defensive and support actions restore combat value.", icon: "perk-battery", state: "playable" },
+    omnivampCore: { key: "omnivampCore", name: "Omnivamp Core", description: "Heal slightly from all damage dealt.", icon: "perk-vamp", category: "support", state: "playable" },
+    executionRelay: { key: "executionRelay", name: "Execution Relay", description: "Deal bonus damage to slowed or controlled targets.", icon: "perk-execution", category: "offense", state: "playable" },
+    adrenalSurge: { key: "adrenalSurge", name: "Adrenal Surge", description: "Gain attack speed after using mobility.", icon: "perk-adrenal", category: "utility", state: "playable" },
+    predatorInstinct: { key: "predatorInstinct", name: "Predator Instinct", description: "Low-health targets take more damage.", icon: "perk-predator", category: "offense", state: "playable" },
+    comboDriver: { key: "comboDriver", name: "Combo Driver", description: "Charged attacks and committed finishers hit harder.", icon: "perk-combo", category: "offense", state: "playable" },
+    scavengerPlates: { key: "scavengerPlates", name: "Scavenger Plates", description: "Increase max HP.", icon: "perk-plates", category: "defense", state: "playable" },
+    reactiveArmor: { key: "reactiveArmor", name: "Reactive Armor", description: "Reduce incoming damage.", icon: "perk-armor", category: "defense", state: "playable" },
+    combatRecovery: { key: "combatRecovery", name: "Combat Recovery", description: "Recover health when disengaged.", icon: "perk-recovery", category: "support", state: "playable" },
+    shockBuffer: { key: "shockBuffer", name: "Shock Buffer", description: "Reduce crowd-control duration.", icon: "perk-buffer", category: "defense", state: "playable" },
+    lastStandBuffer: { key: "lastStandBuffer", name: "Last Stand Buffer", description: "Once per round survive fatal damage.", icon: "perk-laststand", category: "defense", state: "playable" },
+    dashCooling: { key: "dashCooling", name: "Dash Cooling", description: "Reduce dash cooldown.", icon: "perk-cooling", category: "utility", state: "playable" },
+    ghostCircuit: { key: "ghostCircuit", name: "Ghost Circuit", description: "Brief phasing after dash.", icon: "perk-ghost", category: "utility", state: "playable" },
+    overdriveCapacitor: { key: "overdriveCapacitor", name: "Overdrive Capacitor", description: "Legacy perk retired from the competitive ruleset.", icon: "perk-capacitor", category: "utility", state: "locked" },
+    abilityLeech: { key: "abilityLeech", name: "Ability Leech", description: "Ability hits restore a little health.", icon: "perk-leech", category: "support", state: "playable" },
+    staticMomentum: { key: "staticMomentum", name: "Static Momentum", description: "Applying control grants speed.", icon: "perk-momentum", category: "utility", state: "playable" },
+    tacticalHaste: { key: "tacticalHaste", name: "Tactical Haste", description: "Ability hits grant a short haste.", icon: "perk-haste", category: "utility", state: "playable" },
+    cloneFailover: { key: "cloneFailover", name: "Clone Failover", description: "Emergency decoy at low HP.", icon: "perk-clone", category: "utility", state: "playable" },
+    arcFeedback: { key: "arcFeedback", name: "Arc Feedback", description: "Burst damage grants a small shield.", icon: "perk-feedback", category: "defense", state: "playable" },
+    overclockTrigger: { key: "overclockTrigger", name: "Overclock Trigger", description: "Legacy perk retired from the competitive ruleset.", icon: "perk-trigger", category: "offense", state: "locked" },
+    utilityBattery: { key: "utilityBattery", name: "Utility Battery", description: "Defensive and support actions restore combat value.", icon: "perk-battery", category: "support", state: "playable" },
   },
   ultimates: {
     overdriveOverload: {
@@ -863,10 +876,64 @@ const buildLabVisiblePools = {
     "reactiveArmor",
     "dashCooling",
     "executionRelay",
-    "comboDriver",
     "shockBuffer",
+    "predatorInstinct",
   ],
   ultimates: ["phantomSplit", "revivalProtocol", "empCataclysm"],
+};
+
+const buildCategoryLabels = {
+  offense: "Aggro / Offense",
+  defense: "Defense",
+  utility: "Utility",
+  support: "Support",
+  control: "Control",
+  mobility: "Mobility",
+};
+
+const abilityLibraryOrder = ["offense", "defense", "utility", "support", "control", "mobility"];
+
+const botDifficultyProfiles = {
+  easy: {
+    key: "easy",
+    name: "Easy",
+    aimSpreadMultiplier: 1.45,
+    reactionBias: 0.72,
+    dodgeBias: 0.72,
+    strafeBias: 0.88,
+    punishBias: 0.74,
+    spacingBias: 0.82,
+  },
+  normal: {
+    key: "normal",
+    name: "Normal",
+    aimSpreadMultiplier: 1,
+    reactionBias: 1,
+    dodgeBias: 1,
+    strafeBias: 1,
+    punishBias: 1,
+    spacingBias: 1,
+  },
+  hard: {
+    key: "hard",
+    name: "Hard",
+    aimSpreadMultiplier: 0.78,
+    reactionBias: 1.16,
+    dodgeBias: 1.12,
+    strafeBias: 1.08,
+    punishBias: 1.12,
+    spacingBias: 1.08,
+  },
+  nightmare: {
+    key: "nightmare",
+    name: "Nightmare",
+    aimSpreadMultiplier: 0.58,
+    reactionBias: 1.32,
+    dodgeBias: 1.2,
+    strafeBias: 1.14,
+    punishBias: 1.24,
+    spacingBias: 1.12,
+  },
 };
 
 const loadout = {
@@ -891,14 +958,20 @@ const uiState = {
 };
 
 const botBuildState = {
+  difficulty: "normal",
   mode: "random",
   custom: {
     weapon: weapons.pulse.key,
     abilities: ["shockJavelin", "magneticField", "energyShield"],
+    perk: "reactiveArmor",
+    ultimate: "revivalProtocol",
   },
   current: {
     weapon: weapons.pulse.key,
     abilities: ["shockJavelin", "magneticField", "energyShield"],
+    perk: "reactiveArmor",
+    ultimate: "revivalProtocol",
+    personality: "Adaptive Hunter",
   },
 };
 
@@ -1013,10 +1086,37 @@ const player = {
   failsafeReady: true,
   revivalPrimed: 0,
   decoyTime: 0,
+  phantomActionFlash: 0,
+  pullTime: 0,
+  pullSpeed: 0,
+  pullSource: null,
   injectorMarks: 0,
   injectorMarkTime: 0,
   sniperCharging: false,
   sniperChargeTime: 0,
+};
+
+const phantomState = {
+  active: false,
+  life: 0,
+  maxLife: config.phantomDuration,
+  x: player.x,
+  y: player.y,
+  facing: player.facing,
+  trail: [],
+  echoFlash: 0,
+};
+
+const enemyPhantomState = {
+  active: false,
+  life: 0,
+  maxLife: config.phantomDuration,
+  x: arena.width * 0.7,
+  y: arena.height * 0.5,
+  facing: 0,
+  weapon: weapons.pulse.key,
+  trail: [],
+  echoFlash: 0,
 };
 
 const abilityState = {
@@ -1144,7 +1244,11 @@ function createBot({
     loadout: {
       weapon: weapons.pulse.key,
       abilities: ["shockJavelin", "magneticField", "energyShield"],
+      perk: "reactiveArmor",
+      ultimate: "revivalProtocol",
+      personality: "Adaptive Hunter",
     },
+    runeProfile: createInitialRuneAllocation(),
     abilityCooldowns: {
       grapple: 0,
       shield: 0,
@@ -1177,6 +1281,14 @@ function createBot({
     sniperChargeTime: 0,
     sniperWindupTime: 0,
     pendingSniperShot: null,
+    decoyTime: 0,
+    ultimateCooldown: 0,
+    failsafeReady: true,
+    pullTime: 0,
+    pullSpeed: 0,
+    pullSource: null,
+    focusTarget: "player",
+    focusTime: 0,
   };
 }
 
@@ -1242,6 +1354,13 @@ const statusVisuals = {
     fill: "rgba(111, 226, 255, 0.95)",
     stroke: "rgba(199, 245, 255, 0.9)",
     text: "#97efff",
+    wave: "ring",
+  },
+  snare: {
+    label: "SNARE",
+    fill: "rgba(175, 150, 255, 0.98)",
+    stroke: "rgba(231, 224, 255, 0.92)",
+    text: "#d5cbff",
     wave: "ring",
   },
   stun: {
@@ -1794,6 +1913,10 @@ function clearCombatArtifacts() {
   supportZones.length = 0;
   beamEffects.length = 0;
   mapEffects.length = 0;
+  enemyPhantomState.active = false;
+  enemyPhantomState.life = 0;
+  enemyPhantomState.trail.length = 0;
+  enemyPhantomState.echoFlash = 0;
 }
 
 function createInitialRuneAllocation() {
@@ -1833,6 +1956,39 @@ function getPlayableAbilityItems() {
   return Object.values(content.abilities).filter((ability) => ability.state === "playable");
 }
 
+function cloneRuneAllocation(source) {
+  return {
+    attack: { ...source.attack },
+    defense: { ...source.defense },
+    spells: { ...source.spells },
+    support: { ...source.support },
+  };
+}
+
+function createBotRuneAllocation(focus = "attack") {
+  const allocation = createInitialRuneAllocation();
+
+  if (focus === "attack") {
+    allocation.attack.secondary = 3;
+    allocation.attack.primary = 1;
+    allocation.spells.secondary = 2;
+  } else if (focus === "defense") {
+    allocation.defense.secondary = 3;
+    allocation.defense.primary = 1;
+    allocation.support.secondary = 2;
+  } else if (focus === "spells") {
+    allocation.spells.secondary = 3;
+    allocation.spells.primary = 1;
+    allocation.attack.secondary = 2;
+  } else {
+    allocation.support.secondary = 3;
+    allocation.support.primary = 1;
+    allocation.defense.secondary = 2;
+  }
+
+  return allocation;
+}
+
 function ensureBotLoadoutFilled(loadoutConfig) {
   const weaponKey = getContentItem("weapons", loadoutConfig.weapon)?.state === "playable"
     ? loadoutConfig.weapon
@@ -1852,6 +2008,10 @@ function ensureBotLoadoutFilled(loadoutConfig) {
   return {
     weapon: weaponKey,
     abilities: uniqueAbilities.slice(0, 3),
+    perk: buildLabVisiblePools.perks.includes(loadoutConfig.perk) ? loadoutConfig.perk : "reactiveArmor",
+    ultimate: buildLabVisiblePools.ultimates.includes(loadoutConfig.ultimate) ? loadoutConfig.ultimate : "revivalProtocol",
+    personality: loadoutConfig.personality ?? "Adaptive Hunter",
+    runeProfile: cloneRuneAllocation(loadoutConfig.runeProfile ?? createBotRuneAllocation("attack")),
   };
 }
 
@@ -1872,38 +2032,74 @@ function createRandomBotLoadout() {
     {
       weapon: weapons.pulse.key,
       abilities: ["shockJavelin", "magneticField", "energyShield"],
+      perk: "reactiveArmor",
+      ultimate: "revivalProtocol",
+      personality: "Pulse Controller",
+      runeProfile: createBotRuneAllocation("defense"),
     },
     {
       weapon: weapons.pulse.key,
       abilities: ["shockJavelin", "empBurst", "phaseShift"],
+      perk: "executionRelay",
+      ultimate: "empCataclysm",
+      personality: "Burst Duelist",
+      runeProfile: createBotRuneAllocation("spells"),
     },
     {
       weapon: weapons.shotgun.key,
       abilities: ["magneticGrapple", "empBurst", "blinkStep"],
+      perk: "predatorInstinct",
+      ultimate: "phantomSplit",
+      personality: "Shotgun Hunter",
+      runeProfile: createBotRuneAllocation("attack"),
     },
     {
       weapon: weapons.shotgun.key,
       abilities: ["shockJavelin", "magneticGrapple", "energyShield"],
+      perk: "dashCooling",
+      ultimate: "revivalProtocol",
+      personality: "Close Breacher",
+      runeProfile: createBotRuneAllocation("attack"),
     },
     {
       weapon: weapons.axe.key,
       abilities: ["magneticGrapple", "energyShield", "phaseDash"],
+      perk: "predatorInstinct",
+      ultimate: "phantomSplit",
+      personality: "Axe Rusher",
+      runeProfile: createBotRuneAllocation("attack"),
     },
     {
       weapon: weapons.axe.key,
       abilities: ["magneticField", "magneticGrapple", "shockJavelin"],
+      perk: "reactiveArmor",
+      ultimate: "empCataclysm",
+      personality: "Brawler Anchor",
+      runeProfile: createBotRuneAllocation("defense"),
     },
     {
       weapon: weapons.sniper.key,
       abilities: ["shockJavelin", "energyShield", "magneticField"],
+      perk: "executionRelay",
+      ultimate: "phantomSplit",
+      personality: "Patient Sniper",
+      runeProfile: createBotRuneAllocation("spells"),
     },
     {
       weapon: weapons.staff.key,
       abilities: ["magneticField", "energyShield", "chainLightning"],
+      perk: "reactiveArmor",
+      ultimate: "revivalProtocol",
+      personality: "Zoner Support",
+      runeProfile: createBotRuneAllocation("support"),
     },
     {
       weapon: weapons.injector.key,
       abilities: ["shockJavelin", "empBurst", "magneticGrapple"],
+      perk: "executionRelay",
+      ultimate: "empCataclysm",
+      personality: "Pressure Chemist",
+      runeProfile: createBotRuneAllocation("spells"),
     },
   ];
 
@@ -1928,6 +2124,18 @@ function setBotBuildMode(mode) {
   } else {
     botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
   }
+  renderPrematch();
+}
+
+function setBotDifficulty(difficultyKey) {
+  if (!botDifficultyProfiles[difficultyKey]) {
+    return;
+  }
+  botBuildState.difficulty = difficultyKey;
+  if (botBuildState.mode === "custom") {
+    botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
+  }
+  statusLine.textContent = `Hunter bot difficulty set to ${botDifficultyProfiles[difficultyKey].name}.`;
   renderPrematch();
 }
 
@@ -1980,7 +2188,7 @@ function getRuneValue(treeKey, nodeKey) {
 }
 
 function getStatusDuration(duration) {
-  return duration * (1 + getRuneValue("spells", "secondary") * 0.03);
+  return duration * (1 + getRuneValue("spells", "secondary") * 0.03 + getRuneValue("spells", "ultimate") * 0.04);
 }
 
 function getIconMarkup(item, type) {
@@ -1990,6 +2198,7 @@ function getIconMarkup(item, type) {
 }
 
 function getPerkDamageMultiplier(target = null) {
+  const buildStats = getBuildStats();
   let multiplier = 1 + getRuneValue("attack", "secondary") * 0.02;
 
   if (hasPerk("executionRelay") && target) {
@@ -2006,6 +2215,10 @@ function getPerkDamageMultiplier(target = null) {
     multiplier *= 1.14;
   }
 
+  if (buildStats.lowHealthBonus > 0 && target && target.hp / target.maxHp <= 0.35) {
+    multiplier *= 1 + buildStats.lowHealthBonus;
+  }
+
   return multiplier;
 }
 
@@ -2015,6 +2228,7 @@ function getBuildStats() {
     damageReduction: (hasPerk("reactiveArmor") ? 0.12 : 0) + getRuneValue("defense", "secondary") * 0.01,
     ccReduction: (hasPerk("shockBuffer") ? 0.28 : 0) + getRuneValue("defense", "secondary") * 0.02,
     dashCooldownMultiplier: hasPerk("dashCooling") ? 0.84 : 1,
+    abilityCooldownMultiplier: 1 - getRuneValue("spells", "secondary") * 0.02,
     hasteMultiplier:
       1 +
       (player.hasteTime > 0 ? 0.12 : 0) +
@@ -2026,11 +2240,44 @@ function getBuildStats() {
       getRuneValue("support", "secondary") * 0.015,
     omnivamp: hasPerk("omnivampCore") ? 0.08 : 0,
     abilityLeech: hasPerk("abilityLeech") ? 4 : 0,
-    finisherBonus: (hasPerk("comboDriver") ? 0.22 : 0) + getRuneValue("attack", "primary") * 0.05,
+    finisherBonus: (hasPerk("comboDriver") ? 0.18 : 0) + getRuneValue("attack", "primary") * 0.05,
     controlledBonus: getRuneValue("attack", "primary") * 0.04,
+    lowHealthBonus: getRuneValue("attack", "ultimate") > 0 ? 0.12 : 0,
     outOfCombatRegen: hasPerk("combatRecovery") ? 4 : 0,
     shieldOnBurst: hasPerk("arcFeedback") ? 16 : 0,
+    abilityCastHeal: getRuneValue("defense", "primary") * 2,
+    abilityDamageBonus: getRuneValue("spells", "primary") * 0.04 + getRuneValue("spells", "ultimate") * 0.12,
+    controlMomentum: getRuneValue("support", "primary") * 0.04,
+    dashSupportShield: getRuneValue("support", "primary") * 2,
   };
+}
+
+function applyPlayerAbilityCastBonuses() {
+  const buildStats = getBuildStats();
+  if (buildStats.abilityCastHeal > 0) {
+    healEntity(player, buildStats.abilityCastHeal);
+  }
+}
+
+function applyPlayerAbilityHitBonuses() {
+  const buildStats = getBuildStats();
+  if (buildStats.abilityLeech > 0) {
+    healEntity(player, buildStats.abilityLeech);
+  }
+  if (getRuneValue("spells", "primary") > 0) {
+    player.hasteTime = Math.max(player.hasteTime, 0.7 + getRuneValue("spells", "primary") * 0.12);
+  }
+}
+
+function applyPlayerControlBonuses() {
+  const buildStats = getBuildStats();
+  if (buildStats.controlMomentum > 0) {
+    player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.7 + buildStats.controlMomentum);
+  }
+}
+
+function getAbilityCooldown(base) {
+  return base * getBuildStats().abilityCooldownMultiplier;
 }
 
 function getSpentRunePoints() {
@@ -2048,6 +2295,72 @@ function getSelectedRuneUltimateTree() {
   return (
     Object.entries(loadout.runes).find(([, tree]) => tree.ultimate > 0)?.[0] ?? null
   );
+}
+
+function getRuneTreePoints(treeKey) {
+  const treeState = loadout.runes[treeKey];
+  if (!treeState) {
+    return 0;
+  }
+  return treeState.secondary + treeState.primary + treeState.ultimate;
+}
+
+function normalizeRuneTreeProgression(treeKey) {
+  const treeState = loadout.runes[treeKey];
+  if (!treeState) {
+    return;
+  }
+
+  if (treeState.secondary < runeProgressionRules.primarySecondaryRequired) {
+    treeState.primary = 0;
+  }
+
+  if (
+    treeState.primary < runeProgressionRules.ultimatePrimaryRequired ||
+    treeState.secondary < runeProgressionRules.ultimateSecondaryRequired ||
+    getRuneTreePoints(treeKey) < runeProgressionRules.ultimateTotalRequired
+  ) {
+    treeState.ultimate = 0;
+  }
+}
+
+function normalizeAllRuneTrees() {
+  Object.keys(content.runeTrees).forEach((treeKey) => normalizeRuneTreeProgression(treeKey));
+  const selectedUltimateTrees = Object.keys(loadout.runes).filter((treeKey) => loadout.runes[treeKey].ultimate > 0);
+  if (selectedUltimateTrees.length > 1) {
+    selectedUltimateTrees.slice(1).forEach((treeKey) => {
+      loadout.runes[treeKey].ultimate = 0;
+    });
+  }
+}
+
+function canAddRuneNode(treeKey, nodeKey) {
+  const treeState = loadout.runes[treeKey];
+  const tree = content.runeTrees[treeKey];
+  if (!treeState || !tree) {
+    return false;
+  }
+
+  const node = tree.nodes[nodeKey];
+  if (!node || treeState[nodeKey] >= node.max || getRemainingRunePoints() <= 0) {
+    return false;
+  }
+
+  if (nodeKey === "primary") {
+    return treeState.secondary >= runeProgressionRules.primarySecondaryRequired;
+  }
+
+  if (nodeKey === "ultimate") {
+    const selectedUltimateTree = getSelectedRuneUltimateTree();
+    return (
+      treeState.secondary >= runeProgressionRules.ultimateSecondaryRequired &&
+      treeState.primary >= runeProgressionRules.ultimatePrimaryRequired &&
+      getRuneTreePoints(treeKey) >= runeProgressionRules.ultimateTotalRequired - node.max &&
+      (!selectedUltimateTree || selectedUltimateTree === treeKey)
+    );
+  }
+
+  return true;
 }
 
 function setPrematchStep(step) {
@@ -2154,10 +2467,14 @@ function renderSelectionGrid(container, items, selectedKeys, onSelect, options =
 
     const stateLabel = item.state === "playable" ? "" : item.state === "preview" ? "PREVIEW" : "LOCKED";
     const stateClass = item.state === "preview" ? " item-row__state--preview" : "";
+    const subtitle = getItemLibrarySubtitle(item, options.detailType ?? options.iconType ?? "generic");
 
     row.innerHTML = `
       ${getIconMarkup(item, options.iconType ?? "generic")}
-      <span class="item-row__name">${item.name}</span>
+      <span class="item-row__copy">
+        <span class="item-row__name">${item.name}</span>
+        <span class="item-row__meta">${subtitle}</span>
+      </span>
       ${stateLabel ? `<span class="item-row__state${stateClass}">${stateLabel}</span>` : ""}
     `;
 
@@ -2315,8 +2632,333 @@ function setPreviewAvatar(element, avatar) {
   element.style.boxShadow = `0 0 24px ${avatar.accentColor}22, inset 0 -10px 18px rgba(0,0,0,0.24)`;
 }
 
+const runeProgressionRules = {
+  primarySecondaryRequired: 2,
+  ultimateSecondaryRequired: 2,
+  ultimatePrimaryRequired: 1,
+  ultimateTotalRequired: 5,
+};
+
+function formatSeconds(value) {
+  return `${value.toFixed(value >= 1 ? 1 : 2)}s`;
+}
+
+function formatPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatDistance(value) {
+  return `${Math.round(value)} range`;
+}
+
+function getCategoryLabel(category, fallback = "General") {
+  return buildCategoryLabels[category] ?? fallback;
+}
+
+function getItemLibrarySubtitle(item, type) {
+  if (type === "weapon") {
+    return `${item.slotLabel} - ${item.rangeProfile}`;
+  }
+
+  if (type === "ability") {
+    return `${getCategoryLabel(item.category)} - ${item.role}`;
+  }
+
+  if (type === "perk") {
+    return `${getCategoryLabel(item.category, "Passive")} passive`;
+  }
+
+  if (type === "ultimate") {
+    return `${item.state === "playable" ? "Ultimate" : "Future"} - ${item.description}`;
+  }
+
+  return item.description ?? "";
+}
+
 function getItemMetaLabel(item, type) {
-  return item.slotLabel ?? item.role ?? item.category ?? type;
+  return item.slotLabel ?? item.role ?? getCategoryLabel(item.category, type) ?? type;
+}
+
+function getWeaponDetailStats(item) {
+  switch (item.key) {
+    case "pulse":
+      return [
+        `Deals ${config.pulseDamage} damage per shot`,
+        `${config.pulseMagazineSize} round magazine`,
+        `${formatSeconds(config.pulseReloadTime)} reload`,
+        `${formatSeconds(config.fireRate)} cadence`,
+        `${config.bulletSpeed} projectile speed`,
+      ];
+    case "axe": {
+      const hit1 = getAxeComboProfile(1);
+      const hit2 = getAxeComboProfile(2);
+      const hit3 = getAxeComboProfile(3);
+      return [
+        `Hit 1: ${hit1.damage} damage, ${formatDistance(hit1.range)}, ${formatSeconds(hit1.startup)} startup`,
+        `Hit 2: ${hit2.damage} damage, ${Math.round(hit2.arc * 57.3 * 2)} deg cleave, ${formatSeconds(hit2.startup)} startup`,
+        `Hit 3: ${hit3.damage} damage, ${formatDistance(hit3.range)}, ${formatSeconds(hit3.stun)} stun`,
+        `Combo reset after ${formatSeconds(config.axeComboReset)}`,
+      ];
+    }
+    case "shotgun":
+      return [
+        "6 pellets per blast",
+        "10 damage per pellet before falloff",
+        `${formatSeconds(weapons.shotgun.cooldown)} recovery`,
+        "Highest payoff inside 220 range",
+      ];
+    case "sniper":
+      return [
+        `Tap shot: ${config.railTapDamage} base damage`,
+        `Charge shot: ${config.railChargeDamage}+ base damage after ${formatSeconds(config.railChargeThreshold)}`,
+        `${formatPercent(config.railDistanceRamp)} to ${formatPercent(config.railChargeDistanceRamp)} bonus damage from travel distance`,
+        `Charged hit snares for ${formatSeconds(config.railChargeSnareDuration)}`,
+        `${config.railTapSpeed} / ${config.railChargeSpeed} projectile speed`,
+      ];
+    case "staff":
+      return [
+        "12 damage beam bolt",
+        "Heals self for 8 on hit",
+        "6 shield on cast for 0.8s",
+        `${formatSeconds(weapons.staff.cooldown)} cadence`,
+      ];
+    case "injector":
+      return [
+        "9 damage dart",
+        "Applies a mark for 4.2s",
+        "3 marks are consumed for a 12 HP heal",
+        `${formatSeconds(weapons.injector.cooldown)} cadence`,
+      ];
+    default:
+      return [];
+  }
+}
+
+function getAbilityDetailStats(item) {
+  switch (item.key) {
+    case "shockJavelin":
+      return [
+        `Tap: ${config.javelinTapDamage} damage, ${formatPercent(config.javelinTapSlow)} slow for ${formatSeconds(config.javelinTapSlowDuration)}`,
+        `Hold: ${config.javelinHoldDamage} damage, ${formatSeconds(config.javelinHoldStun)} stun`,
+        `${formatSeconds(config.javelinCooldown)} cooldown`,
+        `${config.javelinTapSpeed} / ${config.javelinHoldSpeed} projectile speed`,
+      ];
+    case "magneticField":
+      return [
+        `Tap: ${formatDistance(config.fieldTapRadius)} field for ${formatSeconds(config.fieldTapDuration)}`,
+        `Hold: ${formatDistance(config.fieldHoldRadius)} field for ${formatSeconds(config.fieldHoldDuration)}`,
+        `Slows enemies by ${formatPercent(config.fieldTapSlow)} / ${formatPercent(config.fieldHoldSlow)}`,
+        `Absorbs hostile projectiles on contact`,
+        `${formatSeconds(config.fieldCooldown)} cooldown`,
+      ];
+    case "magneticGrapple":
+      return [
+        `${formatDistance(config.grappleRange)} hook range`,
+        `${config.grappleDamage} impact damage on connect`,
+        `Pulls the target in and snares for ${formatSeconds(config.grappleSnareDuration)}`,
+        `${formatSeconds(config.grappleCooldown)} cooldown`,
+      ];
+    case "energyShield":
+      return [
+        `Grants 26 shield for ${formatSeconds(2.4)}`,
+        `${formatSeconds(config.shieldCooldown)} cooldown`,
+      ];
+    case "empBurst":
+      return [
+        `${formatDistance(120)} pulse radius`,
+        `Applies ${formatPercent(0.38)} slow for ${formatSeconds(1)}`,
+        "Deletes nearby hostile projectiles",
+        `${formatSeconds(config.boosterCooldown)} cooldown`,
+      ];
+    case "chainLightning":
+      return [
+        "3 chained hits",
+        "28 damage on first hit, 28% less on each jump",
+        `Applies ${formatPercent(0.18)} to ${formatPercent(0.26)} slow`,
+        `${formatSeconds(5.4)} cooldown`,
+      ];
+    case "blinkStep":
+      return [
+        `${formatDistance(148)} instant blink`,
+        `${formatSeconds(3.4)} cooldown`,
+      ];
+    case "phaseDash":
+      return [
+        `${formatDistance(1580 * 0.18)} burst reposition`,
+        `Untargetable for ${formatSeconds(0.42)}`,
+        `${formatSeconds(4.6)} cooldown`,
+      ];
+    case "pulseBurst":
+      return [
+        "5 pulse shots in a short cone",
+        "12 damage per bolt",
+        `${formatSeconds(3.2)} cooldown`,
+      ];
+    case "railShot":
+      return [
+        "46 damage piercing rail shot",
+        `${formatPercent(0.22)} slow for ${formatSeconds(0.8)}`,
+        `${formatSeconds(5.1)} cooldown`,
+      ];
+    case "gravityWell":
+      return [
+        `${formatDistance(118)} zone radius`,
+        `Applies ${formatPercent(0.44)} slow for ${formatSeconds(2.1)}`,
+        `${formatSeconds(5.8)} cooldown`,
+      ];
+    case "phaseShift":
+      return [
+        `Untargetable for ${formatSeconds(0.55)}`,
+        `${formatSeconds(5.6)} cooldown`,
+      ];
+    default:
+      return [];
+  }
+}
+
+function getPerkDetailStats(item) {
+  const mapping = {
+    scavengerPlates: ["+30 max HP"],
+    reactiveArmor: ["-12% incoming damage"],
+    dashCooling: ["-16% dash cooldown"],
+    executionRelay: ["+18% damage to slowed targets"],
+    shockBuffer: ["-28% control duration taken"],
+    predatorInstinct: ["+14% damage to targets below 35% HP"],
+    comboDriver: ["+22% damage on charged shots and committed finishers"],
+    abilityLeech: ["Restore 4 HP when an ability hit lands"],
+  };
+  return mapping[item.key] ?? [];
+}
+
+function getUltimateDetailStats(item) {
+  const mapping = {
+    phantomSplit: [
+      `Creates a phantom for ${formatSeconds(config.phantomDuration)}`,
+      `Clone replays your movement with ${formatSeconds(config.phantomReplayDelay)} delay`,
+      "Best for misreads, angle breaks, and clutch escapes",
+    ],
+    revivalProtocol: [
+      `Primes a lethal failsafe for ${formatSeconds(5)}`,
+      "On lethal damage, revive to 34% HP with a shield once",
+      `${formatSeconds(config.ultimateCooldown)} cooldown`,
+    ],
+    empCataclysm: [
+      `${formatDistance(148)} tech burst`,
+      `Stuns for ${formatSeconds(0.45)} and strains enemy mobility`,
+      `${formatSeconds(config.ultimateCooldown)} cooldown`,
+    ],
+  };
+  return mapping[item.key] ?? [];
+}
+
+function getRuneNodeDetailStats(treeKey, nodeKey, points = loadout.runes[treeKey]?.[nodeKey] ?? 0) {
+  const secondaryReq = runeProgressionRules.primarySecondaryRequired;
+  const capstoneReq = runeProgressionRules.ultimateTotalRequired;
+
+  const mapping = {
+    attack: {
+      secondary: [
+        "Minor node",
+        "+2% damage per point",
+        `Current: +${points * 2}% damage`,
+      ],
+      primary: [
+        "Major node",
+        "+4% damage to controlled targets per point",
+        "+5% charged / finisher damage per point",
+        `Current: +${points * 4}% controlled damage, +${points * 5}% finisher damage`,
+        `Unlock: ${secondaryReq} minor points`,
+      ],
+      ultimate: [
+        "Capstone node",
+        "+12% damage to targets below 35% HP",
+        "Unlock: 2 minor + 1 major + 5 total points in tree",
+      ],
+    },
+    defense: {
+      secondary: [
+        "Minor node",
+        "+5 max HP per point",
+        "+1% damage reduction per point",
+        "+2% control reduction per point",
+        `Current: +${points * 5} HP, +${points}% reduction, +${points * 2}% tenacity`,
+      ],
+      primary: [
+        "Major node",
+        "Abilities heal 2 HP per point on cast",
+        "Energy Shield gains +3 shield per point",
+        `Current: ${points * 2} HP per cast, +${points * 3} shield`,
+        `Unlock: ${secondaryReq} minor points`,
+      ],
+      ultimate: [
+        "Capstone node",
+        "Once per round, lethal damage leaves you at 20% HP",
+        `Unlock: ${capstoneReq} total points in tree`,
+      ],
+    },
+    spells: {
+      secondary: [
+        "Minor node",
+        "-2% ability cooldowns per point",
+        "+3% status duration per point",
+        `Current: -${points * 2}% cooldowns, +${points * 3}% duration`,
+      ],
+      primary: [
+        "Major node",
+        "+4% ability damage per point",
+        "Ability hits grant a short haste window",
+        `Current: +${points * 4}% ability damage`,
+        `Unlock: ${secondaryReq} minor points`,
+      ],
+      ultimate: [
+        "Capstone node",
+        "+12% charged ability damage",
+        "+0.1s charged control duration",
+        `Unlock: ${capstoneReq} total points in tree`,
+      ],
+    },
+    support: {
+      secondary: [
+        "Minor node",
+        "+1.5% move speed per point",
+        "+1% haste value per point",
+        `Current: +${(points * 1.5).toFixed(1)}% move speed, +${points}% haste value`,
+      ],
+      primary: [
+        "Major node",
+        "Applying control grants a brief speed burst",
+        "Dash grants a small shield pulse",
+        `Current: ${points > 0 ? `Tier ${points} support trigger active` : "No major bonus active yet"}`,
+        `Unlock: ${secondaryReq} minor points`,
+      ],
+      ultimate: [
+        "Capstone node",
+        "Dash and control windows grant strong clutch mobility",
+        `Unlock: ${capstoneReq} total points in tree`,
+      ],
+    },
+  };
+
+  return mapping[treeKey]?.[nodeKey] ?? [];
+}
+
+function getDetailStats(detail, item) {
+  if (detail.type === "weapon") {
+    return getWeaponDetailStats(item);
+  }
+  if (detail.type === "ability") {
+    return getAbilityDetailStats(item);
+  }
+  if (detail.type === "perk") {
+    return getPerkDetailStats(item);
+  }
+  if (detail.type === "ultimate") {
+    return getUltimateDetailStats(item);
+  }
+  if (detail.type === "rune") {
+    return getRuneNodeDetailStats(detail.treeKey, detail.nodeKey);
+  }
+  return [];
 }
 
 function getItemStateLabel(item) {
@@ -2377,6 +3019,9 @@ function updateDetailPanel() {
 
   if (!item) {
     if (detailFloat) detailFloat.classList.add("is-hidden");
+    if (detailValues) {
+      detailValues.innerHTML = "";
+    }
     return;
   }
 
@@ -2386,9 +3031,17 @@ function updateDetailPanel() {
     detailIcon.classList.add(`content-icon--${item.category}`);
   }
   detailName.textContent = item.name;
-  detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} · ${getItemStateLabel(item)}`;
   detailMeta.textContent = meta;
   detailDescription.textContent = item.description;
+  if (detailValues) {
+    const rows = getDetailStats(detail, item);
+    detailValues.innerHTML = rows
+      .map(
+        (row) =>
+          `<div class="detail-values__row"><span class="detail-values__bullet"></span><span>${row}</span></div>`,
+      )
+      .join("");
+  }
 }
 
 function renderValidationChips(container, items, type) {
@@ -2542,6 +3195,41 @@ function renderBuildLibrary() {
   const config = getPrematchCategoryConfig(uiState.buildCategory);
   const items = getPrematchCategoryItems(uiState.buildCategory);
 
+  if (uiState.buildCategory === "ability") {
+    buildLibraryGrid.textContent = "";
+    abilityLibraryOrder.forEach((categoryKey) => {
+      const groupedItems = items.filter((item) => item.category === categoryKey);
+      if (groupedItems.length === 0) {
+        return;
+      }
+
+      const section = document.createElement("section");
+      section.className = "item-group";
+      const title = document.createElement("div");
+      title.className = "item-group__title";
+      title.textContent = getCategoryLabel(categoryKey);
+      const list = document.createElement("div");
+      renderSelectionGrid(
+        list,
+        groupedItems,
+        config.selectedKeys,
+        (itemKey) => {
+          const targetSlot = getCategoryTargetSlot(uiState.buildCategory);
+          assignLoadoutItem(uiState.buildCategory, targetSlot, itemKey);
+        },
+        {
+          activeKeys: config.selectedKeys,
+          iconType: config.iconType,
+          detailType: uiState.buildCategory,
+        },
+      );
+      section.appendChild(title);
+      section.appendChild(list);
+      buildLibraryGrid.appendChild(section);
+    });
+    return;
+  }
+
   renderSelectionGrid(
     buildLibraryGrid,
     items,
@@ -2633,6 +3321,8 @@ function renderTrainingBotPanel() {
   const previewAbilities = previewBuild.abilities
     .map((abilityKey) => getContentItem("abilities", abilityKey))
     .filter(Boolean);
+  const previewPerk = getContentItem("perks", previewBuild.perk);
+  const previewUltimate = getContentItem("ultimates", previewBuild.ultimate);
 
   botConfigLabel.textContent = "Duel Tool";
   botConfigTitle.textContent = "Hunter Bot Loadout";
@@ -2641,10 +3331,14 @@ function renderTrainingBotPanel() {
   botConfigCard.classList.toggle("is-randomized", botBuildState.mode === "random");
   botModeRandom.classList.toggle("is-active", botBuildState.mode === "random");
   botModeCustom.classList.toggle("is-active", botBuildState.mode === "custom");
+  botDifficultyEasy?.classList.toggle("is-active", botBuildState.difficulty === "easy");
+  botDifficultyNormal?.classList.toggle("is-active", botBuildState.difficulty === "normal");
+  botDifficultyHard?.classList.toggle("is-active", botBuildState.difficulty === "hard");
+  botDifficultyNightmare?.classList.toggle("is-active", botBuildState.difficulty === "nightmare");
   botConfigCopy.textContent =
     botBuildState.mode === "random"
-      ? "Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different."
-      : "Custom mode locks the hunter build. Use it to lab exact matchup pressure before entering the arena.";
+      ? "Hunter bot randomizes a full playable build on each duel reset, including personality, perk, and ultimate."
+      : "Custom mode locks the hunter core build. Use it to lab exact matchup pressure before entering the arena.";
 
   renderSelectionGrid(
     botWeaponGrid,
@@ -2672,14 +3366,31 @@ function renderTrainingBotPanel() {
 
   renderValidationChips(
     botBuildSummary,
-    [previewWeapon, ...previewAbilities],
+    [
+      previewWeapon,
+      ...previewAbilities,
+      previewPerk,
+      previewUltimate,
+      {
+        key: `difficulty-${botBuildState.difficulty}`,
+        name: `${getBotDifficultyProfile().name} AI`,
+        icon: "ability-emp",
+        category: "control",
+      },
+      {
+        key: `persona-${previewBuild.personality ?? "adaptive"}`,
+        name: previewBuild.personality ?? "Adaptive Hunter",
+        icon: "ultimate-phantom",
+        category: "utility",
+      },
+    ].filter(Boolean),
     "ability",
   );
 }
 
 function renderRuneTrees() {
   runeGrid.textContent = "";
-  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  normalizeAllRuneTrees();
 
   Object.values(content.runeTrees).forEach((tree) => {
     const treeState = loadout.runes[tree.key];
@@ -2692,11 +3403,7 @@ function renderRuneTrees() {
     nodes.forEach((node, i) => {
       const points = treeState[node.key];
       const isUltimate = node.key === "ultimate";
-      const disabledAdd =
-        points >= node.max ||
-        (!isUltimate && getRemainingRunePoints() <= 0) ||
-        (isUltimate && selectedUltimateTree && selectedUltimateTree !== tree.key) ||
-        (isUltimate && getRemainingRunePoints() <= 0 && points === 0);
+      const disabledAdd = !canAddRuneNode(tree.key, node.key);
 
       if (i > 0) {
         const prevNode = nodes[i - 1];
@@ -2768,7 +3475,7 @@ function adjustRuneNode(treeKey, nodeKey, delta) {
   }
 
   if (delta > 0) {
-    if (getRemainingRunePoints() <= 0 || treeState[nodeKey] >= node.max) {
+    if (!canAddRuneNode(treeKey, nodeKey)) {
       return;
     }
     treeState[nodeKey] += 1;
@@ -2779,6 +3486,7 @@ function adjustRuneNode(treeKey, nodeKey, delta) {
     treeState[nodeKey] -= 1;
   }
 
+  normalizeAllRuneTrees();
   renderPrematch();
 }
 
@@ -2793,24 +3501,23 @@ function toggleRuneUltimate(treeKey) {
 
   if (treeState.ultimate > 0) {
     treeState.ultimate = 0;
+    normalizeAllRuneTrees();
     renderPrematch();
     return;
   }
 
-  if (selectedUltimateTree && selectedUltimateTree !== treeKey) {
-    return;
-  }
-
-  if (getRemainingRunePoints() <= 0) {
+  if (!canAddRuneNode(treeKey, "ultimate")) {
     return;
   }
 
   treeState.ultimate = 1;
+  normalizeAllRuneTrees();
   renderPrematch();
 }
 
 function renderPrematch() {
   normalizeLoadoutSelections();
+  normalizeAllRuneTrees();
   if (
     uiState.selectedDetail &&
     ["weapon", "ability", "perk", "ultimate"].includes(uiState.selectedDetail.type) &&
@@ -2854,10 +3561,15 @@ function getStatusState(entity) {
   let slow = 0;
   let stunned = false;
   let stunTime = 0;
+  let snared = false;
+  let snareTime = 0;
 
   for (const effect of entity.statusEffects ?? []) {
     if (effect.type === "slow") {
       slow = Math.max(slow, effect.magnitude);
+    } else if (effect.type === "snare") {
+      snared = true;
+      snareTime = Math.max(snareTime, effect.time);
     } else if (effect.type === "stun") {
       stunned = true;
       stunTime = Math.max(stunTime, effect.time);
@@ -2866,7 +3578,9 @@ function getStatusState(entity) {
 
   return {
     slow,
-    speedMultiplier: 1 - slow,
+    speedMultiplier: stunned || snared ? 0 : 1 - slow,
+    snared,
+    snareTime,
     stunned,
     stunTime,
   };
@@ -3140,6 +3854,62 @@ function getPrimaryBot() {
   return bestBot ?? activeBots.find((bot) => bot.alive) ?? activeBots[0] ?? null;
 }
 
+function findGrappleTarget(source, aimX, aimY, targets) {
+  const direction = normalize(aimX - source.x, aimY - source.y);
+  const endX = source.x + direction.x * config.grappleRange;
+  const endY = source.y + direction.y * config.grappleRange;
+  let bestTarget = null;
+  let bestForwardDistance = Number.POSITIVE_INFINITY;
+
+  for (const target of targets) {
+    if (!target?.alive) {
+      continue;
+    }
+    const forwardDistance = (target.x - source.x) * direction.x + (target.y - source.y) * direction.y;
+    if (forwardDistance < source.radius || forwardDistance > config.grappleRange + target.radius) {
+      continue;
+    }
+
+    const lineDistance = pointToSegmentDistance(target.x, target.y, source.x, source.y, endX, endY);
+    if (lineDistance > config.grappleWidth + target.radius) {
+      continue;
+    }
+
+    if (forwardDistance < bestForwardDistance) {
+      bestForwardDistance = forwardDistance;
+      bestTarget = target;
+    }
+  }
+
+  return { target: bestTarget, direction, endX, endY };
+}
+
+function startPullEffect(source, target, color = "#bfeeff") {
+  target.pullTime = config.grapplePullDuration;
+  target.pullSpeed = config.grapplePullSpeed;
+  target.pullSource = source;
+  addBeamEffect(source.x, source.y, target.x, target.y, color, 4.5, 0.16);
+}
+
+function updateEntityPull(entity, dt) {
+  if ((entity.pullTime ?? 0) <= 0 || !entity.pullSource) {
+    entity.pullTime = 0;
+    entity.pullSource = null;
+    return false;
+  }
+
+  entity.pullTime = Math.max(0, entity.pullTime - dt);
+  const source = entity.pullSource;
+  const direction = normalize(source.x - entity.x, source.y - entity.y);
+  entity.x = clamp(entity.x + direction.x * entity.pullSpeed * dt, entity.radius, arena.width - entity.radius);
+  entity.y = clamp(entity.y + direction.y * entity.pullSpeed * dt, entity.radius, arena.height - entity.radius);
+  addBeamEffect(source.x, source.y, entity.x, entity.y, "#bfeeff", 3.5, 0.05);
+  if (entity.pullTime <= 0) {
+    entity.pullSource = null;
+  }
+  return true;
+}
+
 function getPlayerSpawn(mode = sandbox.mode) {
   const layout = getMapLayout(mode);
   return mode === sandboxModes.training.key
@@ -3160,10 +3930,51 @@ function getActiveBotLoadout() {
   return botBuildState.current;
 }
 
+function getBotDifficultyProfile() {
+  return botDifficultyProfiles[botBuildState.difficulty] ?? botDifficultyProfiles.normal;
+}
+
+function getBotAimOffset(baseSpread) {
+  return (Math.random() - 0.5) * baseSpread * getBotDifficultyProfile().aimSpreadMultiplier;
+}
+
+function getBotRuneValue(bot, treeKey, nodeKey) {
+  return bot.loadout?.runeProfile?.[treeKey]?.[nodeKey] ?? 0;
+}
+
+function getBotCombatStats(bot = enemy) {
+  const perk = bot.loadout?.perk ?? "reactiveArmor";
+  return {
+    damageReduction: perk === "reactiveArmor" ? 0.12 : 0,
+    lowHealthBonus: perk === "predatorInstinct" ? 0.14 : 0,
+    executionBonus: perk === "executionRelay" ? 0.18 : 0,
+    dashCooldownMultiplier: perk === "dashCooling" ? 0.84 : 1,
+    ccReduction: perk === "shockBuffer" ? 0.28 : 0,
+    maxHpBonus: perk === "scavengerPlates" ? 30 : 0,
+    abilityDamageBonus: getBotRuneValue(bot, "spells", "primary") * 0.04,
+    finisherBonus: getBotRuneValue(bot, "attack", "primary") * 0.05,
+  };
+}
+
+function getBotDamageMultiplier(target, bot = enemy) {
+  const stats = getBotCombatStats(bot);
+  let multiplier = 1 + getBotRuneValue(bot, "attack", "secondary") * 0.02;
+  const targetStatus = getStatusState(target);
+  if (stats.executionBonus > 0 && (targetStatus.slow > 0 || targetStatus.snared || targetStatus.stunned)) {
+    multiplier *= 1 + stats.executionBonus;
+  }
+  if (stats.lowHealthBonus > 0 && target.hp / target.maxHp <= 0.35) {
+    multiplier *= 1 + stats.lowHealthBonus;
+  }
+  return multiplier;
+}
+
 function applyBotLoadout(bot, loadoutConfig) {
   const normalized = ensureBotLoadoutFilled(loadoutConfig);
   bot.loadout = normalized;
   bot.weapon = normalized.weapon;
+  bot.maxHp = config.enemyMaxHp + getBotCombatStats({ loadout: normalized }).maxHpBonus;
+  bot.hp = bot.maxHp;
   bot.ammo = getPulseMagazineSize();
   bot.reloadTime = 0;
   bot.sniperCharging = false;
@@ -3198,6 +4009,24 @@ function applyBotLoadout(bot, loadoutConfig) {
   bot.abilityCooldowns.speedSurge = 0;
   bot.javelinCooldown = 0.8;
   bot.fieldCooldown = 1.8;
+  bot.decoyTime = 0;
+  bot.ultimateCooldown = 0;
+  bot.failsafeReady = true;
+  bot.pullTime = 0;
+  bot.pullSpeed = 0;
+  bot.pullSource = null;
+  bot.focusTarget = "player";
+  bot.focusTime = 0;
+  if (bot === enemy) {
+    enemyPhantomState.active = false;
+    enemyPhantomState.life = 0;
+    enemyPhantomState.trail.length = 0;
+    enemyPhantomState.echoFlash = 0;
+    enemyPhantomState.x = bot.x;
+    enemyPhantomState.y = bot.y;
+    enemyPhantomState.facing = bot.facing;
+    enemyPhantomState.weapon = bot.weapon;
+  }
 }
 
 function refreshHunterLoadout() {
@@ -3538,12 +4367,17 @@ function bindPrematchButton(button, actionId) {
 
 function getJavelinProfile(mode = abilityState.javelin.mode) {
   const profile = mode === "hold" ? abilityConfig.javelin.hold : abilityConfig.javelin.tap;
+  const buildStats = getBuildStats();
+  const chargedBonus = mode === "hold" ? 1 + buildStats.finisherBonus + buildStats.abilityDamageBonus : 1 + buildStats.abilityDamageBonus;
+  const extraControl = getRuneValue("spells", "ultimate") > 0 && mode === "hold" ? 0.1 : 0;
 
   return {
     ...profile,
     piercing: false,
     speed: profile.speed,
-    stun: profile.stun ?? 0,
+    damage: Math.round(profile.damage * chargedBonus),
+    stun: (profile.stun ?? 0) + extraControl,
+    slowDuration: (profile.slowDuration ?? 0) + (mode === "hold" ? extraControl : 0),
   };
 }
 
@@ -3611,6 +4445,10 @@ function executeDash(dashMode) {
   }
   if (hasPerk("ghostCircuit")) {
     player.ghostTime = 0.28;
+  }
+  if (getBuildStats().dashSupportShield > 0) {
+    player.shield = Math.max(player.shield, getBuildStats().dashSupportShield);
+    player.shieldTime = Math.max(player.shieldTime, 0.8);
   }
   addImpact(player.x, player.y, dashMode === "hold" ? "#c8ffe4" : "#9df4b7", dashMode === "hold" ? 34 : 26);
   addShake(dashMode === "hold" ? 7.5 : 6);
@@ -3739,7 +4577,8 @@ function releaseShockJavelin() {
 
   abilityState.javelin.charging = false;
   abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.cooldown = abilityConfig.javelin.cooldown;
+  abilityState.javelin.cooldown = getAbilityCooldown(abilityConfig.javelin.cooldown);
+  applyPlayerAbilityCastBonuses();
   player.recoil = Math.max(player.recoil, 0.22);
   addImpact(
     player.x + direction.x * 22,
@@ -3844,7 +4683,8 @@ function releaseMagneticField() {
 
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
-  abilityState.field.cooldown = abilityConfig.field.cooldown;
+  abilityState.field.cooldown = getAbilityCooldown(abilityConfig.field.cooldown);
+  applyPlayerAbilityCastBonuses();
   addImpact(centerX, centerY, fieldProfile.color, isHold ? 28 : 22);
   addShake(isHold ? 6.5 : 4.2);
   statusLine.textContent = isHold
@@ -3882,17 +4722,29 @@ function castMagneticGrapple() {
     return;
   }
 
-  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
-  player.attackCommitX = direction.x;
-  player.attackCommitY = direction.y;
-  player.attackCommitSpeed = 1440;
-  player.attackCommitTime = 0.16;
-  abilityState.grapple.cooldown = config.grappleCooldown;
+  const { target, direction, endX, endY } = findGrappleTarget(player, input.mouseX, input.mouseY, getAllBots());
+  abilityState.grapple.cooldown = getAbilityCooldown(config.grappleCooldown);
+  applyPlayerAbilityCastBonuses();
   player.flash = 0.08;
   addImpact(player.x, player.y, "#c5f6ff", 30);
-  addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#9ee9ff");
-  addShake(6.4);
-  statusLine.textContent = "Magnetic Grapple yanked you into a new line.";
+  addBeamEffect(player.x, player.y, target ? target.x : endX, target ? target.y : endY, "#bfeeff", 5, 0.18);
+
+  if (!target) {
+    addImpact(player.x + direction.x * config.grappleRange, player.y + direction.y * config.grappleRange, "#90d9ff", 18);
+    addShake(3.6);
+    statusLine.textContent = "Magnetic Grapple missed. You gave up tempo.";
+    return;
+  }
+
+  const grappleDamage = Math.round(config.grappleDamage * (1 + getBuildStats().abilityDamageBonus) * getPerkDamageMultiplier(target));
+  damageBot(target, grappleDamage, "#bfeeff", target.x, target.y, 0);
+  applyStatusEffect(target, "snare", getStatusDuration(config.grappleSnareDuration), 1);
+  startPullEffect(player, target, "#bfeeff");
+  applyPlayerAbilityHitBonuses();
+  applyPlayerControlBonuses();
+  addImpact(target.x, target.y, "#d8fbff", 26);
+  addShake(7.2);
+  statusLine.textContent = "Magnetic Grapple connected. Drag the target into your threat window.";
 }
 
 function castEnergyShield() {
@@ -3900,7 +4752,8 @@ function castEnergyShield() {
     return;
   }
 
-  abilityState.shield.cooldown = config.shieldCooldown;
+  abilityState.shield.cooldown = getAbilityCooldown(config.shieldCooldown);
+  applyPlayerAbilityCastBonuses();
   player.shield = Math.max(player.shield, 26 + getRuneValue("defense", "primary") * 3);
   player.shieldTime = 2.4;
   addImpact(player.x, player.y, "#9cd5ff", 28);
@@ -3913,7 +4766,8 @@ function castEmpBurst() {
     return;
   }
 
-  abilityState.emp.cooldown = config.boosterCooldown;
+  abilityState.emp.cooldown = getAbilityCooldown(config.boosterCooldown);
+  applyPlayerAbilityCastBonuses();
   addImpact(player.x, player.y, "#be9dff", 34);
   addExplosion(player.x, player.y, 84, "#b99cff");
   addShake(5.4);
@@ -3951,7 +4805,8 @@ function castBackstepBurst() {
   player.y += retreat.y * 158;
   resolveMapCollision(player);
   maybeTeleportEntity(player);
-  abilityState.backstep.cooldown = 3.6;
+  abilityState.backstep.cooldown = getAbilityCooldown(3.6);
+  applyPlayerAbilityCastBonuses();
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
@@ -3981,11 +4836,12 @@ function castChainLightning() {
     return;
   }
 
-  abilityState.chainLightning.cooldown = 5.4;
+  abilityState.chainLightning.cooldown = getAbilityCooldown(5.4);
+  applyPlayerAbilityCastBonuses();
   let sourceX = player.x;
   let sourceY = player.y;
   let currentTarget = firstTarget;
-  let currentDamage = 28 * getPerkDamageMultiplier(firstTarget);
+  let currentDamage = 28 * (1 + getBuildStats().abilityDamageBonus) * getPerkDamageMultiplier(firstTarget);
   const struck = new Set();
 
   for (let hop = 0; hop < 3 && currentTarget; hop += 1) {
@@ -4024,7 +4880,8 @@ function castBlinkStep() {
   player.y += direction.y * 148;
   resolveMapCollision(player);
   maybeTeleportEntity(player);
-  abilityState.blink.cooldown = 3.4;
+  abilityState.blink.cooldown = getAbilityCooldown(3.4);
+  applyPlayerAbilityCastBonuses();
   player.flash = 0.1;
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#7df0ff");
   addImpact(player.x, player.y, "#b3f6ff", 24);
@@ -4041,7 +4898,8 @@ function castPhaseDash() {
   player.attackCommitY = direction.y;
   player.attackCommitSpeed = 1580;
   player.attackCommitTime = 0.18;
-  abilityState.phaseDash.cooldown = 4.6;
+  abilityState.phaseDash.cooldown = getAbilityCooldown(4.6);
+  applyPlayerAbilityCastBonuses();
   abilityState.phaseDash.time = 0.42;
   player.ghostTime = Math.max(player.ghostTime, 0.42);
   addImpact(player.x, player.y, "#b0e7ff", 30);
@@ -4053,12 +4911,13 @@ function castPulseBurst() {
   if (!isCombatLive() || abilityState.pulseBurst.cooldown > 0) {
     return;
   }
-  abilityState.pulseBurst.cooldown = 3.2;
+  abilityState.pulseBurst.cooldown = getAbilityCooldown(3.2);
+  applyPlayerAbilityCastBonuses();
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
     const spread = -0.16 + pellet * 0.08;
     const angle = baseAngle + spread;
-    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#84dcff", 1320, 12 * getPerkDamageMultiplier(getPrimaryBot()), {
+    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#84dcff", 1320, 12 * (1 + getBuildStats().abilityDamageBonus) * getPerkDamageMultiplier(getPrimaryBot()), {
       radius: 4,
       life: 0.66,
       trailColor: "#c9f3ff",
@@ -4074,8 +4933,9 @@ function castRailShotAbility() {
   if (!isCombatLive() || abilityState.railShot.cooldown > 0) {
     return;
   }
-  abilityState.railShot.cooldown = 5.1;
-  spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * getPerkDamageMultiplier(getPrimaryBot()), {
+  abilityState.railShot.cooldown = getAbilityCooldown(5.1);
+  applyPlayerAbilityCastBonuses();
+  spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * (1 + getBuildStats().abilityDamageBonus + getBuildStats().finisherBonus) * getPerkDamageMultiplier(getPrimaryBot()), {
     radius: 7,
     life: 0.72,
     piercing: true,
@@ -4092,7 +4952,8 @@ function castGravityWell() {
   if (!isCombatLive() || abilityState.gravityWell.cooldown > 0) {
     return;
   }
-  abilityState.gravityWell.cooldown = 5.8;
+  abilityState.gravityWell.cooldown = getAbilityCooldown(5.8);
+  applyPlayerAbilityCastBonuses();
   supportZones.push({
     type: "gravity",
     team: "player",
@@ -4113,7 +4974,8 @@ function castPhaseShift() {
   if (!isCombatLive() || abilityState.phaseShift.cooldown > 0) {
     return;
   }
-  abilityState.phaseShift.cooldown = 5.6;
+  abilityState.phaseShift.cooldown = getAbilityCooldown(5.6);
+  applyPlayerAbilityCastBonuses();
   abilityState.phaseShift.time = 0.55;
   player.ghostTime = Math.max(player.ghostTime, 0.55);
   addImpact(player.x, player.y, "#d2f1ff", 24);
@@ -4124,8 +4986,12 @@ function castHologramDecoy() {
   if (!isCombatLive() || abilityState.hologramDecoy.cooldown > 0) {
     return;
   }
-  abilityState.hologramDecoy.cooldown = 6.2;
+  abilityState.hologramDecoy.cooldown = getAbilityCooldown(6.2);
+  applyPlayerAbilityCastBonuses();
   player.decoyTime = Math.max(player.decoyTime, 2.8);
+  phantomState.active = true;
+  phantomState.life = Math.max(phantomState.life, 2.8);
+  phantomState.maxLife = Math.max(phantomState.maxLife, 2.8);
   addAfterimage(player.x - 46, player.y + 20, player.facing, player.radius + 8, "#caa9ff");
   addImpact(player.x, player.y, "#d8b8ff", 24);
   statusLine.textContent = "Hologram Decoy split your read.";
@@ -4135,7 +5001,8 @@ function castSpeedSurge() {
   if (!isCombatLive() || abilityState.speedSurge.cooldown > 0) {
     return;
   }
-  abilityState.speedSurge.cooldown = 4.2;
+  abilityState.speedSurge.cooldown = getAbilityCooldown(4.2);
+  applyPlayerAbilityCastBonuses();
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
   addImpact(player.x, player.y, "#8dfcc7", 20);
@@ -4149,9 +5016,16 @@ function castUltimate() {
 
   if (loadout.ultimate === "phantomSplit") {
     abilityState.ultimate.cooldown = config.ultimateCooldown;
-    abilityState.ultimate.phantomTime = 2.2;
-    player.decoyTime = 2.2;
+    abilityState.ultimate.phantomTime = config.phantomDuration;
+    player.decoyTime = config.phantomDuration;
     player.ghostTime = 0.7;
+    phantomState.active = true;
+    phantomState.life = config.phantomDuration;
+    phantomState.maxLife = config.phantomDuration;
+    phantomState.trail.length = 0;
+    phantomState.x = player.x;
+    phantomState.y = player.y;
+    phantomState.facing = player.facing;
     addAfterimage(player.x, player.y, player.facing, player.radius + 8, "#caa3ff");
     addImpact(player.x, player.y, "#d9bbff", 28);
     statusLine.textContent = "Phantom Split broke your read for a short window.";
@@ -4238,6 +5112,114 @@ function updateExtraAbilities(dt) {
 
   if (player.shieldTime <= 0) {
     player.shield = 0;
+  }
+}
+
+function updatePhantomState(dt) {
+  player.phantomActionFlash = Math.max(0, player.phantomActionFlash - dt);
+  const activeDuration = Math.max(abilityState.ultimate.phantomTime, player.decoyTime);
+  if (activeDuration <= 0) {
+    phantomState.active = false;
+    phantomState.life = 0;
+    phantomState.trail.length = 0;
+    phantomState.echoFlash = 0;
+    return;
+  }
+
+  phantomState.active = true;
+  phantomState.life = activeDuration;
+  phantomState.maxLife = Math.max(phantomState.maxLife, activeDuration);
+  phantomState.echoFlash = Math.max(0, phantomState.echoFlash - dt);
+
+  phantomState.trail.push({
+    x: player.x,
+    y: player.y,
+    facing: player.facing,
+    weapon: player.weapon,
+    age: 0,
+    actionFlash: player.recoil > 0.18 || player.slashFlash > 0.08 || player.phantomActionFlash > 0.05,
+  });
+
+  for (let i = phantomState.trail.length - 1; i >= 0; i -= 1) {
+    phantomState.trail[i].age += dt;
+    if (phantomState.trail[i].age > 0.8) {
+      phantomState.trail.splice(i, 1);
+    }
+  }
+
+  const replaySnapshot =
+    phantomState.trail.find((snapshot) => snapshot.age >= config.phantomReplayDelay) ??
+    phantomState.trail[0];
+  if (!replaySnapshot) {
+    return;
+  }
+
+  phantomState.x = replaySnapshot.x;
+  phantomState.y = replaySnapshot.y;
+  phantomState.facing = replaySnapshot.facing;
+  phantomState.weapon = replaySnapshot.weapon;
+  if (replaySnapshot.actionFlash) {
+    phantomState.echoFlash = Math.max(phantomState.echoFlash, 0.18);
+  }
+}
+
+function activateEnemyPhantom(duration = config.phantomDuration) {
+  enemy.decoyTime = Math.max(enemy.decoyTime, duration);
+  enemyPhantomState.active = true;
+  enemyPhantomState.life = Math.max(enemyPhantomState.life, duration);
+  enemyPhantomState.maxLife = Math.max(enemyPhantomState.maxLife, duration);
+  enemyPhantomState.trail.length = 0;
+  enemyPhantomState.x = enemy.x;
+  enemyPhantomState.y = enemy.y;
+  enemyPhantomState.facing = enemy.facing;
+  enemyPhantomState.weapon = enemy.weapon;
+  enemyPhantomState.echoFlash = 0.2;
+}
+
+function updateEnemyPhantomState(dt) {
+  enemy.decoyTime = Math.max(0, enemy.decoyTime - dt);
+  if (enemy.decoyTime <= 0 || !enemy.alive) {
+    enemyPhantomState.active = false;
+    enemyPhantomState.life = 0;
+    enemyPhantomState.trail.length = 0;
+    enemyPhantomState.echoFlash = 0;
+    return;
+  }
+
+  enemyPhantomState.active = true;
+  enemyPhantomState.life = enemy.decoyTime;
+  enemyPhantomState.maxLife = Math.max(enemyPhantomState.maxLife, enemy.decoyTime);
+  enemyPhantomState.echoFlash = Math.max(0, enemyPhantomState.echoFlash - dt);
+
+  enemyPhantomState.trail.push({
+    x: enemy.x,
+    y: enemy.y,
+    facing: enemy.facing,
+    weapon: enemy.weapon,
+    age: 0,
+    actionFlash: enemy.flash > 0 ? 1 : 0,
+  });
+
+  for (let i = enemyPhantomState.trail.length - 1; i >= 0; i -= 1) {
+    enemyPhantomState.trail[i].age += dt;
+    if (enemyPhantomState.trail[i].age > 0.8) {
+      enemyPhantomState.trail.splice(i, 1);
+    }
+  }
+
+  const replaySnapshot =
+    enemyPhantomState.trail.find((snapshot) => snapshot.age >= config.phantomReplayDelay) ??
+    enemyPhantomState.trail[0];
+  if (!replaySnapshot) {
+    return;
+  }
+
+  enemyPhantomState.x = replaySnapshot.x;
+  enemyPhantomState.y = replaySnapshot.y;
+  enemyPhantomState.facing = replaySnapshot.facing;
+  enemyPhantomState.weapon = replaySnapshot.weapon;
+  if (replaySnapshot.actionFlash) {
+    enemyPhantomState.echoFlash = Math.max(enemyPhantomState.echoFlash, 0.16);
   }
 }
 
@@ -4443,25 +5425,28 @@ function damageBot(bot, damage, color, impactX, impactY, energyGain) {
     return false;
   }
 
+  const botStats = getBotCombatStats(bot);
+  let finalDamage = damage * (1 - botStats.damageReduction);
+
   if (bot.shield > 0) {
-    const absorbed = Math.min(bot.shield, damage);
+    const absorbed = Math.min(bot.shield, finalDamage);
     bot.shield -= absorbed;
-    damage -= absorbed;
+    finalDamage -= absorbed;
     addImpact(bot.x, bot.y, "#a6d9ff", 18);
   }
 
-  if (damage <= 0) {
+  if (finalDamage <= 0) {
     return false;
   }
 
-  bot.hp = Math.max(0, bot.hp - damage);
+  bot.hp = Math.max(0, bot.hp - finalDamage);
   bot.flash = 0.18;
-  const heavyHit = damage >= 60;
+  const heavyHit = finalDamage >= 60;
   applyHitReaction(bot, impactX ?? bot.x, impactY ?? bot.y, heavyHit ? 1.2 : 0.7);
   addImpact(impactX, impactY, color, heavyHit ? 30 : 24);
   addImpact(bot.x, bot.y, heavyHit ? "#fff4d3" : "#e9fbff", heavyHit ? 22 : 12);
   addShake(heavyHit ? 5.8 : 2.8);
-  addDamageText(bot.x, bot.y - bot.radius - 8, damage, { heavy: heavyHit, color: heavyHit ? "#ff9b73" : "#ff7269" });
+  addDamageText(bot.x, bot.y - bot.radius - 8, finalDamage, { heavy: heavyHit, color: heavyHit ? "#ff9b73" : "#ff7269" });
 
   if (energyGain > 0) {
     addEnergy(energyGain);
@@ -4469,7 +5454,7 @@ function damageBot(bot, damage, color, impactX, impactY, energyGain) {
 
   const buildStats = getBuildStats();
   if (buildStats.omnivamp > 0) {
-    const healAmount = damage * buildStats.omnivamp;
+    const healAmount = finalDamage * buildStats.omnivamp;
     player.hp = clamp(player.hp + healAmount, 0, buildStats.maxHp);
     if (healAmount > 0.5) {
       addHealingText(player.x, player.y - player.radius - 10, healAmount);
@@ -4477,6 +5462,16 @@ function damageBot(bot, damage, color, impactX, impactY, energyGain) {
   }
 
   if (bot.hp <= 0) {
+    if ((bot.loadout?.ultimate === "revivalProtocol" || bot.loadout?.perk === "lastStandBuffer") && bot.failsafeReady) {
+      bot.failsafeReady = false;
+      bot.hp = Math.max(1, bot.maxHp * 0.28);
+      bot.shield = Math.max(bot.shield, 24);
+      bot.shieldTime = Math.max(bot.shieldTime, 2);
+      addImpact(bot.x, bot.y, "#bcffd8", 30);
+      statusLine.textContent = "Hunter bot survived on a failsafe protocol.";
+      return false;
+    }
+
     bot.alive = false;
     addImpact(bot.x, bot.y, "#b6fff4", 42);
     statusLine.textContent = `${bot.role === "training" ? "Training bot" : "Enemy bot"} destroyed. Press R to reset bots.`;
@@ -4565,6 +5560,7 @@ function attackPulseRifle() {
   player.ammo = Math.max(0, player.ammo - 1);
   addImpact(player.x + Math.cos(player.facing) * 26, player.y + Math.sin(player.facing) * 26, "#77d8ff", 12);
   player.recoil = 1;
+  player.phantomActionFlash = 0.16;
   addShake(2.8);
   if (player.ammo <= 0) {
     startPulseReload(player, true);
@@ -4596,6 +5592,7 @@ function attackScrapShotgun() {
   addImpact(player.x + Math.cos(baseAngle) * 26, player.y + Math.sin(baseAngle) * 26, "#ffb078", 18);
   addShake(5.6);
   player.recoil = 1.4;
+  player.phantomActionFlash = 0.18;
   statusLine.textContent = "Scrap Shotgun cracked out a close-range burst.";
 }
 
@@ -4631,14 +5628,15 @@ function releaseRailSniperCharge() {
 function firePlayerRailSniper(chargeTime = 0) {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.wastelux;
   const charged = chargeTime >= config.railChargeThreshold;
+  const buildStats = getBuildStats();
   const chargeRatio = charged
     ? clamp((chargeTime - config.railChargeThreshold) / Math.max(0.01, config.railMaxCharge - config.railChargeThreshold), 0, 1)
     : 0;
   const baseDamage = charged
-    ? config.railChargeDamage + chargeRatio * 12
-    : config.railTapDamage;
+    ? (config.railChargeDamage + chargeRatio * 14) * (1 + buildStats.finisherBonus + buildStats.abilityDamageBonus)
+    : config.railTapDamage * (1 + buildStats.abilityDamageBonus * 0.35);
   const projectileSpeed = charged
-    ? config.railChargeSpeed + chargeRatio * 180
+    ? config.railChargeSpeed + chargeRatio * 240
     : config.railTapSpeed;
   const snare = charged ? config.railChargeSnare + chargeRatio * 0.08 : 0;
   const snareDuration = charged ? config.railChargeSnareDuration + chargeRatio * 0.15 : 0;
@@ -4684,6 +5682,7 @@ function firePlayerRailSniper(chargeTime = 0) {
   addImpact(player.x + direction.x * 52, player.y + direction.y * 52, charged ? "#fff7e0" : "#ffeec3", charged ? 18 : 10);
   addShake(charged ? 9.8 : 7.6);
   player.recoil = charged ? 1.7 : 1.42;
+  player.phantomActionFlash = charged ? 0.24 : 0.18;
   statusLine.textContent = charged
     ? "Charged Rail Sniper shot launched. Long lanes are lethal."
     : "Rail Sniper cracked a precision line shot.";
@@ -4712,6 +5711,7 @@ function attackVoltStaff() {
   player.shield = Math.max(player.shield, 6);
   player.shieldTime = Math.max(player.shieldTime, 0.8);
   addImpact(player.x + Math.cos(player.facing) * 24, player.y + Math.sin(player.facing) * 24, "#9cffc4", 16);
+  player.phantomActionFlash = 0.14;
   statusLine.textContent = "Volt Staff arc fired. Sustain the exchange.";
 }
 
@@ -4735,6 +5735,7 @@ function attackBioInjector() {
     },
   );
   addImpact(player.x + Math.cos(player.facing) * 22, player.y + Math.sin(player.facing) * 22, "#da90ff", 14);
+  player.phantomActionFlash = 0.14;
   statusLine.textContent = "Bio-Injector tagged the lane with corrosive pressure.";
 }
 
@@ -4988,6 +5989,7 @@ function attackElectricAxe() {
   player.recoil = player.comboStep === 3 ? 0.84 : player.comboStep === 2 ? 0.52 : 0.44;
   player.flash = 0.07 + profile.startup * 0.45;
   player.slashFlash = player.comboStep === 3 ? 0.32 : player.comboStep === 2 ? 0.24 : 0.18;
+  player.phantomActionFlash = player.comboStep === 3 ? 0.22 : 0.16;
 
   addSlashEffect(
     player.x + player.attackCommitX * 20,
@@ -5052,6 +6054,10 @@ function resetPlayer({ silent = false } = {}) {
   player.failsafeReady = true;
   player.revivalPrimed = 0;
   player.decoyTime = 0;
+  player.phantomActionFlash = 0;
+  player.pullTime = 0;
+  player.pullSpeed = 0;
+  player.pullSource = null;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
   player.sniperCharging = false;
@@ -5091,6 +6097,9 @@ function resetPlayer({ silent = false } = {}) {
   abilityState.speedSurge.cooldown = 0;
   abilityState.ultimate.cooldown = 0;
   abilityState.ultimate.phantomTime = 0;
+  phantomState.active = false;
+  phantomState.life = 0;
+  phantomState.trail = [];
   magneticFields.length = 0;
   if (!silent) {
     statusLine.textContent = "Player reset. Re-engage.";
@@ -5119,11 +6128,13 @@ function updatePlayer(dt) {
   const playerStatus = getStatusState(player);
   const playerZoneEffects = getZoneEffectsForEntity(player);
   const buildStats = getBuildStats();
+  const beingPulled = updateEntityPull(player, dt);
 
   updateDashAbility(dt);
   updateJavelinAbility(dt);
   updateFieldAbility(dt);
   updateExtraAbilities(dt);
+  updatePhantomState(dt);
 
   if (
     buildStats.outOfCombatRegen > 0 &&
@@ -5137,6 +6148,9 @@ function updatePlayer(dt) {
   if (!combatLive) {
     player.velocityX = approach(player.velocityX, 0, config.playerFriction * dt);
     player.velocityY = approach(player.velocityY, 0, config.playerFriction * dt);
+  } else if (beingPulled) {
+    player.velocityX = 0;
+    player.velocityY = 0;
   } else if (abilityState.dash.activeTime > 0) {
     // Dash owns the movement profile while it is active.
   } else if (player.attackStartupTime > 0) {
@@ -5169,8 +6183,10 @@ function updatePlayer(dt) {
     player.velocityY = approach(player.velocityY, targetVelocityY, acceleration * dt);
   }
 
-  player.x = clamp(player.x + player.velocityX * dt, player.radius, arena.width - player.radius);
-  player.y = clamp(player.y + player.velocityY * dt, player.radius, arena.height - player.radius);
+  if (!beingPulled) {
+    player.x = clamp(player.x + player.velocityX * dt, player.radius, arena.width - player.radius);
+    player.y = clamp(player.y + player.velocityY * dt, player.radius, arena.height - player.radius);
+  }
   resolveMapCollision(player);
   maybeTeleportEntity(player);
 
@@ -5280,15 +6296,18 @@ function updateShockJavelins(dt) {
 
       if (javelin.charged) {
         applyStatusEffect(bot, "stun", getStatusDuration(javelin.stun), 1);
+        applyPlayerControlBonuses();
         addImpact(bot.x, bot.y, "#fff7d0", 30);
         statusLine.textContent = bot.role === "training"
           ? "Charged javelin stunned the training bot."
           : "Charged javelin stunned the bot.";
       } else {
         applyStatusEffect(bot, "slow", getStatusDuration(javelin.slowDuration), javelin.slow);
+        applyPlayerControlBonuses();
         addImpact(bot.x, bot.y, "#bff6ff", 20);
         statusLine.textContent = "Shock Javelin slowed the target.";
       }
+      applyPlayerAbilityHitBonuses();
 
       if (!javelin.piercing) {
         consumed = true;
@@ -5431,9 +6450,9 @@ function fireEnemyPulse(targetX, targetY, punishShot = false) {
 
   enemy.ammo = Math.max(0, enemy.ammo - 1);
   const spread = punishShot ? 18 : 30;
-  const spreadX = (Math.random() - 0.5) * spread;
-  const spreadY = (Math.random() - 0.5) * spread;
-  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 7, {
+  const spreadX = getBotAimOffset(spread);
+  const spreadY = getBotAimOffset(spread);
+  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 7 * getBotDamageMultiplier(player, enemy), {
     radius: 4,
     source: "enemy-pulse",
     trailColor: "#ffc0b4",
@@ -5449,7 +6468,7 @@ function fireEnemyPulse(targetX, targetY, punishShot = false) {
 function fireEnemyShotgun(targetX, targetY) {
   const baseAngle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
-    const spread = -0.2 + pellet * 0.1;
+    const spread = (-0.2 + pellet * 0.1) * getBotDifficultyProfile().aimSpreadMultiplier;
     const angle = baseAngle + spread;
     spawnBullet(
       enemy,
@@ -5458,7 +6477,7 @@ function fireEnemyShotgun(targetX, targetY) {
       enemyBullets,
       "#ff9d62",
       config.bulletSpeed * 0.82,
-        6,
+        6 * getBotDamageMultiplier(player, enemy),
       {
         radius: 4,
         source: "enemy-shotgun",
@@ -5514,10 +6533,14 @@ function applyProjectileEffectToBot(bot, projectile) {
       addImpact(bot.x, bot.y, "#f0b8ff", 24);
     }
   } else if (effect.kind === "rail") {
-    if ((effect.bonusSlow ?? 0) > 0) {
+    if (effect.charged) {
+      applyStatusEffect(bot, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
+      applyPlayerControlBonuses();
+    } else if ((effect.bonusSlow ?? 0) > 0) {
       applyStatusEffect(bot, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
     }
   }
+  applyPlayerAbilityHitBonuses();
 }
 
 function applyProjectileEffectToPlayer(projectile) {
@@ -5538,14 +6561,17 @@ function applyProjectileEffectToPlayer(projectile) {
       addImpact(player.x, player.y, "#f0b8ff", 20);
     }
   } else if (effect.kind === "rail") {
-    if ((effect.bonusSlow ?? 0) > 0) {
+    if (effect.charged) {
+      applyStatusEffect(player, "snare", getStatusDuration(effect.bonusSlowDuration ?? config.railChargeSnareDuration), 1);
+    } else if ((effect.bonusSlow ?? 0) > 0) {
       applyStatusEffect(player, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
     }
   }
 }
 
 function fireEnemySniper(targetX, targetY, charged = false) {
-  const baseDamage = charged ? config.railChargeDamage * 0.62 : config.railTapDamage * 0.68;
+  const stats = getBotCombatStats(enemy);
+  const baseDamage = (charged ? config.railChargeDamage * 0.62 : config.railTapDamage * 0.68) * (1 + stats.abilityDamageBonus + (charged ? stats.finisherBonus : 0));
   const projectileSpeed = charged ? config.railChargeSpeed * 0.94 : config.railTapSpeed * 0.92;
   const direction = normalize(targetX - enemy.x, targetY - enemy.y);
   const startX = enemy.x + direction.x * (enemy.radius + 8);
@@ -5578,7 +6604,7 @@ function fireEnemySniper(targetX, targetY, charged = false) {
 }
 
 function fireEnemyStaff(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#9cffc4", 920, 7, {
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#9cffc4", 920, 7 * getBotDamageMultiplier(player, enemy), {
     radius: 5,
     life: 0.92,
     trailColor: "#d2ffe3",
@@ -5590,7 +6616,7 @@ function fireEnemyStaff(targetX, targetY) {
 }
 
 function fireEnemyInjector(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#d894ff", 1180, 6, {
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#d894ff", 1180, 6 * getBotDamageMultiplier(player, enemy), {
     radius: 4,
     life: 0.86,
     trailColor: "#f0beff",
@@ -5709,11 +6735,18 @@ function updateEnemyAxeCommit(dt, previousX, previousY) {
 }
 
 function castEnemyGrapple(forward) {
+  const aimX = player.x + forward.x * config.grappleRange;
+  const aimY = player.y + forward.y * config.grappleRange;
+  const { target, endX, endY } = findGrappleTarget(enemy, aimX, aimY, [player]);
   enemy.abilityCooldowns.grapple = config.grappleCooldown + 0.6;
-  enemy.dodgeVectorX = forward.x;
-  enemy.dodgeVectorY = forward.y;
-  enemy.dodgeTime = 0.16;
+  addBeamEffect(enemy.x, enemy.y, target ? target.x : endX, target ? target.y : endY, "#ffd7b0", 4, 0.14);
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
+  if (!target) {
+    return;
+  }
+  startPullEffect(enemy, player, "#ffd7b0");
+  applyStatusEffect(player, "snare", getStatusDuration(config.grappleSnareDuration * (1 - getBuildStats().ccReduction)), 1);
+  applyPlayerDamage(Math.round(config.grappleDamage * 0.7), "bullet");
 }
 
 function castEnemyShield() {
@@ -5832,6 +6865,7 @@ function castEnemyPhaseShift() {
 function castEnemyHologram() {
   enemy.abilityCooldowns.hologramDecoy = 6.4;
   enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.5);
+  activateEnemyPhantom(2.2);
   addAfterimage(enemy.x - 32, enemy.y + 16, enemy.facing, enemy.radius + 5, "#d8b8ff");
 }
 
@@ -5839,6 +6873,43 @@ function castEnemySpeedSurge() {
   enemy.abilityCooldowns.speedSurge = 4.4;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
   addImpact(enemy.x, enemy.y, "#8dfcc7", 18);
+}
+
+function castEnemyUltimate(distance, shouldPunish, incomingProjectile) {
+  if (enemy.ultimateCooldown > 0) {
+    return false;
+  }
+
+  const ultimateKey = enemy.loadout?.ultimate;
+  if (ultimateKey === "empCataclysm") {
+    if (distance > 176 || (!shouldPunish && !incomingProjectile && enemy.hp / Math.max(1, enemy.maxHp) > 0.34)) {
+      return false;
+    }
+    enemy.ultimateCooldown = config.ultimateCooldown;
+    castEnemyEmp();
+    enemy.abilityCooldowns.emp = Math.max(enemy.abilityCooldowns.emp, 0.8);
+    applyStatusEffect(player, "stun", getStatusDuration(0.45 * (1 - getBuildStats().ccReduction)), 1);
+    addExplosion(enemy.x, enemy.y, 156, "#d2b0ff");
+    addShake(9.8);
+    statusLine.textContent = "Enemy EMP Cataclysm blew open a punish window.";
+    return true;
+  }
+
+  if (ultimateKey === "phantomSplit") {
+    if (!shouldPunish && !incomingProjectile && enemy.hp / Math.max(1, enemy.maxHp) > 0.42) {
+      return false;
+    }
+    enemy.ultimateCooldown = config.ultimateCooldown;
+    enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.68);
+    enemy.hasteTime = Math.max(enemy.hasteTime, 1.4);
+    activateEnemyPhantom(config.phantomDuration);
+    addAfterimage(enemy.x, enemy.y, enemy.facing, enemy.radius + 8, "#d8b8ff");
+    addImpact(enemy.x, enemy.y, "#e0c2ff", 24);
+    statusLine.textContent = "Enemy Phantom Split scrambled the read.";
+    return true;
+  }
+
+  return false;
 }
 
 function updateEnemyShockJavelins(dt) {
@@ -5911,6 +6982,7 @@ function updateEnemy(dt) {
   enemy.flash = Math.max(0, enemy.flash - dt);
   updateStatusEffects(enemy, dt);
   tickEntityMarks(enemy, dt);
+  updateEnemyPhantomState(dt);
 
   if (sandbox.mode !== sandboxModes.duel.key || !enemy.alive || !isCombatLive()) {
     return;
@@ -5919,10 +6991,12 @@ function updateEnemy(dt) {
   const enemyStatus = getStatusState(enemy);
   const previousX = enemy.x;
   const previousY = enemy.y;
+  const beingPulled = updateEntityPull(enemy, dt);
   enemy.reloadTime = Math.max(0, enemy.reloadTime - dt);
   enemy.javelinCooldown = Math.max(0, enemy.javelinCooldown - dt);
   enemy.fieldCooldown = Math.max(0, enemy.fieldCooldown - dt);
   enemy.dashCooldown = Math.max(0, enemy.dashCooldown - dt);
+  enemy.ultimateCooldown = Math.max(0, enemy.ultimateCooldown - dt);
   enemy.postAttackMoveTime = Math.max(0, enemy.postAttackMoveTime - dt);
   enemy.shieldTime = Math.max(0, enemy.shieldTime - dt);
   enemy.hasteTime = Math.max(0, enemy.hasteTime - dt);
@@ -5942,6 +7016,7 @@ function updateEnemy(dt) {
   enemy.abilityCooldowns.phaseShift = Math.max(0, enemy.abilityCooldowns.phaseShift - dt);
   enemy.abilityCooldowns.hologramDecoy = Math.max(0, enemy.abilityCooldowns.hologramDecoy - dt);
   enemy.abilityCooldowns.speedSurge = Math.max(0, enemy.abilityCooldowns.speedSurge - dt);
+  enemy.focusTime = Math.max(0, enemy.focusTime - dt);
   player.lastMissTime = Math.max(0, (player.lastMissTime ?? 0) - dt);
   enemy.shootCooldown -= dt;
   enemy.strafeTimer += dt;
@@ -5954,8 +7029,18 @@ function updateEnemy(dt) {
     finalizePulseReload(enemy);
   }
 
-  const targetX = player.decoyTime > 0 ? player.x - 44 : player.x;
-  const targetY = player.decoyTime > 0 ? player.y + 18 : player.y;
+  const difficultyProfile = getBotDifficultyProfile();
+  const decoyActive = phantomState.active && phantomState.life > 0;
+  if (decoyActive && enemy.focusTime <= 0) {
+    const readChance = clamp(0.52 * difficultyProfile.reactionBias, 0.25, 0.88);
+    enemy.focusTarget = Math.random() < readChance ? "player" : "phantom";
+    enemy.focusTime = 0.24 + (1.05 - Math.min(1, difficultyProfile.reactionBias)) * 0.22;
+  } else if (!decoyActive) {
+    enemy.focusTarget = "player";
+  }
+  const aimTarget = decoyActive && enemy.focusTarget === "phantom" ? phantomState : player;
+  const targetX = aimTarget.x;
+  const targetY = aimTarget.y;
   const dx = targetX - enemy.x;
   const dy = targetY - enemy.y;
   const distance = length(dx, dy);
@@ -5963,8 +7048,8 @@ function updateEnemy(dt) {
   const side = { x: -forward.y, y: forward.x };
   const enemyFieldModifier = getFieldInfluence(enemy);
   const enemyZoneEffects = getZoneEffectsForEntity(enemy);
-  const playerLow = player.hp <= 38;
-  const enemyLow = enemy.hp <= 72;
+  const playerLow = player.hp / Math.max(1, getBuildStats().maxHp) <= 0.22;
+  const enemyLow = enemy.hp / Math.max(1, enemy.maxHp) <= 0.22;
   const playerOnAxe = player.weapon === weapons.axe.key;
   const playerOnShotgun = player.weapon === weapons.shotgun.key;
   const enemyOnAxe = enemy.weapon === weapons.axe.key;
@@ -5990,7 +7075,10 @@ function updateEnemy(dt) {
   let moveX = 0;
   let moveY = 0;
 
-  if (enemyStatus.stunned) {
+  if (beingPulled) {
+    moveX = 0;
+    moveY = 0;
+  } else if (enemyStatus.stunned) {
     enemy.dodgeTime = 0;
     enemy.attackCommitTime = 0;
   } else if (enemy.dodgeTime > 0) {
@@ -6001,17 +7089,17 @@ function updateEnemy(dt) {
   } else if (enemy.attackCommitTime > 0 && enemy.activeMeleeStrike) {
     updateEnemyAxeCommit(dt, previousX, previousY);
   } else {
-    const strafeScale = (enemy.postAttackMoveTime > 0 ? 1.38 : 1) * behaviorProfile.strafeScale;
+    const strafeScale = (enemy.postAttackMoveTime > 0 ? 1.38 : 1) * behaviorProfile.strafeScale * difficultyProfile.strafeBias;
     const strafeDirection = Math.sin(enemy.strafeTimer * 1.9) >= 0 ? 1 : -1;
     moveX = side.x * strafeDirection * 1.12 * strafeScale;
     moveY = side.y * strafeDirection * 1.12 * strafeScale;
 
     if (distance > targetRange + 28 || shouldPressure) {
-      moveX += forward.x * behaviorProfile.engageBias;
-      moveY += forward.y * behaviorProfile.engageBias;
+      moveX += forward.x * behaviorProfile.engageBias * difficultyProfile.spacingBias;
+      moveY += forward.y * behaviorProfile.engageBias * difficultyProfile.spacingBias;
     } else if (distance < targetRange - 74 || shouldKite) {
-      moveX -= forward.x * behaviorProfile.retreatBias;
-      moveY -= forward.y * behaviorProfile.retreatBias;
+      moveX -= forward.x * behaviorProfile.retreatBias * difficultyProfile.spacingBias;
+      moveY -= forward.y * behaviorProfile.retreatBias * difficultyProfile.spacingBias;
     }
 
     if (enemy.meleeWindupTime > 0) {
@@ -6025,10 +7113,11 @@ function updateEnemy(dt) {
       (enemy.dodgeTime > 0 ? config.enemyDodgeSpeed : config.enemySpeed) *
       (enemyStatus.stunned ? 0 : 1) *
       (enemy.hasteTime > 0 ? 1.12 : 1) *
+      difficultyProfile.strafeBias *
       enemyStatus.speedMultiplier *
       enemyFieldModifier.slowMultiplier *
       enemyZoneEffects.slowMultiplier;
-  if (!(enemy.attackCommitTime > 0 && enemy.activeMeleeStrike)) {
+  if (!beingPulled && !(enemy.attackCommitTime > 0 && enemy.activeMeleeStrike)) {
     enemy.x = clamp(enemy.x + desired.x * speed * dt, enemy.radius, arena.width - enemy.radius);
     enemy.y = clamp(enemy.y + desired.y * speed * dt, enemy.radius, arena.height - enemy.radius);
   }
@@ -6050,6 +7139,10 @@ function updateEnemy(dt) {
     return length(nextX - enemy.x, nextY - enemy.y) < 66;
   });
 
+  if (!enemyStatus.stunned) {
+    castEnemyUltimate(distance, shouldPunish, incomingProjectile);
+  }
+
   if (
     !enemyStatus.stunned &&
     enemyHasAbility("magneticField") &&
@@ -6061,7 +7154,7 @@ function updateEnemy(dt) {
 
   if (!enemyStatus.stunned && enemyHasAbility("shockJavelin") && enemy.javelinCooldown <= 0 && distance > 180 && distance < 620) {
     const chargedJavelin = enemyLow || shouldPunish || distance > 360;
-    if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34)) {
+    if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34) * difficultyProfile.reactionBias) {
       spawnEnemyJavelin(chargedJavelin);
       enemy.postAttackMoveTime = 0.62;
       enemy.shootCooldown = Math.max(enemy.shootCooldown, 0.18);
@@ -6176,7 +7269,7 @@ function updateEnemy(dt) {
   }
 
   if (!enemyStatus.stunned && enemy.dodgeCooldown <= 0) {
-    if (incomingProjectile && Math.random() < behaviorProfile.dodgeAggression) {
+    if (incomingProjectile && Math.random() < behaviorProfile.dodgeAggression * difficultyProfile.dodgeBias) {
       const dodgeSide = Math.random() < 0.5 ? -1 : 1;
       enemy.dodgeVectorX = side.x * dodgeSide;
       enemy.dodgeVectorY = side.y * dodgeSide;
@@ -6219,6 +7312,7 @@ function updateTrainingBots(dt) {
     const dx = player.x - bot.x;
     const dy = player.y - bot.y;
     bot.facing = Math.atan2(dy, dx);
+    updateEntityPull(bot, dt);
     if (trainingToolState.botsFire && isCombatLive()) {
       bot.shootCooldown = Math.max(0, bot.shootCooldown - dt);
       if (bot.shootCooldown <= 0 && !getStatusState(bot).stunned) {
@@ -6342,6 +7436,15 @@ function applyPlayerDamage(amount, source = "hit") {
       player.shield = Math.max(player.shield, 18);
       player.shieldTime = 2;
       statusLine.textContent = "Last Stand Buffer kept you alive.";
+      return false;
+    }
+
+    if (getRuneValue("defense", "ultimate") > 0 && player.failsafeReady) {
+      player.failsafeReady = false;
+      player.hp = Math.max(1, getBuildStats().maxHp * 0.2);
+      player.shield = Math.max(player.shield, 20);
+      player.shieldTime = 2;
+      statusLine.textContent = "Last Stand Capacitor kept you in the round.";
       return false;
     }
 
@@ -6876,6 +7979,99 @@ function drawBot(bot) {
     drawOverheadHealthBar(bot, bot.accent);
     drawStatusReadout(bot);
   }
+}
+
+function drawPhantomClone() {
+  if (!phantomState.active || phantomState.life <= 0) {
+    return;
+  }
+
+  const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
+  const weaponSkin = content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
+  const alpha = clamp(phantomState.life / Math.max(0.1, phantomState.maxLife), 0, 1) * 0.58;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(phantomState.x, phantomState.y);
+  ctx.rotate(phantomState.facing);
+  drawActorFrame(
+    phantomState,
+    {
+      body: "#dbc9ff",
+      accent: avatar.accentColor,
+      detail: "#5c4c7f",
+      variant: avatar.key,
+    },
+    { scale: 0.98 },
+  );
+
+  ctx.strokeStyle = "#e8ddff";
+  ctx.lineWidth = 2.2;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = "#d9bbff";
+  if (phantomState.weapon === weapons.sniper.key) {
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(58, 0);
+    ctx.stroke();
+  } else if (phantomState.weapon === weapons.axe.key) {
+    ctx.fillStyle = `${weaponSkin.tint}aa`;
+    ctx.fillRect(10, -3, 20, 6);
+    ctx.fillRect(24, -14, 8, 28);
+  } else {
+    ctx.fillStyle = `${weaponSkin.tint}bb`;
+    ctx.fillRect(10, -3, 22, 6);
+  }
+
+  if (phantomState.echoFlash > 0) {
+    ctx.fillStyle = "#f5e6ff";
+    ctx.beginPath();
+    ctx.arc(34, 0, 8 + phantomState.echoFlash * 14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawEnemyPhantomClone() {
+  if (!enemyPhantomState.active || enemyPhantomState.life <= 0) {
+    return;
+  }
+
+  const alpha = clamp(enemyPhantomState.life / Math.max(0.1, enemyPhantomState.maxLife), 0, 1) * 0.52;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(enemyPhantomState.x, enemyPhantomState.y);
+  ctx.rotate(enemyPhantomState.facing);
+  drawActorFrame(
+    enemyPhantomState,
+    {
+      body: "#ffd2dd",
+      accent: enemy.accent,
+      detail: "#6c3044",
+      variant: "warhound",
+    },
+    { scale: 0.9 },
+  );
+
+  ctx.fillStyle = "#ffc2d2";
+  if (enemyPhantomState.weapon === weapons.axe.key) {
+    ctx.fillRect(10, -3, 20, 6);
+    ctx.fillRect(24, -14, 8, 28);
+  } else if (enemyPhantomState.weapon === weapons.shotgun.key) {
+    ctx.fillRect(10, -4, 24, 8);
+  } else {
+    ctx.fillRect(10, -3, 22, 6);
+  }
+
+  if (enemyPhantomState.echoFlash > 0) {
+    ctx.fillStyle = "#ffeaf0";
+    ctx.beginPath();
+    ctx.arc(32, 0, 8 + enemyPhantomState.echoFlash * 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function drawArenaDecor() {
@@ -7564,6 +8760,8 @@ function drawWorld() {
     drawBot(bot);
   }
 
+  drawEnemyPhantomClone();
+  drawPhantomClone();
   drawPendingAxeTelegraph();
 
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
@@ -7650,6 +8848,14 @@ function drawWorld() {
       ctx.moveTo(58, 0);
       ctx.lineTo(128 + chargeRatio * 56, 0);
       ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255, 238, 196, 0.72)";
+      ctx.beginPath();
+      ctx.arc(26, 0, 8 + chargeRatio * 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(40, 0, 5 + chargeRatio * 4, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.shadowBlur = 0;
     }
   } else if (player.weapon === weapons.staff.key) {
@@ -7697,18 +8903,6 @@ function drawWorld() {
     ctx.stroke();
   }
   ctx.restore();
-
-  if (abilityState.ultimate.phantomTime > 0 || player.decoyTime > 0) {
-    const ghostAlpha = Math.max(abilityState.ultimate.phantomTime, player.decoyTime) / 2.2;
-    ctx.save();
-    ctx.globalAlpha = ghostAlpha * 0.35;
-    ctx.translate(player.x - 44, player.y + 18);
-    ctx.fillStyle = "#d8b6ff";
-    ctx.beginPath();
-    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
 
   drawOverheadHealthBar(player, "#6fe5ff");
   drawStatusReadout(player);
@@ -8299,6 +9493,17 @@ botModeRandom?.addEventListener("click", () => {
 botModeCustom?.addEventListener("click", () => {
   setBotBuildMode("custom");
   statusLine.textContent = "Hunter bot locked to a custom build.";
+});
+
+[
+  ["easy", botDifficultyEasy],
+  ["normal", botDifficultyNormal],
+  ["hard", botDifficultyHard],
+  ["nightmare", botDifficultyNightmare],
+].forEach(([difficultyKey, button]) => {
+  button?.addEventListener("click", () => {
+    setBotDifficulty(difficultyKey);
+  });
 });
 
 trainingFireOff?.addEventListener("click", () => {
