@@ -2,6 +2,7 @@
 import { arena, config, sandboxModes } from "./config.js";
 import { mapState } from "./state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
+import { playMapCue } from "./audio.js";
 
 export const duelMapRegistry = {
   electroGallery: {
@@ -290,6 +291,7 @@ export function maybeTeleportEntity(entity) {
     addImpact(target.x, target.y, target.color, 28);
     addAfterimage(entity.x, entity.y, entity.facing ?? 0, entity.radius + 4, target.color);
     addShake(3.6);
+    playMapCue("teleport");
     break;
   }
 }

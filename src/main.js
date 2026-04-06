@@ -20,6 +20,7 @@ import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDep
 import { setBotBuildMode } from "./build/loadout.js";
 import { bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
+import { initializeAudio, updateAudio } from "./audio.js";
 
 // Wire up cross-module dependencies
 bindMatchDeps({ resetPlayer, openPrematch, closePrematch, renderPrematch });
@@ -45,6 +46,7 @@ function frame(time) {
   resolveCombat();
   updateDuelMatch(dt);
   updateImpacts(dt);
+  updateAudio(dt);
   updateHud();
   drawWorld();
 
@@ -55,6 +57,12 @@ function frame(time) {
 window.addEventListener("resize", resize);
 resize();
 setupInputListeners();
+initializeAudio({
+  muteButton: dom.audioMuteButton,
+  musicSlider: dom.audioMusicVolume,
+  sfxSlider: dom.audioSfxVolume,
+  ambienceSlider: dom.audioAmbienceVolume,
+});
 
 resetPlayer({ silent: true });
 resetBotsForMode(sandbox.mode);

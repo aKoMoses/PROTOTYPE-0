@@ -10,6 +10,7 @@ import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageM
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyMagneticField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark } from "./combat.js";
+import { playWeaponFire, playAbilityCue } from "../audio.js";
 
 export function updateShockJavelins(dt) {
   for (let i = shockJavelins.length - 1; i >= 0; i -= 1) {
@@ -228,6 +229,7 @@ export function fireEnemyPulse(targetX, targetY, punishShot = false) {
     source: "enemy-pulse",
     trailColor: "#ffc0b4",
   });
+  playWeaponFire(weapons.pulse.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 24, enemy.y + Math.sin(enemy.facing) * 24, "#ff8a77", 12);
 
   if (enemy.ammo <= 0) {
@@ -256,6 +258,7 @@ export function fireEnemyShotgun(targetX, targetY) {
       },
     );
   }
+  playWeaponFire(weapons.shotgun.key, "enemy");
   addImpact(enemy.x + Math.cos(baseAngle) * 22, enemy.y + Math.sin(baseAngle) * 22, "#ffb078", 16);
   return true;
 }
@@ -327,6 +330,7 @@ export function fireEnemySniper(targetX, targetY) {
     source: "enemy-sniper",
     effect: { kind: "rail", bonusSlow: 0.16, bonusSlowDuration: 0.6 },
   });
+  playWeaponFire(weapons.sniper.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd27a", 18);
   return true;
 }
@@ -339,6 +343,7 @@ export function fireEnemyStaff(targetX, targetY) {
     source: "enemy-staff",
     effect: { kind: "staff", heal: 6 },
   });
+  playWeaponFire(weapons.staff.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 24, enemy.y + Math.sin(enemy.facing) * 24, "#9cffc4", 14);
   return true;
 }
@@ -351,6 +356,7 @@ export function fireEnemyInjector(targetX, targetY) {
     source: "enemy-injector",
     effect: { kind: "injector", markDuration: 4, markMax: 3, healOnConsume: 10 },
   });
+  playWeaponFire(weapons.injector.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 22, enemy.y + Math.sin(enemy.facing) * 22, "#d894ff", 12);
   return true;
 }
@@ -372,6 +378,7 @@ export function fireTrainingPulse(bot, targetX, targetY) {
       source: "training-pulse",
     },
   );
+  playWeaponFire(weapons.pulse.key, "enemy");
   addImpact(bot.x + Math.cos(bot.facing) * 20, bot.y + Math.sin(bot.facing) * 20, "#9de8ff", 10);
 }
 
@@ -388,6 +395,7 @@ export function queueEnemyAxeStrike() {
     comboStep: enemy.comboStep,
   };
   enemy.shootCooldown = profile.cooldown;
+  playWeaponFire(weapons.axe.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 28, enemy.y + Math.sin(enemy.facing) * 28, profile.color, 18);
 }
 
@@ -467,6 +475,7 @@ export function castEnemyGrapple(forward) {
   enemy.dodgeVectorX = forward.x;
   enemy.dodgeVectorY = forward.y;
   enemy.dodgeTime = 0.16;
+  playAbilityCue("magneticGrapple", "enemy");
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
 }
 
@@ -474,6 +483,7 @@ export function castEnemyShield() {
   enemy.abilityCooldowns.shield = config.shieldCooldown + 0.4;
   enemy.shield = Math.max(enemy.shield, 24);
   enemy.shieldTime = 2.2;
+  playAbilityCue("energyShield", "enemy");
   addImpact(enemy.x, enemy.y, "#a8d9ff", 22);
 }
 
@@ -481,11 +491,13 @@ export function castEnemyBooster() {
   enemy.abilityCooldowns.booster = config.boosterCooldown + 0.8;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
   enemy.dashCooldown = Math.max(0, enemy.dashCooldown - 0.7);
+  playAbilityCue("speedSurge", "enemy");
   addImpact(enemy.x, enemy.y, "#85ffe3", 20);
 }
 
 export function castEnemyEmp() {
   enemy.abilityCooldowns.emp = config.boosterCooldown + 0.8;
+  playAbilityCue("empBurst", "enemy");
   addExplosion(enemy.x, enemy.y, 72, "#cbb0ff");
   addImpact(enemy.x, enemy.y, "#b99cff", 24);
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
@@ -508,12 +520,14 @@ export function castEnemyBackstep() {
   maybeTeleportEntity(enemy);
   enemy.shield = Math.max(enemy.shield, 8);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.6);
+  playAbilityCue("backstepBurst", "enemy");
   addAfterimage(enemy.x, enemy.y, enemy.facing, enemy.radius + 5, "#fff0a8");
   addImpact(enemy.x, enemy.y, "#fff0a8", 18);
 }
 
 export function castEnemyChainLightning() {
   enemy.abilityCooldowns.chainLightning = 5.8;
+  playAbilityCue("chainLightning", "enemy");
   addBeamEffect(enemy.x, enemy.y, player.x, player.y, "#d7bfff", 4.5, 0.14);
   applyPlayerDamage(24, "#d7bfff", player.x, player.y, true, "enemy-chain-lightning");
   applyStatusEffect(player, "slow", getStatusDuration(0.5), 0.2);
@@ -526,6 +540,7 @@ export function castEnemyBlink(forward) {
   enemy.y = clamp(enemy.y + forward.y * 132, enemy.radius, arena.height - enemy.radius);
   resolveMapCollision(enemy);
   maybeTeleportEntity(enemy);
+  playAbilityCue("blinkStep", "enemy");
   addImpact(enemy.x, enemy.y, "#b3f6ff", 18);
 }
 
@@ -536,6 +551,7 @@ export function castEnemyPhaseDash(forward) {
   enemy.dodgeTime = 0.22;
   enemy.shield = Math.max(enemy.shield, 10);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.5);
+  playAbilityCue("phaseDash", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 20);
 }
 
@@ -552,11 +568,13 @@ export function castEnemyPulseBurst() {
       source: "enemy-pulse-burst",
     });
   }
+  playAbilityCue("pulseBurst", "enemy");
   addImpact(enemy.x + Math.cos(baseAngle) * 22, enemy.y + Math.sin(baseAngle) * 22, "#84dcff", 14);
 }
 
 export function castEnemyRailShot() {
   enemy.abilityCooldowns.railShot = 5.3;
+  playAbilityCue("railShot", "enemy");
   fireEnemySniper(player.x + player.velocityX * 0.24, player.y + player.velocityY * 0.24);
 }
 
@@ -573,6 +591,7 @@ export function castEnemyGravityWell() {
     color: "#d1a2ff",
     slow: 0.4,
   });
+  playAbilityCue("gravityWell", "enemy");
   addExplosion(player.x, player.y, 118, "#d1a2ff");
 }
 
@@ -580,18 +599,21 @@ export function castEnemyPhaseShift() {
   enemy.abilityCooldowns.phaseShift = 5.8;
   enemy.shield = Math.max(enemy.shield, 14);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.7);
+  playAbilityCue("phaseShift", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 18);
 }
 
 export function castEnemyHologram() {
   enemy.abilityCooldowns.hologramDecoy = 6.4;
   enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.5);
+  playAbilityCue("hologramDecoy", "enemy");
   addAfterimage(enemy.x - 32, enemy.y + 16, enemy.facing, enemy.radius + 5, "#d8b8ff");
 }
 
 export function castEnemySpeedSurge() {
   enemy.abilityCooldowns.speedSurge = 4.4;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
+  playAbilityCue("speedSurge", "enemy");
   addImpact(enemy.x, enemy.y, "#8dfcc7", 18);
 }
 

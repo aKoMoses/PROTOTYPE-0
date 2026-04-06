@@ -8,6 +8,7 @@ import { resolveMapCollision, getMapLayout } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getPulseMagazineSize } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, startPulseReload, finalizePulseReload, applyStatusEffect, getStatusState, damagePylonsAlongLine } from "./combat.js";
 import { mapState } from "../state.js";
+import { playWeaponFire } from "../audio.js";
 
 export function attackPulseRifle() {
   if (player.reloadTime > 0) {
@@ -26,6 +27,7 @@ export function attackPulseRifle() {
     source: "pulse-rifle",
     trailColor: "#c6f5ff",
   });
+  playWeaponFire(weapons.pulse.key);
   player.ammo = Math.max(0, player.ammo - 1);
   addImpact(player.x + Math.cos(player.facing) * 26, player.y + Math.sin(player.facing) * 26, "#77d8ff", 12);
   player.recoil = 1;
@@ -57,6 +59,8 @@ export function attackScrapShotgun() {
     });
   }
 
+  playWeaponFire(weapons.shotgun.key);
+
   addImpact(player.x + Math.cos(baseAngle) * 26, player.y + Math.sin(baseAngle) * 26, "#ffb078", 18);
   addShake(5.6);
   player.recoil = 1.4;
@@ -84,6 +88,7 @@ export function attackRailSniper() {
       effect: { kind: "rail", bonusSlow: 0.12, bonusSlowDuration: 0.45 },
     },
   );
+  playWeaponFire(weapons.sniper.key);
   addImpact(player.x + direction.x * 30, player.y + direction.y * 30, "#ffe4a4", 20);
   addShake(7.6);
   player.recoil = 1.42;
@@ -109,6 +114,7 @@ export function attackVoltStaff() {
       effect: { kind: "staff", heal: 8 },
     },
   );
+  playWeaponFire(weapons.staff.key);
   player.shield = Math.max(player.shield, 6);
   player.shieldTime = Math.max(player.shieldTime, 0.8);
   addImpact(player.x + Math.cos(player.facing) * 24, player.y + Math.sin(player.facing) * 24, "#9cffc4", 16);
@@ -134,6 +140,7 @@ export function attackBioInjector() {
       effect: { kind: "injector", markDuration: 4.2, markMax: 3, healOnConsume: 12 },
     },
   );
+  playWeaponFire(weapons.injector.key);
   addImpact(player.x + Math.cos(player.facing) * 22, player.y + Math.sin(player.facing) * 22, "#da90ff", 14);
   statusLine.textContent = "Bio-Injector tagged the lane with corrosive pressure.";
 }
@@ -395,6 +402,7 @@ export function attackElectricAxe() {
     player.facing,
     player.comboStep,
   );
+  playWeaponFire(weapons.axe.key);
   addImpact(
     player.x + player.attackCommitX * (player.comboStep === 1 ? 56 : player.comboStep === 2 ? 32 : 42),
     player.y + player.attackCommitY * (player.comboStep === 1 ? 56 : player.comboStep === 2 ? 32 : 42),

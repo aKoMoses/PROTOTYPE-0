@@ -32,6 +32,24 @@
           <button class="hud-action-button" id="menu-button" type="button">Menu</button>
           <button class="hud-action-button" id="rematch-button" type="button">Rematch</button>
         </div>
+        <div class="audio-panel" id="audio-panel">
+          <div class="audio-panel__header">
+            <span class="label">Audio</span>
+            <button class="hud-action-button audio-toggle" id="audio-mute-button" type="button">Audio On</button>
+          </div>
+          <label class="audio-control" for="audio-music-volume">
+            <span>Music</span>
+            <input id="audio-music-volume" type="range" min="0" max="100" step="1" value="68" />
+          </label>
+          <label class="audio-control" for="audio-sfx-volume">
+            <span>SFX</span>
+            <input id="audio-sfx-volume" type="range" min="0" max="100" step="1" value="90" />
+          </label>
+          <label class="audio-control" for="audio-ambience-volume">
+            <span>Ambience</span>
+            <input id="audio-ambience-volume" type="range" min="0" max="100" step="1" value="58" />
+          </label>
+        </div>
       </div>
 
       <button class="help-toggle" id="help-toggle" type="button">Help</button>

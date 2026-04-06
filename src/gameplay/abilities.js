@@ -8,6 +8,7 @@ import { getMapLayout, resolveMapCollision } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
+import { playAbilityCue } from "../audio.js";
 
 export function getJavelinProfile(mode = abilityState.javelin.mode) {
   const profile = mode === "hold" ? abilityConfig.javelin.hold : abilityConfig.javelin.tap;
@@ -85,6 +86,7 @@ export function executeDash(dashMode) {
   if (hasPerk("ghostCircuit")) {
     player.ghostTime = 0.28;
   }
+  playAbilityCue("dash");
   addImpact(player.x, player.y, dashMode === "hold" ? "#c8ffe4" : "#9df4b7", dashMode === "hold" ? 34 : 26);
   addShake(dashMode === "hold" ? 7.5 : 6);
 }
@@ -214,6 +216,7 @@ export function releaseShockJavelin() {
   abilityState.javelin.chargeTime = 0;
   abilityState.javelin.cooldown = abilityConfig.javelin.cooldown;
   player.recoil = Math.max(player.recoil, 0.22);
+  playAbilityCue("shockJavelin");
   addImpact(
     player.x + direction.x * 22,
     player.y + direction.y * 22,
@@ -318,6 +321,7 @@ export function releaseMagneticField() {
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
   abilityState.field.cooldown = abilityConfig.field.cooldown;
+  playAbilityCue("magneticField");
   addImpact(centerX, centerY, fieldProfile.color, isHold ? 28 : 22);
   addShake(isHold ? 6.5 : 4.2);
   statusLine.textContent = isHold
@@ -362,6 +366,7 @@ export function castMagneticGrapple() {
   player.attackCommitTime = 0.16;
   abilityState.grapple.cooldown = config.grappleCooldown;
   player.flash = 0.08;
+  playAbilityCue("magneticGrapple");
   addImpact(player.x, player.y, "#c5f6ff", 30);
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#9ee9ff");
   addShake(6.4);
@@ -376,6 +381,7 @@ export function castEnergyShield() {
   abilityState.shield.cooldown = config.shieldCooldown;
   player.shield = Math.max(player.shield, 26 + getRuneValue("defense", "primary") * 3);
   player.shieldTime = 2.4;
+  playAbilityCue("energyShield");
   addImpact(player.x, player.y, "#9cd5ff", 28);
   addShake(4);
   statusLine.textContent = "Energy Shield online. Absorb the next burst.";
@@ -387,6 +393,7 @@ export function castEmpBurst() {
   }
 
   abilityState.emp.cooldown = config.boosterCooldown;
+  playAbilityCue("empBurst");
   addImpact(player.x, player.y, "#be9dff", 34);
   addExplosion(player.x, player.y, 84, "#b99cff");
   addShake(5.4);
@@ -428,6 +435,7 @@ export function castBackstepBurst() {
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
+  playAbilityCue("backstepBurst");
   addAfterimage(player.x, player.y, player.facing, player.radius + 6, "#fff0a8");
   addImpact(player.x, player.y, "#fff0a8", 22);
   addShake(4.6);
@@ -483,6 +491,7 @@ export function castChainLightning() {
       .sort((a, b) => length(a.x - sourceX, a.y - sourceY) - length(b.x - sourceX, b.y - sourceY))[0] ?? null;
   }
 
+  playAbilityCue("chainLightning");
   addImpact(player.x + Math.cos(player.facing) * 18, player.y + Math.sin(player.facing) * 18, "#9feaff", 18);
   addShake(6.2);
   statusLine.textContent = "Chain Lightning punished the lane with cascading arcs.";
@@ -499,6 +508,7 @@ export function castBlinkStep() {
   maybeTeleportEntity(player);
   abilityState.blink.cooldown = 3.4;
   player.flash = 0.1;
+  playAbilityCue("blinkStep");
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#7df0ff");
   addImpact(player.x, player.y, "#b3f6ff", 24);
   addShake(4.2);
@@ -517,6 +527,7 @@ export function castPhaseDash() {
   abilityState.phaseDash.cooldown = 4.6;
   abilityState.phaseDash.time = 0.42;
   player.ghostTime = Math.max(player.ghostTime, 0.42);
+  playAbilityCue("phaseDash");
   addImpact(player.x, player.y, "#b0e7ff", 30);
   addShake(5.8);
   statusLine.textContent = "Phase Dash cut you through danger.";
@@ -538,6 +549,7 @@ export function castPulseBurst() {
       source: "pulse-burst",
     });
   }
+  playAbilityCue("pulseBurst");
   addImpact(player.x + Math.cos(baseAngle) * 24, player.y + Math.sin(baseAngle) * 24, "#84dcff", 18);
   addShake(5.2);
   statusLine.textContent = "Pulse Burst flooded the lane.";
@@ -556,6 +568,7 @@ export function castRailShotAbility() {
     source: "rail-shot",
     effect: { kind: "rail", bonusSlow: 0.22, bonusSlowDuration: 0.8 },
   });
+  playAbilityCue("railShot");
   addImpact(player.x + Math.cos(player.facing) * 28, player.y + Math.sin(player.facing) * 28, "#ffd279", 22);
   addShake(7.6);
   statusLine.textContent = "Rail Shot tore a high-voltage line through the arena.";
@@ -577,6 +590,7 @@ export function castGravityWell() {
     color: "#b999ff",
     slow: 0.44,
   });
+  playAbilityCue("gravityWell");
   addExplosion(input.mouseX, input.mouseY, 124, "#b999ff");
   addShake(5.8);
   statusLine.textContent = "Gravity Well turned the space into a trap.";
@@ -589,6 +603,7 @@ export function castPhaseShift() {
   abilityState.phaseShift.cooldown = 5.6;
   abilityState.phaseShift.time = 0.55;
   player.ghostTime = Math.max(player.ghostTime, 0.55);
+  playAbilityCue("phaseShift");
   addImpact(player.x, player.y, "#d2f1ff", 24);
   statusLine.textContent = "Phase Shift made you intangible for a blink.";
 }
@@ -599,6 +614,7 @@ export function castHologramDecoy() {
   }
   abilityState.hologramDecoy.cooldown = 6.2;
   player.decoyTime = Math.max(player.decoyTime, 2.8);
+  playAbilityCue("hologramDecoy");
   addAfterimage(player.x - 46, player.y + 20, player.facing, player.radius + 8, "#caa9ff");
   addImpact(player.x, player.y, "#d8b8ff", 24);
   statusLine.textContent = "Hologram Decoy split your read.";
@@ -611,6 +627,7 @@ export function castSpeedSurge() {
   abilityState.speedSurge.cooldown = 4.2;
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
+  playAbilityCue("speedSurge");
   addImpact(player.x, player.y, "#8dfcc7", 20);
   statusLine.textContent = "Speed Surge pushed your tempo forward.";
 }
@@ -625,6 +642,7 @@ export function castUltimate() {
     abilityState.ultimate.phantomTime = 2.2;
     player.decoyTime = 2.2;
     player.ghostTime = 0.7;
+    playAbilityCue("phantomSplit");
     addAfterimage(player.x, player.y, player.facing, player.radius + 8, "#caa3ff");
     addImpact(player.x, player.y, "#d9bbff", 28);
     statusLine.textContent = "Phantom Split broke your read for a short window.";
@@ -634,6 +652,7 @@ export function castUltimate() {
   if (loadout.ultimate === "revivalProtocol") {
     abilityState.ultimate.cooldown = config.ultimateCooldown;
     player.revivalPrimed = 5;
+    playAbilityCue("revivalProtocol");
     addImpact(player.x, player.y, "#a3ffd1", 30);
     statusLine.textContent = "Revival Protocol primed. You have one failsafe window.";
     return;
@@ -652,6 +671,7 @@ export function castUltimate() {
       color: "#ff8c67",
       slow: 0.18,
     });
+    playAbilityCue("gravityWell");
     addExplosion(arena.width * 0.5, arena.height * 0.5, 292, "#ff9b70");
     addShake(9);
     statusLine.textContent = "Arena Lockdown collapsed the duel space.";
@@ -660,6 +680,7 @@ export function castUltimate() {
 
   if (loadout.ultimate === "empCataclysm") {
     abilityState.ultimate.cooldown = config.ultimateCooldown;
+    playAbilityCue("empCataclysm");
     castEmpBurst();
     abilityState.emp.cooldown = Math.max(abilityState.emp.cooldown, 0.1);
     applyStatusEffect(enemy, "stun", getStatusDuration(0.45), 1);
@@ -676,6 +697,7 @@ export function castUltimate() {
     player.shield = Math.max(player.shield, 28);
     player.shieldTime = Math.max(player.shieldTime, 4.2);
     player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 4.2);
+    playAbilityCue("berserkCore");
     addImpact(player.x, player.y, "#ff875d", 34);
     addImpact(player.x, player.y, "#ffd7bc", 52);
     addShake(10.2);
