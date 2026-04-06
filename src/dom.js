@@ -125,6 +125,9 @@ export const trainingFireOn = document.getElementById("training-fire-on");
 export const trainingBuildSummary = document.getElementById("training-build-summary");
 export const buildStepPrev = document.getElementById("build-step-prev");
 export const buildStepNext = document.getElementById("build-step-next");
+export const runeScreen = document.getElementById("rune-screen");
+export const continueRunes = document.getElementById("continue-runes");
+export const backBuild = document.getElementById("back-build");
 export const libraryTabs = Array.from(document.querySelectorAll("[data-library]"));
 export const loadoutSlotButtons = {
   weapon: document.getElementById("loadout-slot-weapon"),

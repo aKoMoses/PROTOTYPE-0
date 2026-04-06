@@ -330,18 +330,9 @@
                         <button class="cat-tab cat-tab--ability" id="library-tab-ability" type="button" data-library="ability">Abilities</button>
                         <button class="cat-tab cat-tab--perk" id="library-tab-perk" type="button" data-library="perk">Perks</button>
                         <button class="cat-tab cat-tab--ultimate" id="library-tab-ultimate" type="button" data-library="ultimate">Ultimate</button>
-                        <button class="cat-tab cat-tab--runes" id="library-tab-runes" type="button" data-library="runes">Runes</button>
                       </div>
 
                       <div class="item-list" id="build-library-grid"></div>
-
-                      <div class="rune-panel is-hidden" id="rune-panel">
-                        <div class="rune-toolbar">
-                          <span id="rune-points-inline">15 points remaining</span>
-                          <span id="rune-ultimate-inline">No ultimate selected</span>
-                        </div>
-                        <div class="rune-tree-grid" id="rune-grid"></div>
-                      </div>
 
                       <div class="detail-float" id="detail-float">
                         <div class="detail-float__head">
@@ -464,6 +455,33 @@
 
               <div class="screen-actions screen-actions--split">
                 <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
+                <button class="primary-button" id="continue-runes" type="button" onclick="handlePrematchAction('continue-runes')">Continue to Runes →</button>
+              </div>
+            </div>
+
+            <!-- ═══ RUNE SCREEN ═══ -->
+            <div class="prematch-screen" id="rune-screen">
+              <div class="screen-header">
+                <span class="eyebrow">Neural Augmentation</span>
+                <h2>Calibrate the combat core</h2>
+              </div>
+
+              <div class="rune-holo-layout">
+                <div class="rune-holo-tree">
+                  <div class="rune-holo-bar">
+                    <span class="rune-holo-bar__budget" id="rune-points-inline">15 points remaining</span>
+                    <span class="rune-holo-bar__ult" id="rune-ultimate-inline">No ultimate selected</span>
+                    <button class="rune-reset-btn" id="rune-reset-btn" type="button">Reset</button>
+                  </div>
+                  <div id="rune-grid" class="pcb-tree-container"></div>
+                </div>
+                <div class="rune-holo-detail" id="rune-node-detail">
+                  <p class="rune-holo-detail__placeholder">Click a node to view its effect</p>
+                </div>
+              </div>
+
+              <div class="screen-actions screen-actions--split">
+                <button class="secondary-button" id="back-build" type="button" onclick="handlePrematchAction('back-build')">← Back to Build</button>
                 <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Deploy Unit</button>
               </div>
             </div>

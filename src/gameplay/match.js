@@ -242,6 +242,19 @@ export function handlePrematchAction(buttonId) {
     return;
   }
 
+  if (buttonId === "continue-runes") {
+    setPrematchStep("runes");
+    _renderPrematch?.();
+    dom.statusLine.textContent = "Neural augmentation station. Allocate core points across the talent tree.";
+    return;
+  }
+
+  if (buttonId === "back-build") {
+    setPrematchStep("build");
+    dom.statusLine.textContent = "Back to build config.";
+    return;
+  }
+
   if (buttonId === "build-step-prev") {
     prevBuildWizardStep();
     _renderPrematch?.();

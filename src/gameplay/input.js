@@ -7,7 +7,8 @@ import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematc
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
   botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
-  buildStepPrev, buildStepNext, botConfigToggle, botConfigCard } from "../dom.js";
+  buildStepPrev, buildStepNext, botConfigToggle, botConfigCard,
+  continueRunes, backBuild } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
@@ -176,6 +177,8 @@ bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
 bindPrematchButton(buildStepPrev, "build-step-prev");
 bindPrematchButton(buildStepNext, "build-step-next");
+bindPrematchButton(continueRunes, "continue-runes");
+bindPrematchButton(backBuild, "back-build");
 
 botConfigToggle?.addEventListener("click", () => {
   const hidden = botConfigCard?.classList.toggle("is-hidden");

@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-04-06 22:00:00
+- **Author:** GitHub Copilot
+- **Branch:** `main`
+- **Type:** Rune Screen — Step 4 du Wizard + Arbre PCB Hologramme
+
+### Summary
+- Les runes sont extraites de l'onglet Build Lab et deviennent une **4ème étape dédiée** dans le wizard prematch : `mode → map → build → runes`.
+- Ajout d'un nouveau `#rune-screen` dans `index.html` avec une disposition `rune-holo-layout` : arbre PCB à gauche, panneau de détail à droite.
+- Suppression de la cat-tab `Runes` et du `rune-panel` du picker de build — ils sont maintenant exclusifs à l'écran runes.
+- Ajout du bouton `Continue to Runes →` (`#continue-runes`) à la fin du build screen ; `Deploy Unit` passe sur l'écran runes.
+- Ajout du bouton `Back to Build` (`#back-build`) sur le rune screen pour revenir à l'étape build.
+- `setPrematchStep` étendu pour gérer `step === "runes"` et activer `#rune-screen`.
+- Nouveaux handlers dans `handlePrematchAction` : `continue-runes` et `back-build`.
+- `dom.js` mis à jour : refs `runeScreen`, `continueRunes`, `backBuild`.
+- `input.js` : import et binding des nouveaux boutons `continueRunes` / `backBuild`.
+- Rune panel (`#rune-points-inline`, `#rune-ultimate-inline`, `#rune-grid`) repositionné dans le nouveau rune screen uniquement.
+
+### Files
+- `index.html`
+- `src/dom.js`
+- `src/gameplay/match.js`
+- `src/gameplay/input.js`
+- `src/build/ui.js`
+
+### Notes
+- Le renderer `renderRuneTrees` et les CSS PCB hologramme sont en cours — le rune screen s'affiche mais l'arbre visuel PCB est à terminer (TODO: Redesign arbre unifié content.js, renderRuneTree, styles PCB).
+- Les anciennes références `rune-panel` dans `renderBuildLibrary` sont neutralisées puisque le panel n'est plus présent dans `build-screen`.
+
+---
+
 ## 2026-04-06 20:00:00
 - **Author:** GitHub Copilot
 - **Branch:** `codex/gameplay-foundation`
