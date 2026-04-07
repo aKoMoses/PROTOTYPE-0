@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-04-07 21:26:26
+- **Author:** AKOMOSES
+- **Branch:** `codex/buildmaker-gameplay-identity-refactor`
+- **Type:** Competitive Ability Pool Cleanup, Pulse Burst Rework, Defensive Spell Utility Pass
+
+### Summary
+- Reworked `Pulse Burst` into a real setup-dependent burst spell with light auto-guidance toward the first visible target, strict terrain collision, escalating same-target damage payoff, and a `Burn` reward when the full volley connects.
+- Rebuilt `Energy Shield` into a cleaner anti-burst and anti-control timing tool: while the shield holds it blocks incoming `stun`, `slow`, `snare`, and `shock`, and if enemies break it the cooldown is refunded by roughly 30%.
+- Reframed `Magnetic Field` into a larger anti-projectile control zone that slows hostile projectiles inside the area instead of deleting them instantly, preserving dodge windows and duel readability.
+- Removed `Chain Lightning`, `Rail Shot`, `Blink Step`, and `Phase Dash` from the active competitive pool and Build Lab selection so the current spell roster stays tighter and more meaningful for 1v1 play.
+- Updated competitive data, presets, tooltip text, phantom support, enemy support, HUD timing, burn ticking, and projectile rendering so the reworked abilities behave consistently in both Arena and Training Lab.
+
+### Files
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+- `src/build/loadout.js`
+- `src/build/ui.js`
+- `src/config.js`
+- `src/content.js`
+- `src/gameplay/abilities.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/enemy.js`
+- `src/gameplay/hud.js`
+- `src/gameplay/phantom.js`
+- `src/gameplay/player.js`
+- `src/gameplay/renderer.js`
+- `src/maps.js`
+- `src/state.js`
+
+### Notes
+- Validation completed with `npm.cmd run build`.
+- Browser sweep completed on the reworked ability cases with no runtime errors, including checks for removed pool visibility, `Energy Shield` anti-CC + cooldown refund, `Magnetic Field` projectile slowdown, and `Pulse Burst` full-hit `Burn`.
+
+---
+
 ## 2026-04-07 17:31:08
 - **Author:** AKOMOSES
 - **Branch:** `codex/buildmaker-gameplay-identity-refactor`

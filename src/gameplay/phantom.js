@@ -29,6 +29,7 @@ import {
   tickEntityMarks,
   getStatusState,
   getZoneEffectsForEntity,
+  beginPulseBurstCast,
 } from "./combat.js";
 
 function getPhantomDirection(action) {
@@ -382,6 +383,8 @@ function executeCloneField(action) {
     color: holdCast ? "#b4c7ff" : "#9fdbff",
     glow: holdCast ? "#dce7ff" : "#dbf4ff",
     disruption: holdCast ? 0 : 0.12,
+    projectileSlowEdge: holdCast ? config.fieldHoldProjectileSlowEdge * 0.65 : config.fieldTapProjectileSlowEdge * 0.55,
+    projectileSlowCore: holdCast ? config.fieldHoldProjectileSlowCore * 0.68 : config.fieldTapProjectileSlowCore * 0.58,
     team: "player",
     touchedTargets: new Set(),
   });
@@ -399,8 +402,9 @@ function executeCloneGrapple() {
 }
 
 function executeCloneShield() {
-  playerClone.shield = Math.max(playerClone.shield, (26 + 3) * config.phantomShieldScale);
-  playerClone.shieldTime = Math.max(playerClone.shieldTime, 1.8);
+  playerClone.shield = Math.max(playerClone.shield, (config.shieldValue + 3) * config.phantomShieldScale);
+  playerClone.shieldTime = Math.max(playerClone.shieldTime, config.shieldDuration * 0.82);
+  playerClone.shieldGuardTime = Math.max(playerClone.shieldGuardTime ?? 0, config.shieldDuration * 0.82);
   addCloneFlash("#b7ddff", 22);
 }
 
@@ -457,8 +461,10 @@ function executeClonePhaseDash() {
 
 function executeClonePulseBurst(action) {
   const direction = getPhantomDirection(action);
-  for (let pellet = 0; pellet < 4; pellet += 1) {
-    const spread = -0.12 + pellet * 0.08;
+  const missileCount = Math.max(3, config.pulseBurstMissiles - 1);
+  const burstId = beginPulseBurstCast("player", missileCount);
+  for (let pellet = 0; pellet < missileCount; pellet += 1) {
+    const spread = -0.16 + pellet * (0.32 / Math.max(1, missileCount - 1));
     const angle = direction.facing + spread;
     spawnBullet(
       playerClone,
@@ -466,13 +472,20 @@ function executeClonePulseBurst(action) {
       playerClone.y + Math.sin(angle) * 120,
       bullets,
       "#a7e7ff",
-      1240,
-      getScaledDamage(10),
+      config.pulseBurstProjectileSpeed * 0.94,
+      getScaledDamage(config.pulseBurstBaseDamage),
       {
-        radius: 4,
-        life: 0.62,
+        radius: 4.5,
+        life: config.pulseBurstLifetime,
         trailColor: "#d8f5ff",
         source: "phantom-pulse-burst",
+        effect: {
+          kind: "pulseBurst",
+          burstId,
+          guideTurnRate: config.pulseBurstGuideTurnRate * 0.88,
+          guideDot: config.pulseBurstGuideDot,
+          resolved: false,
+        },
       },
     );
   }
@@ -677,6 +690,7 @@ export function resetPhantomClone({ silent = true } = {}) {
   playerClone.maxHp = 0;
   playerClone.shield = 0;
   playerClone.shieldTime = 0;
+  playerClone.shieldGuardTime = 0;
   playerClone.ghostTime = 0;
   playerClone.hasteTime = 0;
   playerClone.flash = 0;
@@ -716,6 +730,7 @@ export function spawnPhantomClone() {
   playerClone.maxLife = config.phantomDuration;
   playerClone.shield = 0;
   playerClone.shieldTime = 0;
+  playerClone.shieldGuardTime = 0;
   playerClone.ghostTime = 0;
   playerClone.hasteTime = 0;
   playerClone.flash = 0.12;
@@ -787,6 +802,7 @@ export function updatePhantomClone(dt) {
   playerClone.life = Math.max(0, playerClone.life - dt);
   abilityState.ultimate.phantomTime = Math.max(abilityState.ultimate.phantomTime, playerClone.life);
   playerClone.shieldTime = Math.max(0, playerClone.shieldTime - dt);
+  playerClone.shieldGuardTime = Math.max(0, (playerClone.shieldGuardTime ?? 0) - dt);
   playerClone.ghostTime = Math.max(0, playerClone.ghostTime - dt);
   playerClone.hasteTime = Math.max(0, playerClone.hasteTime - dt);
   updateStatusEffects(playerClone, dt);
@@ -794,6 +810,9 @@ export function updatePhantomClone(dt) {
 
   if (playerClone.shieldTime <= 0) {
     playerClone.shield = 0;
+  }
+  if ((playerClone.shieldGuardTime ?? 0) <= 0 || playerClone.shield <= 0) {
+    playerClone.shieldGuardTime = 0;
   }
 
   if (playerClone.life <= 0 || !player.alive) {

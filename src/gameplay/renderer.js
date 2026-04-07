@@ -321,6 +321,27 @@ export function drawProjectileSprite(projectile, hostile = false) {
       ctx.lineTo(-4, 8);
       ctx.stroke();
     }
+  } else if (source.includes("pulse-burst")) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(2, -5);
+    ctx.lineTo(-10, -2.5);
+    ctx.lineTo(-6, 0);
+    ctx.lineTo(-10, 2.5);
+    ctx.lineTo(2, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = hostile ? "rgba(255, 240, 220, 0.72)" : "rgba(227, 250, 255, 0.78)";
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.strokeStyle = hostile ? "rgba(255, 184, 142, 0.5)" : "rgba(140, 232, 255, 0.52)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-4, -7);
+    ctx.lineTo(4, 0);
+    ctx.lineTo(-4, 7);
+    ctx.stroke();
   } else if (source.includes("shotgun")) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -341,6 +362,18 @@ export function drawProjectileSprite(projectile, hostile = false) {
     ctx.fill();
     ctx.strokeStyle = hostile ? "rgba(255, 223, 213, 0.5)" : "rgba(190, 244, 255, 0.55)";
     ctx.lineWidth = 1.8;
+    ctx.stroke();
+  }
+
+  if ((projectile.fieldSlowRatio ?? 0) > 0.02) {
+    const drag = clamp(projectile.fieldSlowRatio, 0, 1);
+    ctx.strokeStyle = hostile ? `rgba(255, 225, 196, ${0.24 + drag * 0.34})` : `rgba(206, 242, 255, ${0.24 + drag * 0.34})`;
+    ctx.lineWidth = 1.4 + drag * 1.6;
+    ctx.beginPath();
+    ctx.arc(-4, 0, projectile.radius + 5 + drag * 5, -1.3, 1.3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-9, 0, projectile.radius + 8 + drag * 7, -0.9, 0.9);
     ctx.stroke();
   }
 

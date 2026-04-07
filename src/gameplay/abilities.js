@@ -7,7 +7,7 @@ import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getAbilityCooldown, hasRuneShard } from "../build/loadout.js";
-import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus } from "./combat.js";
+import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus, beginPulseBurstCast } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
@@ -37,6 +37,8 @@ export function getFieldProfile(mode = abilityState.field.mode) {
     disruption: 0,
     moveBoost: 1,
     moveBoostDuration: 0,
+    projectileSlowEdge: profile.projectileSlowEdge,
+    projectileSlowCore: profile.projectileSlowCore,
   };
 }
 
@@ -429,6 +431,8 @@ export function releaseMagneticField() {
     color: fieldProfile.color,
     glow: fieldProfile.glow,
     disruption: fieldProfile.disruption,
+    projectileSlowEdge: fieldProfile.projectileSlowEdge,
+    projectileSlowCore: fieldProfile.projectileSlowCore,
     team: "player",
     touchedTargets: new Set(),
   });
@@ -528,13 +532,15 @@ export function castEnergyShield() {
 
   abilityState.shield.cooldown = getAbilityCooldown(config.shieldCooldown);
   triggerAbilityCastRuneEffects();
-  player.shield = Math.max(player.shield, 26 + getRuneValue("defense", "primary") * 3);
-  player.shieldTime = 2.4;
+  player.shield = Math.max(player.shield, config.shieldValue + getRuneValue("defense", "primary") * 3);
+  player.shieldTime = config.shieldDuration;
+  player.shieldGuardTime = config.shieldDuration;
+  player.shieldBreakRefundReady = true;
   queuePhantomAbility("energyShield");
   playAbilityCue("energyShield");
   addImpact(player.x, player.y, "#9cd5ff", 28);
   addShake(4);
-  statusLine.textContent = "Energy Shield online. Absorb the next burst.";
+  statusLine.textContent = "Energy Shield online. It blocks burst and incoming control while it holds.";
 }
 
 export function castEnergyParry() {
@@ -732,24 +738,32 @@ export function castPulseBurst() {
   if (!isCombatLive() || abilityState.pulseBurst.cooldown > 0) {
     return;
   }
-  abilityState.pulseBurst.cooldown = getAbilityCooldown(3.2);
+  abilityState.pulseBurst.cooldown = getAbilityCooldown(config.pulseBurstCooldown);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("pulseBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
-  for (let pellet = 0; pellet < 5; pellet += 1) {
-    const spread = -0.16 + pellet * 0.08;
+  const burstId = beginPulseBurstCast("player", config.pulseBurstMissiles);
+  for (let pellet = 0; pellet < config.pulseBurstMissiles; pellet += 1) {
+    const spread = -0.18 + pellet * (0.36 / Math.max(1, config.pulseBurstMissiles - 1));
     const angle = baseAngle + spread;
-    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#84dcff", 1320, 12 * getPerkDamageMultiplier(getPrimaryBot()), {
-      radius: 4,
-      life: 0.66,
+    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.pulseBurstProjectileSpeed, config.pulseBurstBaseDamage * getPerkDamageMultiplier(getPrimaryBot()), {
+      radius: 4.5,
+      life: config.pulseBurstLifetime,
       trailColor: "#c9f3ff",
       source: "pulse-burst",
+      effect: {
+        kind: "pulseBurst",
+        burstId,
+        guideTurnRate: config.pulseBurstGuideTurnRate,
+        guideDot: config.pulseBurstGuideDot,
+        resolved: false,
+      },
     });
   }
   playAbilityCue("pulseBurst");
   addImpact(player.x + Math.cos(baseAngle) * 24, player.y + Math.sin(baseAngle) * 24, "#84dcff", 18);
   addShake(5.2);
-  statusLine.textContent = "Pulse Burst flooded the lane.";
+  statusLine.textContent = "Pulse Burst fired. Lock the target in place to cash in the full volley.";
 }
 
 export function castRailShotAbility() {
@@ -942,6 +956,7 @@ export function updateExtraAbilities(dt) {
   abilityState.ultimate.cooldown = Math.max(0, abilityState.ultimate.cooldown - dt);
   abilityState.ultimate.phantomTime = Math.max(0, abilityState.ultimate.phantomTime - dt);
   player.shieldTime = Math.max(0, player.shieldTime - dt);
+  player.shieldGuardTime = Math.max(0, player.shieldGuardTime - dt);
   player.hasteTime = Math.max(0, player.hasteTime - dt);
   player.afterDashHasteTime = Math.max(0, player.afterDashHasteTime - dt);
   player.energyParrySpeedTime = Math.max(0, player.energyParrySpeedTime - dt);
@@ -1042,6 +1057,10 @@ export function updateExtraAbilities(dt) {
 
   if (player.shieldTime <= 0) {
     player.shield = 0;
+  }
+  if (player.shieldGuardTime <= 0 || player.shield <= 0) {
+    player.shieldGuardTime = 0;
+    player.shieldBreakRefundReady = false;
   }
 }
 

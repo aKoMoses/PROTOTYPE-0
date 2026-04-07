@@ -12,7 +12,7 @@ import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageM
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyMagneticField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
-  getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy, consumePlayerEmpowerBonus, tryTriggerEnergyParry } from "./combat.js";
+  getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy, consumePlayerEmpowerBonus, tryTriggerEnergyParry, beginPulseBurstCast, applyFieldDragToProjectile } from "./combat.js";
 import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
 import { spawnEnemyJavelin, confirmShockJavelinImpact, expireShockJavelin } from "./abilities.js";
 import { finishDuelRound } from "./match.js";
@@ -23,6 +23,7 @@ import { applyPhantomDamage } from "./phantom.js";
 export function updateShockJavelins(dt) {
   for (let i = shockJavelins.length - 1; i >= 0; i -= 1) {
     const javelin = shockJavelins[i];
+    applyFieldDragToProjectile(javelin, "player", dt);
     javelin.x += javelin.vx * dt;
     javelin.y += javelin.vy * dt;
     javelin.life -= dt;
@@ -645,9 +646,11 @@ export function castEnemyGrapple(forward, target = player) {
 }
 
 export function castEnemyShield() {
-  enemy.abilityCooldowns.shield = config.shieldCooldown + 0.4;
-  enemy.shield = Math.max(enemy.shield, 24);
-  enemy.shieldTime = 2.2;
+  enemy.abilityCooldowns.shield = config.shieldCooldown + 0.5;
+  enemy.shield = Math.max(enemy.shield, config.shieldValue);
+  enemy.shieldTime = config.shieldDuration;
+  enemy.shieldGuardTime = config.shieldDuration;
+  enemy.shieldBreakRefundReady = true;
   playAbilityCue("energyShield", "enemy");
   addImpact(enemy.x, enemy.y, "#a8d9ff", 22);
 }
@@ -730,16 +733,24 @@ export function castEnemyPhaseDash(forward) {
 }
 
 export function castEnemyPulseBurst(target = player) {
-  enemy.abilityCooldowns.pulseBurst = 3.4;
+  enemy.abilityCooldowns.pulseBurst = config.pulseBurstCooldown + 0.2;
   const baseAngle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
-  for (let pellet = 0; pellet < 5; pellet += 1) {
-    const spread = -0.16 + pellet * 0.08;
+  const burstId = beginPulseBurstCast("enemy", config.pulseBurstMissiles);
+  for (let pellet = 0; pellet < config.pulseBurstMissiles; pellet += 1) {
+    const spread = -0.18 + pellet * (0.36 / Math.max(1, config.pulseBurstMissiles - 1));
     const angle = baseAngle + spread;
-    spawnBullet(enemy, enemy.x + Math.cos(angle) * 100, enemy.y + Math.sin(angle) * 100, enemyBullets, "#84dcff", 1180, 8, {
-      radius: 4,
-      life: 0.64,
+    spawnBullet(enemy, enemy.x + Math.cos(angle) * 100, enemy.y + Math.sin(angle) * 100, enemyBullets, "#84dcff", config.pulseBurstProjectileSpeed * 0.94, config.pulseBurstBaseDamage * 0.92, {
+      radius: 4.5,
+      life: config.pulseBurstLifetime,
       trailColor: "#c9f3ff",
       source: "enemy-pulse-burst",
+      effect: {
+        kind: "pulseBurst",
+        burstId,
+        guideTurnRate: config.pulseBurstGuideTurnRate * 0.9,
+        guideDot: config.pulseBurstGuideDot,
+        resolved: false,
+      },
     });
   }
   playAbilityCue("pulseBurst", "enemy");
@@ -795,6 +806,7 @@ export function castEnemySpeedSurge() {
 export function updateEnemyShockJavelins(dt) {
   for (let i = enemyShockJavelins.length - 1; i >= 0; i -= 1) {
     const javelin = enemyShockJavelins[i];
+    applyFieldDragToProjectile(javelin, "enemy", dt);
     javelin.x += javelin.vx * dt;
     javelin.y += javelin.vy * dt;
     javelin.life -= dt;
@@ -889,6 +901,11 @@ export function updateEnemy(dt) {
   enemy.dashCooldown = Math.max(0, enemy.dashCooldown - dt);
   enemy.postAttackMoveTime = Math.max(0, enemy.postAttackMoveTime - dt);
   enemy.shieldTime = Math.max(0, enemy.shieldTime - dt);
+  enemy.shieldGuardTime = Math.max(0, enemy.shieldGuardTime - dt);
+  if (enemy.shieldGuardTime <= 0 || enemy.shield <= 0) {
+    enemy.shieldGuardTime = 0;
+    enemy.shieldBreakRefundReady = false;
+  }
   enemy.hasteTime = Math.max(0, enemy.hasteTime - dt);
   enemy.comboTimer = Math.max(0, enemy.comboTimer - dt);
   enemy.meleeWindupTime = Math.max(0, enemy.meleeWindupTime - dt);
@@ -1181,6 +1198,11 @@ export function updateTrainingBots(dt) {
     bot.flash = Math.max(0, bot.flash - dt);
     updateStatusEffects(bot, dt);
     tickEntityMarks(bot, dt);
+    bot.shieldGuardTime = Math.max(0, (bot.shieldGuardTime ?? 0) - dt);
+    if (bot.shieldGuardTime <= 0 || bot.shield <= 0) {
+      bot.shieldGuardTime = 0;
+      bot.shieldBreakRefundReady = false;
+    }
 
     if (!bot.alive) {
       continue;

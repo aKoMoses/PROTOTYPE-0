@@ -78,6 +78,8 @@ export function resetPlayer({ silent = false } = {}) {
   player.lastMissTime = 0;
   player.shield = 0;
   player.shieldTime = 0;
+  player.shieldGuardTime = 0;
+  player.shieldBreakRefundReady = false;
   player.hasteTime = 0;
   player.afterDashHasteTime = 0;
   player.energyParrySpeedTime = 0;

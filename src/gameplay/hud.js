@@ -387,7 +387,7 @@ export function getAbilityHudState(abilityKey) {
       return {
         ready: abilityState.pulseBurst.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.pulseBurst.cooldown <= 0 ? 0 : abilityState.pulseBurst.cooldown / 3.2,
+        cooldownRatio: abilityState.pulseBurst.cooldown <= 0 ? 0 : abilityState.pulseBurst.cooldown / config.pulseBurstCooldown,
         timer: abilityState.pulseBurst.cooldown <= 0 ? "" : abilityState.pulseBurst.cooldown.toFixed(1),
       };
     case "railShot":

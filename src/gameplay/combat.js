@@ -20,6 +20,8 @@ export { resize } from "./renderer.js";
 
 const playerWeaponAttackTrackers = new Map();
 let nextPlayerWeaponAttackId = 1;
+const pulseBurstTrackers = new Map();
+let nextPulseBurstId = 1;
 
 export function getAllBots() {
   if (sandbox.mode === sandboxModes.survival.key) {
@@ -98,6 +100,137 @@ function getFriendlyCombatTargets() {
     targets.push(player);
   }
   return targets;
+}
+
+function getPulseBurstTrackerKey(team, burstId) {
+  return `${team}:${burstId}`;
+}
+
+function getPulseBurstTracker(projectile) {
+  const burstId = projectile.effect?.burstId;
+  if (burstId == null) {
+    return null;
+  }
+  return pulseBurstTrackers.get(getPulseBurstTrackerKey(projectile.ownerTeam ?? "player", burstId)) ?? null;
+}
+
+function releasePulseBurstProjectile(projectile) {
+  if (projectile.effect?.kind !== "pulseBurst" || projectile.effect.resolved) {
+    return;
+  }
+
+  projectile.effect.resolved = true;
+  const tracker = getPulseBurstTracker(projectile);
+  if (!tracker) {
+    return;
+  }
+
+  tracker.resolved += 1;
+  if (tracker.resolved >= tracker.missileCount) {
+    pulseBurstTrackers.delete(getPulseBurstTrackerKey(projectile.ownerTeam ?? "player", projectile.effect.burstId));
+  }
+}
+
+function getProjectileTargetsForTeam(team) {
+  if (team === "player") {
+    return getAllBots().filter((bot) => bot.alive);
+  }
+  return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && abilityState.phaseShift.time > 0));
+}
+
+function applyPulseBurstGuidance(projectile, team, dt) {
+  if (projectile.effect?.kind !== "pulseBurst") {
+    return;
+  }
+
+  const currentSpeed = length(projectile.vx, projectile.vy);
+  if (currentSpeed <= 0) {
+    return;
+  }
+
+  const currentDirection = normalize(projectile.vx, projectile.vy);
+  let bestTarget = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const target of getProjectileTargetsForTeam(team)) {
+    if (!canSeeTarget(projectile, target)) {
+      continue;
+    }
+    const toTarget = normalize(target.x - projectile.x, target.y - projectile.y);
+    const alignment = currentDirection.x * toTarget.x + currentDirection.y * toTarget.y;
+    if (alignment < (projectile.effect.guideDot ?? config.pulseBurstGuideDot)) {
+      continue;
+    }
+
+    const distance = length(target.x - projectile.x, target.y - projectile.y);
+    const score = distance - alignment * 90;
+    if (score < bestScore) {
+      bestScore = score;
+      bestTarget = toTarget;
+    }
+  }
+
+  if (!bestTarget) {
+    return;
+  }
+
+  const steerRatio = clamp((projectile.effect.guideTurnRate ?? config.pulseBurstGuideTurnRate) * dt, 0, 0.28);
+  const steered = normalize(
+    currentDirection.x * (1 - steerRatio) + bestTarget.x * steerRatio,
+    currentDirection.y * (1 - steerRatio) + bestTarget.y * steerRatio,
+  );
+  projectile.vx = steered.x * currentSpeed;
+  projectile.vy = steered.y * currentSpeed;
+}
+
+function getProjectileFieldModifier(projectile, team) {
+  let speedMultiplier = 1;
+  let visualIntensity = 0;
+
+  for (const field of magneticFields) {
+    if (field.team === team) {
+      continue;
+    }
+
+    const distance = length(projectile.x - field.x, projectile.y - field.y);
+    if (distance > field.radius + projectile.radius) {
+      continue;
+    }
+
+    const centerWeight = 1 - clamp(distance / Math.max(1, field.radius), 0, 1);
+    const edgeSlow = field.projectileSlowEdge ?? 0;
+    const coreSlow = field.projectileSlowCore ?? edgeSlow;
+    const slowAmount = edgeSlow + (coreSlow - edgeSlow) * centerWeight;
+    speedMultiplier = Math.min(speedMultiplier, 1 - slowAmount);
+    visualIntensity = Math.max(visualIntensity, slowAmount);
+  }
+
+  return { speedMultiplier, visualIntensity };
+}
+
+export function applyFieldDragToProjectile(projectile, team, dt) {
+  const modifier = getProjectileFieldModifier(projectile, team);
+  const currentSpeed = length(projectile.vx, projectile.vy);
+  const baseSpeed = projectile.baseSpeed ?? currentSpeed;
+
+  if (baseSpeed > 0 && currentSpeed > 0) {
+    const direction = normalize(projectile.vx, projectile.vy);
+    const targetSpeed = baseSpeed * modifier.speedMultiplier;
+    const adjustedSpeed = approach(currentSpeed, targetSpeed, baseSpeed * 8 * dt);
+    projectile.vx = direction.x * adjustedSpeed;
+    projectile.vy = direction.y * adjustedSpeed;
+  }
+
+  projectile.fieldSlowRatio = approach(projectile.fieldSlowRatio ?? 0, modifier.visualIntensity, 8 * dt);
+  return modifier;
+}
+
+function doesShieldGuardBlockStatus(type) {
+  return type === "slow" || type === "stun" || type === "snare" || type === "shock";
+}
+
+function isShieldGuardActive(entity) {
+  return (entity.shieldGuardTime ?? 0) > 0 && (entity.shield ?? 0) > 0 && (entity.shieldTime ?? 0) > 0;
 }
 
 function isEnergyParryWindowActive() {
@@ -249,6 +382,18 @@ export function beginPlayerWeaponAttack(projectileCount = 1) {
   return attackId;
 }
 
+export function beginPulseBurstCast(team = "player", missileCount = config.pulseBurstMissiles) {
+  const burstId = nextPulseBurstId;
+  nextPulseBurstId += 1;
+  pulseBurstTrackers.set(getPulseBurstTrackerKey(team, burstId), {
+    missileCount: Math.max(1, missileCount),
+    resolved: 0,
+    hitsByTarget: new Map(),
+    fullHitTargetKey: null,
+  });
+  return burstId;
+}
+
 export function registerPlayerWeaponHit(attackId) {
   if (attackId == null) {
     return;
@@ -352,6 +497,7 @@ export function spawnBullet(owner, targetX, targetY, collection, color, speed, d
     y: startY,
     vx: direction.x * speed,
     vy: direction.y * speed,
+    baseSpeed: speed,
     radius: options.radius ?? 4,
     damage,
     life: options.life ?? config.bulletLife,
@@ -374,6 +520,7 @@ export function spawnBullet(owner, targetX, targetY, collection, color, speed, d
     detonateX: options.detonateX ?? null,
     detonateY: options.detonateY ?? null,
     explodeOnDestination: options.explodeOnDestination ?? false,
+    fieldSlowRatio: 0,
   });
 
   tracers.push({
@@ -510,11 +657,22 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     return null;
   }
 
+  if (doesShieldGuardBlockStatus(type) && isShieldGuardActive(entity)) {
+    if (entity.x !== undefined && entity.y !== undefined) {
+      addAbsorbBurst(entity.x, entity.y, 16, entity === player ? "#a8ddff" : "#ffd0c2");
+      addImpact(entity.x, entity.y, entity === player ? "#b6e5ff" : "#ffd4c6", 16);
+    }
+    return null;
+  }
+
   const existing = entity.statusEffects.find((effect) => effect.type === type);
 
   if (existing) {
     existing.time = Math.max(existing.time, duration);
     existing.magnitude = Math.max(existing.magnitude, magnitude);
+    if (type === "burn") {
+      existing.tickTimer = Math.min(existing.tickTimer ?? config.burnTickInterval, config.burnTickInterval);
+    }
     if (entity.x !== undefined && entity.y !== undefined) {
       addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 20 : 16);
     }
@@ -525,7 +683,12 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     return existing;
   }
 
-  const effect = { type, time: duration, magnitude };
+  const effect = {
+    type,
+    time: duration,
+    magnitude,
+    tickTimer: type === "burn" ? config.burnTickInterval : 0,
+  };
   entity.statusEffects.push(effect);
   if (entity.x !== undefined && entity.y !== undefined) {
     addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 24 : 18);
@@ -575,9 +738,28 @@ export function updateStatusEffects(entity, dt) {
   }
 
   for (let index = entity.statusEffects.length - 1; index >= 0; index -= 1) {
-    entity.statusEffects[index].time -= dt;
+    const effect = entity.statusEffects[index];
+    effect.time -= dt;
 
-    if (entity.statusEffects[index].time <= 0) {
+    if (effect.type === "burn" && effect.time > 0) {
+      effect.tickTimer = (effect.tickTimer ?? config.burnTickInterval) - dt;
+      while (effect.tickTimer <= 0 && effect.time > 0) {
+        effect.tickTimer += config.burnTickInterval;
+        const burnDamage = config.burnTickDamage * Math.max(0.7, effect.magnitude || 1);
+        if (entity === playerClone) {
+          applyPhantomDamage(burnDamage, "burn");
+        } else if ((entity.team ?? "enemy") === "enemy") {
+          damageBot(entity, burnDamage, "#ffb06e", entity.x, entity.y, 0);
+        } else {
+          applyPlayerDamage(burnDamage, "burn");
+        }
+        if (entity.x !== undefined && entity.y !== undefined) {
+          addImpact(entity.x, entity.y, "#ffb06e", 12);
+        }
+      }
+    }
+
+    if (effect.time <= 0) {
       entity.statusEffects.splice(index, 1);
     }
   }
@@ -589,6 +771,7 @@ export function clearStatusEffects(entity) {
 
 export function clearCombatArtifacts() {
   resetPlayerWeaponMomentum();
+  pulseBurstTrackers.clear();
   bullets.length = 0;
   enemyBullets.length = 0;
   impacts.length = 0;
@@ -730,15 +913,17 @@ export function spawnEnemyMagneticField() {
   magneticFields.push({
     x: enemy.x,
     y: enemy.y,
-    radius: 88,
-    duration: 1.4,
-    life: 1.4,
-    slow: 0,
+    radius: Math.max(96, config.fieldTapRadius * 0.9),
+    duration: config.fieldTapDuration,
+    life: config.fieldTapDuration,
+    slow: config.fieldTapSlow * 0.9,
     damageReduction: 0,
     anchor: "enemy",
     color: "#ffb0a2",
     glow: "#ffd1c8",
     disruption: 0,
+    projectileSlowEdge: config.fieldTapProjectileSlowEdge * 0.95,
+    projectileSlowCore: config.fieldTapProjectileSlowCore * 0.95,
     team: "enemy",
     touchedTargets: new Set(),
   });
@@ -767,6 +952,8 @@ export function respawnBot(bot) {
   bot.ammo = getPulseMagazineSize();
   bot.shield = 0;
   bot.shieldTime = 0;
+  bot.shieldGuardTime = 0;
+  bot.shieldBreakRefundReady = false;
   bot.hasteTime = 0;
   bot.comboStep = 0;
   bot.comboTimer = 0;
@@ -802,12 +989,21 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
     return false;
   }
 
+  const hadShieldGuard = (bot.shieldGuardTime ?? 0) > 0 && bot.shield > 0;
   if (bot.shield > 0) {
     const absorbed = Math.min(bot.shield, damage);
     bot.shield -= absorbed;
     damage -= absorbed;
     addImpact(bot.x, bot.y, "#a6d9ff", 18);
     playDamageCue("enemy", absorbed, "shield", true);
+    if (hadShieldGuard && bot.shield <= 0) {
+      bot.shieldGuardTime = 0;
+      if (bot.shieldBreakRefundReady) {
+        bot.shieldBreakRefundReady = false;
+        bot.abilityCooldowns.shield = Math.max(0, bot.abilityCooldowns.shield * (1 - config.shieldBreakRefund));
+        addImpact(bot.x, bot.y, "#d9efff", 16);
+      }
+    }
   }
 
   if (damage <= 0) {
@@ -908,6 +1104,40 @@ export function healEntity(entity, amount) {
   addHealingText(entity.x, entity.y - entity.radius - 10, amount);
 }
 
+function resolvePulseBurstImpact(projectile, target, team) {
+  if (projectile.effect?.kind !== "pulseBurst") {
+    return {
+      damage: projectile.damage,
+      fullHit: false,
+    };
+  }
+
+  const tracker = getPulseBurstTracker(projectile);
+  if (!tracker) {
+    return {
+      damage: projectile.damage,
+      fullHit: false,
+    };
+  }
+
+  const targetKey =
+    team === "player"
+      ? target.kind
+      : target === playerClone
+        ? "playerClone"
+        : "player";
+  const hitIndex = (tracker.hitsByTarget.get(targetKey) ?? 0) + 1;
+  tracker.hitsByTarget.set(targetKey, hitIndex);
+
+  const damage = projectile.damage * Math.pow(config.pulseBurstDamageGrowth, hitIndex - 1);
+  const fullHit = hitIndex >= tracker.missileCount && tracker.fullHitTargetKey !== targetKey;
+  if (fullHit) {
+    tracker.fullHitTargetKey = targetKey;
+  }
+
+  return { damage, fullHit };
+}
+
 export function applyProjectileEffectToBot(bot, projectile) {
   const effect = projectile.effect;
   if (!effect) {
@@ -933,6 +1163,12 @@ export function applyProjectileEffectToBot(bot, projectile) {
     applyStatusEffect(bot, "slow", getStatusDuration(duration), slow);
     if (strength >= 0.72) {
       applyStatusEffect(bot, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
+    }
+  } else if (effect.kind === "pulseBurst") {
+    if (effect.fullHit) {
+      applyStatusEffect(bot, "burn", getStatusDuration(config.pulseBurstBurnDuration), 1);
+      addImpact(bot.x, bot.y, "#ffba72", 20);
+      addExplosion(bot.x, bot.y, 36, "#ffbf83");
     }
   }
 }
@@ -961,6 +1197,12 @@ export function applyProjectileEffectToPlayer(projectile, target = player) {
     applyStatusEffect(target, "slow", getStatusDuration(duration), slow);
     if (strength >= 0.72) {
       applyStatusEffect(target, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
+    }
+  } else if (effect.kind === "pulseBurst") {
+    if (effect.fullHit) {
+      applyStatusEffect(target, "burn", getStatusDuration(config.pulseBurstBurnDuration), 1);
+      addImpact(target.x, target.y, "#ffba72", 18);
+      addExplosion(target.x, target.y, 30, "#ffbf83");
     }
   }
 }
@@ -1113,53 +1355,19 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
 }
 
 export function absorbEnemyProjectiles() {
-  for (let i = enemyBullets.length - 1; i >= 0; i -= 1) {
-    const bullet = enemyBullets[i];
-    let absorbed = false;
-
-    for (const field of magneticFields) {
-      if (field.team === "player" && length(bullet.x - field.x, bullet.y - field.y) <= field.radius) {
-        absorbed = true;
-        addAbsorbBurst(bullet.x, bullet.y, 24, field.color);
-        addImpact(bullet.x, bullet.y, field.color, 18);
-        addShake(3.2);
-        playMapCue("projectile-absorb");
-        break;
-      }
-    }
-
-    if (absorbed) {
-      enemyBullets.splice(i, 1);
-    }
-  }
+  return;
 }
 
 export function absorbPlayerProjectiles() {
-  for (let i = bullets.length - 1; i >= 0; i -= 1) {
-    const bullet = bullets[i];
-    let absorbed = false;
-
-    for (const field of magneticFields) {
-      if (field.team === "enemy" && length(bullet.x - field.x, bullet.y - field.y) <= field.radius) {
-        absorbed = true;
-        addAbsorbBurst(bullet.x, bullet.y, 20, field.color);
-        addImpact(bullet.x, bullet.y, field.color, 16);
-        playMapCue("projectile-absorb");
-        break;
-      }
-    }
-
-    if (absorbed) {
-      settlePlayerWeaponAttack(bullet.attackId);
-      bullets.splice(i, 1);
-    }
-  }
+  return;
 }
 
 export function updateBullets(collection, dt) {
   for (let i = collection.length - 1; i >= 0; i -= 1) {
     const bullet = collection[i];
     const team = collection === bullets ? "player" : "enemy";
+    applyPulseBurstGuidance(bullet, team, dt);
+    applyFieldDragToProjectile(bullet, team, dt);
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
@@ -1171,6 +1379,7 @@ export function updateBullets(collection, dt) {
       length(bullet.x - bullet.detonateX, bullet.y - bullet.detonateY) <= Math.max(10, length(bullet.vx, bullet.vy) * dt + bullet.radius)
     ) {
       triggerCannonExplosion(bullet, bullet.detonateX, bullet.detonateY, team);
+      releasePulseBurstProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1180,6 +1389,7 @@ export function updateBullets(collection, dt) {
 
     if (hitMapWithProjectile(bullet, team)) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
+      releasePulseBurstProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1195,6 +1405,7 @@ export function updateBullets(collection, dt) {
 
     if (bullet.life <= 0 || out) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
+      releasePulseBurstProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1242,12 +1453,23 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
   const buildStats = getBuildStats();
   let finalDamage = amount * (1 - buildStats.damageReduction);
 
+  const hadShieldGuard = player.shieldGuardTime > 0 && player.shield > 0;
   if (player.shield > 0) {
     const absorbed = Math.min(player.shield, finalDamage);
     player.shield -= absorbed;
     finalDamage -= absorbed;
     addImpact(player.x, player.y, "#a3dcff", 18);
     playDamageCue("player", absorbed, source, true);
+    if (hadShieldGuard && player.shield <= 0) {
+      player.shieldGuardTime = 0;
+      if (player.shieldBreakRefundReady) {
+        player.shieldBreakRefundReady = false;
+        abilityState.shield.cooldown = Math.max(0, abilityState.shield.cooldown * (1 - config.shieldBreakRefund));
+        addAbsorbBurst(player.x, player.y, 20, "#c1e8ff");
+        addImpact(player.x, player.y, "#d7f0ff", 18);
+        statusLine.textContent = "Energy Shield broke, but the timing shaved cooldown off the next cast.";
+      }
+    }
   }
 
   if (finalDamage <= 0) {
@@ -1355,12 +1577,18 @@ export function resolveCombat() {
 
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
+        if (bullet.effect?.kind === "pulseBurst") {
+          const outcome = resolvePulseBurstImpact(bullet, bot, "player");
+          bullet.damage = outcome.damage;
+          bullet.effect.fullHit = outcome.fullHit;
+        }
         const impactDamage = getProjectileImpactDamage(bullet, bot.x, bot.y) + consumePlayerEmpowerBonus();
         registerPlayerWeaponHit(bullet.attackId);
         damageBot(bot, impactDamage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "player", bot);
         if (!bullet.piercing) {
+          releasePulseBurstProjectile(bullet);
           settlePlayerWeaponAttack(bullet.attackId, true);
           bullets.splice(i, 1);
           consumed = true;
@@ -1401,6 +1629,11 @@ export function resolveCombat() {
       addImpact(bullet.x, bullet.y, target === playerClone ? "#e8c8ff" : "#ff8a77", target === playerClone ? 16 : 18);
 
       if (target === playerClone) {
+        if (bullet.effect?.kind === "pulseBurst") {
+          const outcome = resolvePulseBurstImpact(bullet, target, "enemy");
+          bullet.damage = outcome.damage;
+          bullet.effect.fullHit = outcome.fullHit;
+        }
         applyPhantomDamage(bullet.damage, "bullet");
         applyProjectileEffectToPlayer(bullet, target);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
@@ -1408,12 +1641,18 @@ export function resolveCombat() {
       } else if (abilityState.dash.invulnerabilityTime <= 0) {
         if (tryTriggerEnergyParry(bullet.ownerRef ?? enemy, bullet.source ?? "bullet")) {
           if (!bullet.piercing) {
+            releasePulseBurstProjectile(bullet);
             enemyBullets.splice(i, 1);
           }
           consumed = true;
           break;
         }
         const playerFieldModifier = getEntityFieldModifier(target);
+        if (bullet.effect?.kind === "pulseBurst") {
+          const outcome = resolvePulseBurstImpact(bullet, target, "enemy");
+          bullet.damage = outcome.damage;
+          bullet.effect.fullHit = outcome.fullHit;
+        }
         const impactDamage = getProjectileImpactDamage(bullet, target.x, target.y);
         const defeatedByBullet = applyPlayerDamage(
           impactDamage * (1 - playerFieldModifier.damageReduction),
@@ -1434,6 +1673,7 @@ export function resolveCombat() {
           : "You were hit. Use dash to break pressure.";
         if (defeatedByBullet) {
           if (!bullet.piercing) {
+            releasePulseBurstProjectile(bullet);
             enemyBullets.splice(i, 1);
           }
           consumed = true;
@@ -1445,6 +1685,7 @@ export function resolveCombat() {
       }
 
       if (!bullet.piercing) {
+        releasePulseBurstProjectile(bullet);
         enemyBullets.splice(i, 1);
         consumed = true;
         break;
@@ -1530,6 +1771,8 @@ export function applyBotLoadout(bot, loadoutConfig) {
   bot.reloadTime = 0;
   bot.shield = 0;
   bot.shieldTime = 0;
+  bot.shieldGuardTime = 0;
+  bot.shieldBreakRefundReady = false;
   bot.hasteTime = 0;
   bot.comboStep = 0;
   bot.comboTimer = 0;
@@ -1606,6 +1849,8 @@ export function resetBotsForMode(mode = sandbox.mode) {
     bot.ammo = getPulseMagazineSize();
     bot.shield = 0;
     bot.shieldTime = 0;
+    bot.shieldGuardTime = 0;
+    bot.shieldBreakRefundReady = false;
     bot.hasteTime = 0;
     bot.comboStep = 0;
     bot.comboTimer = 0;

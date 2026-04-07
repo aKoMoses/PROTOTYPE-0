@@ -345,6 +345,7 @@ export function getItemMetaLabel(item, type) {
 export function getItemStateLabel(item) {
   if (item.state === "playable") return "Playable now";
   if (item.state === "preview") return "Preview foundation";
+  if (item.state === "locked") return "Retired / unavailable";
   if (item.locked) return "Locked / future content";
   return "Selectable";
 }
@@ -480,9 +481,10 @@ function getAbilityValueLines(item) {
     case "magneticField":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.fieldCooldown))}.`,
-        `Tap cast: ${formatNumber(config.fieldTapRadius)} radius, ${formatSeconds(config.fieldTapDuration)} duration, ${formatPercent(config.fieldTapSlow)} slow, ${formatPercent(config.fieldTapDamageReduction)} mitigation.`,
-        `Charged cast: ${formatNumber(config.fieldHoldRadius)} radius, ${formatSeconds(config.fieldHoldDuration + (spellsShardActive ? 0.6 : 0))} duration, ${formatPercent(config.fieldHoldSlow + (spellsShardActive ? 0.08 : 0))} slow.`,
-        "Role: space control and projectile timing denial.",
+        `Tap cast: ${formatNumber(config.fieldTapRadius)} radius on you for ${formatSeconds(config.fieldTapDuration)}, ${formatPercent(config.fieldTapProjectileSlowEdge)} to ${formatPercent(config.fieldTapProjectileSlowCore)} projectile slow, and ${formatPercent(config.fieldTapDamageReduction)} mitigation.`,
+        `Charged cast: ${formatNumber(config.fieldHoldRadius)} radius at target point for ${formatSeconds(config.fieldHoldDuration + (spellsShardActive ? 0.6 : 0))}, ${formatPercent(config.fieldHoldProjectileSlowEdge)} to ${formatPercent(config.fieldHoldProjectileSlowCore)} projectile slow, and ${formatPercent(config.fieldHoldSlow + (spellsShardActive ? 0.08 : 0))} movement slow.`,
+        "Enemy projectiles are dragged while inside the field instead of being deleted, making dodge windows readable and fair.",
+        "Role: anti-ranged timing tool and space-control bubble.",
       ];
     case "magneticGrapple":
       return [
@@ -495,9 +497,10 @@ function getAbilityValueLines(item) {
     case "energyShield":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.shieldCooldown))}.`,
-        `Grants ${formatNumber(26 + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(2.4)}.`,
-        "Absorbs burst without giving away movement control.",
-        "Role: anti-burst defensive timing check.",
+        `Grants ${formatNumber(config.shieldValue + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(config.shieldDuration)}.`,
+        "While the shield still exists, incoming slow, snare, shock and stun effects are denied.",
+        `If enemies break the shield, Energy Shield refunds about ${formatPercent(config.shieldBreakRefund)} of its cooldown.`,
+        "Role: anti-burst and anti-control timing check that rewards clean reads.",
       ];
     case "empBurst":
       return [
@@ -529,10 +532,12 @@ function getAbilityValueLines(item) {
       ];
     case "pulseBurst":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(3.2))}.`,
-        "Fires 5 pulse bolts at 12 damage each.",
-        "Total burst if all connect: 60 damage.",
-        "Role: close-mid lane flood for punish windows.",
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.pulseBurstCooldown))}.`,
+        `Fires ${config.pulseBurstMissiles} pulse missiles at ${formatNumber(config.pulseBurstBaseDamage)} base damage each.`,
+        "Missiles lightly auto-guide toward the first visible enemy in front of them, but can still be dodged and are destroyed by terrain.",
+        `Each extra missile on the same target deals exponentially more damage at x${formatNumber(config.pulseBurstDamageGrowth)} growth per connect.`,
+        `If the full volley lands on one target, apply Burn for ${formatSeconds(config.pulseBurstBurnDuration)}.`,
+        "Role: setup-dependent combo burst that cashes in on stuns, snares and clean confirms.",
       ];
     case "railShot":
       return [

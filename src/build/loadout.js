@@ -115,7 +115,7 @@ const botPresetLibrary = [
     description: "Walks you down with heavy melee commitment and short brutal punish windows.",
     loadout: {
       weapon: weapons.axe.key,
-      abilities: ["magneticGrapple", "energyShield", "phaseDash"],
+      abilities: ["magneticGrapple", "energyShield", "pulseBurst"],
       perk: "omnivampCore",
       ultimate: "berserkCore",
       runes: createPresetRunes({
