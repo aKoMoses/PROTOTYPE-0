@@ -8,12 +8,12 @@ import { player, playerClone, enemy, trainingBots, bots, abilityState, loadout, 
   abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
   mapEffects, mapState, globals, botBuildState, trainingToolState, survivalEnemies, survivalState } from "../state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
-import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
+import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
-import { playDamageCue, playStatusCue, playMapCue, playReloadCue } from "../audio.js";
+import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playAbilityCue } from "../audio.js";
 import { applyPhantomDamage, resetPhantomClone } from "./phantom.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
@@ -98,6 +98,116 @@ function getFriendlyCombatTargets() {
     targets.push(player);
   }
   return targets;
+}
+
+function isEnergyParryWindowActive() {
+  return abilityState.energyParry.startupTime <= 0 && abilityState.energyParry.activeTime > 0;
+}
+
+function isEnergyParryResolving() {
+  return abilityState.energyParry.resolveLockTime > 0;
+}
+
+function getEnergyParryAttackerFacing(attacker) {
+  if (typeof attacker?.facing === "number" && Number.isFinite(attacker.facing)) {
+    return attacker.facing;
+  }
+  return Math.atan2(player.y - (attacker?.y ?? player.y), player.x - (attacker?.x ?? player.x));
+}
+
+function placePlayerForEnergyParry(attacker) {
+  const previousX = player.x;
+  const previousY = player.y;
+  const facing = getEnergyParryAttackerFacing(attacker);
+  const distance = attacker.radius + player.radius + config.energyParryTeleportOffset;
+  const sideDistance = Math.max(distance - 8, attacker.radius + player.radius + 10);
+  const sideX = -Math.sin(facing);
+  const sideY = Math.cos(facing);
+  const candidates = [
+    {
+      x: attacker.x - Math.cos(facing) * distance,
+      y: attacker.y - Math.sin(facing) * distance,
+    },
+    {
+      x: attacker.x + sideX * sideDistance,
+      y: attacker.y + sideY * sideDistance,
+    },
+    {
+      x: attacker.x - sideX * sideDistance,
+      y: attacker.y - sideY * sideDistance,
+    },
+  ];
+
+  let best = null;
+  for (const candidate of candidates) {
+    player.x = candidate.x;
+    player.y = candidate.y;
+    resolveMapCollision(player);
+    maybeTeleportEntity(player);
+    const separation = length(player.x - attacker.x, player.y - attacker.y);
+    const minSeparation = player.radius + attacker.radius + 4;
+    const displacementPenalty = length(player.x - candidate.x, player.y - candidate.y);
+    const score = (separation >= minSeparation ? 0 : 1000) + displacementPenalty;
+    if (!best || score < best.score) {
+      best = { x: player.x, y: player.y, score };
+    }
+  }
+
+  player.x = best?.x ?? previousX;
+  player.y = best?.y ?? previousY;
+  player.facing = Math.atan2(attacker.y - player.y, attacker.x - player.x);
+}
+
+export function consumePlayerEmpowerBonus() {
+  if (player.energyParryHitBonusTime <= 0 || player.energyParryHitBonusDamage <= 0) {
+    return 0;
+  }
+
+  const bonus = player.energyParryHitBonusDamage;
+  player.energyParryHitBonusTime = 0;
+  player.energyParryHitBonusDamage = 0;
+  addImpact(player.x + Math.cos(player.facing) * 20, player.y + Math.sin(player.facing) * 20, "#fff1ac", 18);
+  return bonus;
+}
+
+export function tryTriggerEnergyParry(attacker, source = "hit") {
+  if (!isEnergyParryWindowActive() || isEnergyParryResolving()) {
+    return false;
+  }
+  if (!attacker || (attacker.team ?? "enemy") !== "enemy") {
+    return false;
+  }
+
+  const previousX = player.x;
+  const previousY = player.y;
+  abilityState.energyParry.startupTime = 0;
+  abilityState.energyParry.activeTime = 0;
+  abilityState.energyParry.recoveryTime = 0;
+  abilityState.energyParry.cooldown = config.energyParryCooldown;
+  abilityState.energyParry.resolveLockTime = 0.1;
+  abilityState.energyParry.successFlash = 0.24;
+  placePlayerForEnergyParry(attacker);
+  player.shield = Math.max(player.shield, config.energyParryShield);
+  player.shieldTime = Math.max(player.shieldTime, config.energyParryShieldDuration);
+  player.energyParrySpeedTime = Math.max(player.energyParrySpeedTime, config.energyParryMoveDuration);
+  player.energyParryHitBonusTime = Math.max(player.energyParryHitBonusTime, config.energyParryHitBonusDuration);
+  player.energyParryHitBonusDamage = config.energyParryHitBonusDamage;
+  player.ghostTime = Math.max(player.ghostTime, 0.16);
+  player.flash = Math.max(player.flash, 0.14);
+  player.velocityX = 0;
+  player.velocityY = 0;
+  addAfterimage(previousX, previousY, player.facing, player.radius + 6, "#a8f3ff");
+  addAfterimage(player.x, player.y, player.facing, player.radius + 5, "#fff0ba");
+  addBeamEffect(previousX, previousY, player.x, player.y, "#b8f8ff", 4.5, 0.12);
+  addImpact(previousX, previousY, "#9fefff", 20);
+  addImpact(player.x, player.y, "#fff0b8", 28);
+  addExplosion(player.x, player.y, 34, "#d7f6ff");
+  addShake(7.4);
+  playAbilityCue("energyParrySuccess");
+  statusLine.textContent = source === "grapple"
+    ? "Energy Parry denied the catch and opened a counter window."
+    : "Energy Parry caught the hit. Counter from behind.";
+  return true;
 }
 
 function finalizePlayerWeaponAttack(attackId) {
@@ -252,6 +362,8 @@ export function spawnBullet(owner, targetX, targetY, collection, color, speed, d
     effect: options.effect ?? null,
     source: options.source ?? "weapon",
     ownerTeam: owner.team ?? "player",
+    ownerKind: owner.kind ?? (owner === player ? "player" : "enemy"),
+    ownerRef: owner ?? null,
     originX: startX,
     originY: startY,
     chargeRatio: options.chargeRatio ?? 0,
@@ -394,7 +506,7 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     entity.statusEffects = [];
   }
 
-  if (entity === player && abilityState.phaseShift.time > 0) {
+  if (entity === player && (abilityState.phaseShift.time > 0 || isEnergyParryResolving())) {
     return null;
   }
 
@@ -885,9 +997,10 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
       }
 
       registerPlayerWeaponHit(projectile.attackId);
+      const bonusDamage = consumePlayerEmpowerBonus();
       damageBot(
         bot,
-        (effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1),
+        (effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1) + bonusDamage,
         explosionColor,
         bot.x,
         bot.y,
@@ -958,10 +1071,14 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
     }
 
     const fieldModifier = getEntityFieldModifier(target);
-    applyPlayerDamage(
+    const parriedExplosion = applyPlayerDamage(
       (effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1) * (1 - fieldModifier.damageReduction),
       "cannon",
+      projectile.ownerRef ?? enemy,
     );
+    if (target === player && isEnergyParryResolving()) {
+      continue;
+    }
     if (effect.statusType === "burnslow") {
       applyStatusEffect(target, "burn", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), 1);
       applyStatusEffect(target, "slow", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), effect.statusMagnitude ?? 0.2);
@@ -988,6 +1105,9 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
       target.velocityY = (target.velocityY ?? 0) + pushDirection.y * pushDistance * 5.2;
       resolveMapCollision(target);
       maybeTeleportEntity(target);
+    }
+    if (parriedExplosion && !player.alive) {
+      break;
     }
   }
 }
@@ -1097,9 +1217,20 @@ export function defeatPlayer(source = "hit") {
   }
 }
 
-export function applyPlayerDamage(amount, source = "hit") {
+export function applyPlayerDamage(amount, source = "hit", attacker = null) {
   if (!player.alive) {
     return true;
+  }
+
+  if (tryTriggerEnergyParry(attacker, source)) {
+    addImpact(player.x, player.y, "#d7fbff", 18);
+    playDamageCue("player", 0, source, true);
+    return false;
+  }
+
+  if (isEnergyParryResolving()) {
+    playDamageCue("player", 0, source, true);
+    return false;
   }
 
   if (abilityState.phaseShift.time > 0 || abilityState.phaseDash.time > 0) {
@@ -1224,7 +1355,7 @@ export function resolveCombat() {
 
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
-        const impactDamage = getProjectileImpactDamage(bullet, bot.x, bot.y);
+        const impactDamage = getProjectileImpactDamage(bullet, bot.x, bot.y) + consumePlayerEmpowerBonus();
         registerPlayerWeaponHit(bullet.attackId);
         damageBot(bot, impactDamage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
@@ -1275,12 +1406,27 @@ export function resolveCombat() {
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
         statusLine.textContent = "Phantom copy intercepted enemy fire.";
       } else if (abilityState.dash.invulnerabilityTime <= 0) {
+        if (tryTriggerEnergyParry(bullet.ownerRef ?? enemy, bullet.source ?? "bullet")) {
+          if (!bullet.piercing) {
+            enemyBullets.splice(i, 1);
+          }
+          consumed = true;
+          break;
+        }
         const playerFieldModifier = getEntityFieldModifier(target);
         const impactDamage = getProjectileImpactDamage(bullet, target.x, target.y);
         const defeatedByBullet = applyPlayerDamage(
           impactDamage * (1 - playerFieldModifier.damageReduction),
           "bullet",
+          bullet.ownerRef ?? enemy,
         );
+        if (target === player && isEnergyParryResolving()) {
+          if (!bullet.piercing) {
+            enemyBullets.splice(i, 1);
+          }
+          consumed = true;
+          break;
+        }
         applyProjectileEffectToPlayer(bullet, target);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
         statusLine.textContent = playerFieldModifier.damageReduction > 0

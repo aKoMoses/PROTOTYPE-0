@@ -12,7 +12,7 @@ import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageM
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyMagneticField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
-  getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy } from "./combat.js";
+  getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy, consumePlayerEmpowerBonus, tryTriggerEnergyParry } from "./combat.js";
 import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
 import { spawnEnemyJavelin, confirmShockJavelinImpact, expireShockJavelin } from "./abilities.js";
 import { finishDuelRound } from "./match.js";
@@ -69,7 +69,7 @@ export function updateShockJavelins(dt) {
       javelin.hitTargets.add(bot.kind);
       damageBot(
         bot,
-        javelin.damage,
+        javelin.damage + consumePlayerEmpowerBonus(),
         javelin.color,
         javelin.x,
         javelin.y,
@@ -444,8 +444,12 @@ export function fireEnemyLance(target = player, altFire = false) {
       ? "Enemy lance drive cracked the phantom copy."
       : "Enemy lance punctured the phantom copy.";
   } else {
-    applyPlayerDamage(damage, altFire ? "lance-drive" : "lance");
-    applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration((altFire ? config.lanceAltShockDuration : config.lancePrimarySlowDuration) * (1 - getBuildStats().ccReduction)), altFire ? 1 : config.lancePrimarySlow);
+    applyPlayerDamage(damage, altFire ? "lance-drive" : "lance", enemy);
+    if (abilityState.energyParry.resolveLockTime <= 0) {
+      applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration((altFire ? config.lanceAltShockDuration : config.lancePrimarySlowDuration) * (1 - getBuildStats().ccReduction)), altFire ? 1 : config.lancePrimarySlow);
+    } else {
+      return true;
+    }
   }
   addImpact(hit.x, hit.y, "#fff0cd", altFire ? 26 : 18);
   addShake(altFire ? 7.2 : 4.8);
@@ -569,7 +573,10 @@ export function resolveEnemyAxeStrike() {
   }
 
   if (hit) {
-    applyPlayerDamage(profile.damage, "axe");
+    applyPlayerDamage(profile.damage, "axe", enemy);
+    if (abilityState.energyParry.resolveLockTime > 0) {
+      return;
+    }
     addImpact(player.x, player.y, profile.impactColor, profile.impactSize * 0.7);
     addShake(profile.shake * 0.55);
   }
@@ -590,7 +597,10 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   const dashDistance = pointToSegmentDistance(player.x, player.y, previousX, previousY, enemy.x, enemy.y);
   if (!enemy.activeMeleeStrike.connected && dashDistance <= enemy.radius + player.radius + 6) {
     enemy.activeMeleeStrike.connected = true;
-    applyPlayerDamage(enemy.activeMeleeStrike.profile.damage, "axe-finisher");
+    applyPlayerDamage(enemy.activeMeleeStrike.profile.damage, "axe-finisher", enemy);
+    if (abilityState.energyParry.resolveLockTime > 0) {
+      return;
+    }
     applyStatusEffect(player, "stun", getStatusDuration(enemy.activeMeleeStrike.profile.stun), 1);
     addImpact(player.x, player.y, "#fff1bd", 34);
     addShake(8.4);
@@ -606,6 +616,10 @@ export function castEnemyGrapple(forward, target = player) {
   playAbilityCue("magneticGrapple", "enemy");
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
+
+  if (target === player && tryTriggerEnergyParry(enemy, "grapple")) {
+    return;
+  }
 
   if (target === player && (abilityState.dash.invulnerabilityTime > 0 || abilityState.phaseShift.time > 0)) {
     addImpact(player.x, player.y, "#b8f9c9", 20);
@@ -684,8 +698,12 @@ export function castEnemyChainLightning(target = player) {
     applyPhantomDamage(24, "enemy-chain-lightning");
     applyStatusEffect(target, "slow", getStatusDuration(0.42), 0.2);
   } else {
-    applyPlayerDamage(24, "enemy-chain-lightning");
-    applyStatusEffect(target, "slow", getStatusDuration(0.5), 0.2);
+    applyPlayerDamage(24, "enemy-chain-lightning", enemy);
+    if (abilityState.energyParry.resolveLockTime <= 0) {
+      applyStatusEffect(target, "slow", getStatusDuration(0.5), 0.2);
+    } else {
+      return;
+    }
   }
   addImpact(target.x, target.y, "#d7bfff", 18);
 }
@@ -838,7 +856,10 @@ export function updateEnemyShockJavelins(dt) {
       continue;
     }
 
-    const defeatedByJavelin = applyPlayerDamage(javelin.damage, "javelin");
+    const defeatedByJavelin = applyPlayerDamage(javelin.damage, "javelin", enemy);
+    if (abilityState.energyParry.resolveLockTime > 0) {
+      continue;
+    }
     applyStatusEffect(player, "slow", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), javelin.slow);
     applyStatusEffect(player, "shock", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), 1);
     statusLine.textContent = "Enemy javelin electrified and slowed you.";

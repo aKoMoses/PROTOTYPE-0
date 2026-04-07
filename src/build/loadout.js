@@ -438,6 +438,7 @@ export function getBuildStats() {
     moveMultiplier:
       1 +
       (hasPerk("staticMomentum") && player.hasteTime > 0 ? 0.06 : 0) +
+      (player.energyParrySpeedTime > 0 ? config.energyParryMoveBonus : 0) +
       (player.lastStandTime > 0 ? config.lastStandMoveBonus : 0) +
       getRuneValue("support", "secondary") * 0.012,
     omnivamp: hasPerk("omnivampCore") ? 0.07 : 0,

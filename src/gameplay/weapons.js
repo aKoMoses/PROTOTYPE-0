@@ -7,7 +7,7 @@ import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addSlashEffect, applyHitReaction, addBeamEffect } from "./effects.js";
 import { resolveMapCollision, getMapLayout } from "../maps.js";
 import { getBuildStats, getWeaponDamageMultiplier, getPulseMagazineSize, getContentItem, getWeaponCooldown, getStatusDuration } from "../build/loadout.js";
-import { getAllBots, getPrimaryBot, isCombatLive, damageBot, spawnBullet, startPulseReload, finalizePulseReload, applyStatusEffect, getStatusState, damagePylonsAlongLine, getPlayerSpawn, clearStatusEffects, beginPlayerWeaponAttack, registerPlayerWeaponHit, completePlayerWeaponAttack, resetPlayerWeaponMomentum } from "./combat.js";
+import { getAllBots, getPrimaryBot, isCombatLive, damageBot, spawnBullet, startPulseReload, finalizePulseReload, applyStatusEffect, getStatusState, damagePylonsAlongLine, getPlayerSpawn, clearStatusEffects, beginPlayerWeaponAttack, registerPlayerWeaponHit, completePlayerWeaponAttack, resetPlayerWeaponMomentum, consumePlayerEmpowerBonus } from "./combat.js";
 import { mapState } from "../state.js";
 import { playWeaponFire } from "../audio.js";
 import { queuePhantomWeapon } from "./phantom.js";
@@ -252,9 +252,14 @@ export function attackChargeLance(altFire = false) {
     return;
   }
 
+  let empowerBonus = null;
   for (const hit of hits) {
     registerPlayerWeaponHit(attackId);
-    damageBot(hit.target, damage, altFire ? "#ffe3a0" : "#fff1c9", hit.target.x, hit.target.y, 0);
+    if (empowerBonus == null) {
+      empowerBonus = consumePlayerEmpowerBonus();
+    }
+    damageBot(hit.target, damage + empowerBonus, altFire ? "#ffe3a0" : "#fff1c9", hit.target.x, hit.target.y, 0);
+    empowerBonus = 0;
     applyStatusEffect(
       hit.target,
       altFire ? "stun" : "slow",
@@ -454,6 +459,7 @@ export function tryDashStrikeHits(profile, startX, startY, endX, endY) {
     player.activeAxeStrike.worldHit = true;
   }
 
+  let empowerBonus = null;
   for (const bot of getAllBots()) {
     if (!bot.alive || player.activeAxeStrike.hitTargets.has(bot.kind)) {
       continue;
@@ -475,14 +481,18 @@ export function tryDashStrikeHits(profile, startX, startY, endX, endY) {
     player.activeAxeStrike.hitTargets.add(bot.kind);
     hitAny = true;
     registerPlayerWeaponHit(player.activeAxeStrike.attackId);
+    if (empowerBonus == null) {
+      empowerBonus = consumePlayerEmpowerBonus();
+    }
     damageBot(
       bot,
-      profile.damage,
+      profile.damage + empowerBonus,
       profile.color,
       bot.x - player.attackCommitX * 6,
       bot.y - player.attackCommitY * 6,
       0,
     );
+    empowerBonus = 0;
     applyStatusEffect(bot, "stun", getStatusDuration(profile.stun), 1);
     addImpact(bot.x, bot.y, profile.impactColor, 42);
     addImpact(bot.x, bot.y, "#fff7dc", 24);
@@ -545,16 +555,21 @@ export function resolveQueuedAxeStrike(queuedStrike) {
     return;
   }
 
+  let empowerBonus = null;
   for (const hit of hits) {
     registerPlayerWeaponHit(queuedStrike.attackId);
+    if (empowerBonus == null) {
+      empowerBonus = consumePlayerEmpowerBonus();
+    }
     damageBot(
       hit.bot,
-      profile.damage,
+      profile.damage + empowerBonus,
       profile.color,
       hit.bot.x - player.attackCommitX * 8,
       hit.bot.y - player.attackCommitY * 8,
       0,
     );
+    empowerBonus = 0;
 
     addImpact(hit.bot.x, hit.bot.y, profile.impactColor, profile.hitMode === "arc" ? 36 : 28);
     addImpact(hit.bot.x, hit.bot.y, "#fff7dc", profile.hitMode === "arc" ? 20 : 16);

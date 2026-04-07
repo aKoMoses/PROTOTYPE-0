@@ -112,6 +112,9 @@ export const player = {
   shieldTime: 0,
   hasteTime: 0,
   afterDashHasteTime: 0,
+  energyParrySpeedTime: 0,
+  energyParryHitBonusTime: 0,
+  energyParryHitBonusDamage: 0,
   ghostTime: 0,
   failsafeReady: true,
   defenseFailsafeReady: true,
@@ -239,6 +242,14 @@ export const abilityState = {
   },
   gravityWell: {
     cooldown: 0,
+  },
+  energyParry: {
+    cooldown: 0,
+    startupTime: 0,
+    activeTime: 0,
+    recoveryTime: 0,
+    resolveLockTime: 0,
+    successFlash: 0,
   },
   phaseShift: {
     cooldown: 0,

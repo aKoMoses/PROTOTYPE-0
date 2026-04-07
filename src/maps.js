@@ -41,6 +41,7 @@ export const buildLabVisiblePools = {
     "magneticField",
     "magneticGrapple",
     "energyShield",
+    "energyParry",
     "empBurst",
     "chainLightning",
     "blinkStep",

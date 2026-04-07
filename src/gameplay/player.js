@@ -80,6 +80,9 @@ export function resetPlayer({ silent = false } = {}) {
   player.shieldTime = 0;
   player.hasteTime = 0;
   player.afterDashHasteTime = 0;
+  player.energyParrySpeedTime = 0;
+  player.energyParryHitBonusTime = 0;
+  player.energyParryHitBonusDamage = 0;
   player.hitReactionTime = 0;
   player.hitReactionX = 0;
   player.hitReactionY = 0;
@@ -128,6 +131,12 @@ export function resetPlayer({ silent = false } = {}) {
   abilityState.grapple.pullStopRequested = false;
   abilityState.grapple.tetherPulse = 0;
   abilityState.shield.cooldown = 0;
+  abilityState.energyParry.cooldown = 0;
+  abilityState.energyParry.startupTime = 0;
+  abilityState.energyParry.activeTime = 0;
+  abilityState.energyParry.recoveryTime = 0;
+  abilityState.energyParry.resolveLockTime = 0;
+  abilityState.energyParry.successFlash = 0;
   abilityState.booster.cooldown = 0;
   abilityState.emp.cooldown = 0;
   abilityState.backstep.cooldown = 0;
@@ -266,8 +275,12 @@ export function updatePlayer(dt) {
   const wantsLanceAlt = input.altFiring && player.weapon === weapons.lance.key;
   const wantsCannonCharge = player.weapon === weapons.cannon.key && (input.firing || input.altFiring);
   const phaseLocked = abilityState.phaseShift.time > 0;
+  const parryLocked =
+    abilityState.energyParry.startupTime > 0 ||
+    abilityState.energyParry.activeTime > 0 ||
+    abilityState.energyParry.recoveryTime > 0;
 
-  const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && !phaseLocked;
+  const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && !phaseLocked && !parryLocked;
   if (player.weapon === weapons.sniper.key) {
     if (canUseWeapon && input.firing) {
       player.weaponChargeActive = true;
@@ -303,7 +316,7 @@ export function updatePlayer(dt) {
     player.weaponCharge = 0;
   }
 
-  if (phaseLocked) {
+  if (phaseLocked || parryLocked) {
     player.weaponChargeActive = false;
     player.weaponCharge = 0;
     return;

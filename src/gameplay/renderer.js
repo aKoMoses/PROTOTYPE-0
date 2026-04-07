@@ -1508,6 +1508,11 @@ export function drawWorld() {
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
   const weaponSkin = content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
   const playerHitOffset = getHitReactionOffset(player);
+  const parryStartup = abilityState.energyParry.startupTime > 0;
+  const parryActive = abilityState.energyParry.activeTime > 0;
+  const parryVisible = parryStartup || parryActive;
+  const parryIntensity = parryActive ? 1 : parryStartup ? 0.62 : 0;
+  const parryPulse = 0.5 + Math.sin(performance.now() * (parryActive ? 0.03 : 0.018)) * 0.5;
   ctx.save();
   const recoilOffset = player.recoil * 8;
   ctx.translate(
@@ -1533,12 +1538,67 @@ export function drawWorld() {
     ctx.stroke();
     ctx.restore();
   }
+  if (parryVisible) {
+    ctx.save();
+    ctx.rotate(-player.facing);
+    const shellRadius = player.radius + (parryActive ? 11 : 8);
+    const shellGrow = parryPulse * (parryActive ? 2.6 : 1.2);
+    const floorRadius = player.radius + 18 + shellGrow;
+    ctx.strokeStyle = parryActive ? "rgba(212, 251, 255, 0.98)" : "rgba(138, 218, 255, 0.86)";
+    ctx.lineWidth = parryActive ? 4.1 : 2.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, shellRadius + shellGrow, -Math.PI * 0.78, Math.PI * 0.78);
+    ctx.stroke();
+    ctx.strokeStyle = parryActive ? "rgba(255, 247, 188, 0.88)" : "rgba(200, 241, 255, 0.72)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, shellRadius + 7 + shellGrow, -Math.PI * 0.52, Math.PI * 0.52);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(116, 232, 255, ${0.22 + parryIntensity * 0.3})`;
+    ctx.lineWidth = 2.1;
+    ctx.beginPath();
+    ctx.arc(0, 0, floorRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255, 241, 170, ${0.32 + parryPulse * 0.28})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, floorRadius, -Math.PI * 0.18, Math.PI * 0.18);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, floorRadius, Math.PI * 0.82, Math.PI * 1.18);
+    ctx.stroke();
+    ctx.translate(player.radius + 8, 0);
+    ctx.strokeStyle = parryActive ? "rgba(233, 252, 255, 0.98)" : "rgba(177, 234, 255, 0.9)";
+    ctx.lineWidth = parryActive ? 4.6 : 3.2;
+    ctx.beginPath();
+    ctx.moveTo(-5, -14);
+    ctx.lineTo(15, 0);
+    ctx.lineTo(-5, 14);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255, 241, 170, ${0.36 + parryPulse * 0.36})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-12, -7);
+    ctx.lineTo(19, -2);
+    ctx.lineTo(-12, 7);
+    ctx.stroke();
+    for (let index = 0; index < 3; index += 1) {
+      const sparkOffset = -10 + index * 9 + parryPulse * 2;
+      ctx.strokeStyle = `rgba(148, 238, 255, ${0.24 + parryIntensity * 0.22})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-6 + index * 2, sparkOffset);
+      ctx.lineTo(6 + index * 4, sparkOffset * 0.35);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   drawActorFrame(
     player,
     {
-      body: player.flash > 0 || abilityState.dash.invulnerabilityTime > 0 ? "#f6fdff" : avatar.bodyColor,
-      accent: avatar.accentColor,
-      detail: avatar.detailColor,
+      body: player.flash > 0 || abilityState.dash.invulnerabilityTime > 0 ? "#f6fdff" : parryVisible ? "#dff8ff" : avatar.bodyColor,
+      accent: parryVisible ? "#fff2b2" : avatar.accentColor,
+      detail: parryVisible ? "#98dfff" : avatar.detailColor,
       variant: avatar.key,
     },
     { scale: 1 },
@@ -1548,7 +1608,7 @@ export function drawWorld() {
     avatar.detailColor,
     weaponSkin.tint,
     weaponSkin.glow,
-    player.slashFlash + (player.weaponChargeFlash ?? 0),
+    player.slashFlash + (player.weaponChargeFlash ?? 0) + (player.energyParryHitBonusTime > 0 ? 0.18 : 0),
     player.weapon === weapons.sniper.key || player.weapon === weapons.cannon.key ? player.weaponCharge : 0,
   );
 
@@ -1564,6 +1624,27 @@ export function drawWorld() {
     ctx.lineWidth = 2.8;
     ctx.beginPath();
     ctx.arc(0, 0, player.radius + 14 + Math.sin(performance.now() * 0.022) * 1.2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (abilityState.energyParry.successFlash > 0) {
+    ctx.strokeStyle = `rgba(225, 252, 255, ${0.42 + abilityState.energyParry.successFlash * 1.6})`;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius + 16 + (1 - abilityState.energyParry.successFlash / 0.24) * 18, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (player.energyParryHitBonusTime > 0) {
+    ctx.strokeStyle = "rgba(255, 239, 162, 0.88)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(12, 0, 9 + Math.sin(performance.now() * 0.028) * 1.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 252, 223, 0.82)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(3, -8);
+    ctx.lineTo(18, -2);
+    ctx.lineTo(4, 8);
     ctx.stroke();
   }
   ctx.restore();

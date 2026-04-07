@@ -7,7 +7,7 @@ import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getAbilityCooldown, hasRuneShard } from "../build/loadout.js";
-import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack } from "./combat.js";
+import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
@@ -78,6 +78,14 @@ function finalizeJavelinCycle(startCooldown = true) {
   }
 }
 
+function isEnergyParryLocked() {
+  return (
+    abilityState.energyParry.startupTime > 0 ||
+    abilityState.energyParry.activeTime > 0 ||
+    abilityState.energyParry.recoveryTime > 0
+  );
+}
+
 function getGrappleAnchorPoint(target) {
   const direction = normalize(target.x - player.x, target.y - player.y);
   return {
@@ -91,7 +99,7 @@ export function startDashInput() {
     return;
   }
 
-  if (abilityState.dash.inputHeld || abilityState.dash.charges <= 0 || abilityState.dash.activeTime > 0) {
+  if (isEnergyParryLocked() || abilityState.dash.inputHeld || abilityState.dash.charges <= 0 || abilityState.dash.activeTime > 0) {
     return;
   }
 
@@ -102,7 +110,7 @@ export function startDashInput() {
 }
 
 export function executeDash(dashMode) {
-  if (dashMode === "tap" && abilityState.dash.charges <= 0) {
+  if (isEnergyParryLocked() || (dashMode === "tap" && abilityState.dash.charges <= 0)) {
     return;
   }
 
@@ -529,6 +537,41 @@ export function castEnergyShield() {
   statusLine.textContent = "Energy Shield online. Absorb the next burst.";
 }
 
+export function castEnergyParry() {
+  if (
+    !isCombatLive() ||
+    abilityState.energyParry.cooldown > 0 ||
+    isEnergyParryLocked() ||
+    abilityState.phaseShift.time > 0
+  ) {
+    return;
+  }
+
+  if (player.pendingAxeStrike?.attackId != null) {
+    completePlayerWeaponAttack(player.pendingAxeStrike.attackId, false);
+  }
+  if (player.activeAxeStrike?.attackId != null) {
+    completePlayerWeaponAttack(player.activeAxeStrike.attackId, player.activeAxeStrike.connected || player.activeAxeStrike.worldHit);
+  }
+
+  triggerAbilityCastRuneEffects();
+  player.attackStartupTime = 0;
+  player.attackCommitTime = 0;
+  player.pendingAxeStrike = null;
+  player.activeAxeStrike = null;
+  player.weaponCharge = 0;
+  player.weaponChargeActive = false;
+  abilityState.energyParry.startupTime = config.energyParryStartup;
+  abilityState.energyParry.activeTime = 0;
+  abilityState.energyParry.recoveryTime = 0;
+  abilityState.energyParry.resolveLockTime = 0;
+  abilityState.energyParry.successFlash = 0;
+  queuePhantomAbility("energyParry");
+  playAbilityCue("energyParry");
+  addImpact(player.x, player.y, "#bdf4ff", 22);
+  statusLine.textContent = "Energy Parry armed. Hold the read and catch the hit clean.";
+}
+
 export function castEmpBurst() {
   if (!isCombatLive() || abilityState.emp.cooldown > 0) {
     return;
@@ -622,7 +665,7 @@ export function castChainLightning() {
     addBeamEffect(sourceX, sourceY, currentTarget.x, currentTarget.y, hop === 0 ? "#9feaff" : "#d6bbff", hop === 0 ? 5 : 3.5, 0.14);
     damageBot(
       currentTarget,
-      currentDamage,
+      currentDamage + consumePlayerEmpowerBonus(),
       hop === 0 ? "#9feaff" : "#d6bbff",
       currentTarget.x,
       currentTarget.y,
@@ -811,7 +854,7 @@ export function castSpeedSurge() {
 }
 
 export function castUltimate() {
-  if (!isCombatLive() || abilityState.ultimate.cooldown > 0 || abilityState.phaseShift.time > 0) {
+  if (!isCombatLive() || abilityState.ultimate.cooldown > 0 || abilityState.phaseShift.time > 0 || isEnergyParryLocked()) {
     return;
   }
 
@@ -881,6 +924,7 @@ export function castUltimate() {
 export function updateExtraAbilities(dt) {
   abilityState.grapple.cooldown = Math.max(0, abilityState.grapple.cooldown - dt);
   abilityState.shield.cooldown = Math.max(0, abilityState.shield.cooldown - dt);
+  abilityState.energyParry.cooldown = Math.max(0, abilityState.energyParry.cooldown - dt);
   abilityState.booster.cooldown = Math.max(0, abilityState.booster.cooldown - dt);
   abilityState.emp.cooldown = Math.max(0, abilityState.emp.cooldown - dt);
   abilityState.backstep.cooldown = Math.max(0, abilityState.backstep.cooldown - dt);
@@ -900,9 +944,35 @@ export function updateExtraAbilities(dt) {
   player.shieldTime = Math.max(0, player.shieldTime - dt);
   player.hasteTime = Math.max(0, player.hasteTime - dt);
   player.afterDashHasteTime = Math.max(0, player.afterDashHasteTime - dt);
+  player.energyParrySpeedTime = Math.max(0, player.energyParrySpeedTime - dt);
+  player.energyParryHitBonusTime = Math.max(0, player.energyParryHitBonusTime - dt);
+  if (player.energyParryHitBonusTime <= 0) {
+    player.energyParryHitBonusDamage = 0;
+  }
   player.ghostTime = Math.max(0, player.ghostTime - dt);
   player.revivalPrimed = Math.max(0, player.revivalPrimed - dt);
   player.decoyTime = Math.max(0, player.decoyTime - dt);
+  abilityState.energyParry.resolveLockTime = Math.max(0, abilityState.energyParry.resolveLockTime - dt);
+  abilityState.energyParry.successFlash = Math.max(0, abilityState.energyParry.successFlash - dt);
+
+  const hadParryStartup = abilityState.energyParry.startupTime > 0;
+  if (abilityState.energyParry.startupTime > 0) {
+    abilityState.energyParry.startupTime = Math.max(0, abilityState.energyParry.startupTime - dt);
+    if (hadParryStartup && abilityState.energyParry.startupTime === 0) {
+      abilityState.energyParry.activeTime = config.energyParryWindow;
+    }
+  } else if (abilityState.energyParry.activeTime > 0) {
+    abilityState.energyParry.activeTime = Math.max(0, abilityState.energyParry.activeTime - dt);
+    if (abilityState.energyParry.activeTime === 0) {
+      abilityState.energyParry.recoveryTime = config.energyParryFailRecovery;
+      abilityState.energyParry.cooldown = config.energyParryCooldown;
+      playAbilityCue("energyParryFail");
+      addImpact(player.x, player.y, "#8fbad3", 18);
+      statusLine.textContent = "Energy Parry whiffed. You are briefly punishable.";
+    }
+  } else if (abilityState.energyParry.recoveryTime > 0) {
+    abilityState.energyParry.recoveryTime = Math.max(0, abilityState.energyParry.recoveryTime - dt);
+  }
 
   if (abilityState.grapple.phase === "flying" && abilityState.grapple.projectile) {
     const projectile = abilityState.grapple.projectile;
@@ -977,7 +1047,7 @@ export function updateExtraAbilities(dt) {
 
 export function startAbilityInput(slotIndex) {
   const ability = getAbilityBySlot(slotIndex);
-  if (!ability || abilityState.phaseShift.time > 0) {
+  if (!ability || abilityState.phaseShift.time > 0 || isEnergyParryLocked()) {
     return;
   }
 
@@ -989,6 +1059,8 @@ export function startAbilityInput(slotIndex) {
     castMagneticGrapple();
   } else if (ability.key === "energyShield") {
     castEnergyShield();
+  } else if (ability.key === "energyParry") {
+    castEnergyParry();
   } else if (ability.key === "empBurst") {
     castEmpBurst();
   } else if (ability.key === "backstepBurst") {

@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-04-07 17:31:08
+- **Author:** AKOMOSES
+- **Branch:** `codex/buildmaker-gameplay-identity-refactor`
+- **Type:** Energy Parry Presentation Pass, Ability Stability Sweep, Duel Counter Fix
+
+### Summary
+- Reworked the in-game `Energy Parry` presentation so the stance is now much clearer at a glance: stronger frontal guard shell, floor anchor ring, directional counter chevrons, brighter body tint, clearer success flash, and a more readable empowered next-hit glow.
+- Fixed the Duel projectile crash on successful `Energy Parry` by restoring the missing `addBeamEffect` combat import that was breaking the success teleport/counter path the moment a projectile was negated.
+- Ran a broad browser sweep on the active skills and ultimates with injected live combat states to catch runtime regressions instead of relying only on build output.
+- Verified player-side casts across `Shock Javelin`, `Magnetic Field`, `Magnetic Grapple`, `Energy Shield`, `Energy Parry`, `EMP Burst`, `Chain Lightning`, `Backstep Burst`, `Blink Step`, `Phase Dash`, `Pulse Burst`, `Rail Shot`, `Gravity Well`, `Phase Shift`, `Hologram Decoy`, `Speed Surge`, plus all active ultimates.
+- Verified `Energy Parry` specifically against multiple enemy paths including pulse projectile, sniper projectile, cannon shell, grapple, chain lightning, lance, alt-lance, and enemy javelin to confirm the negate/counter flow is now stable in Duel.
+
+### Files
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+- `src/audio.js`
+- `src/build/loadout.js`
+- `src/build/ui.js`
+- `src/config.js`
+- `src/content.js`
+- `src/gameplay/abilities.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/enemy.js`
+- `src/gameplay/hud.js`
+- `src/gameplay/player.js`
+- `src/gameplay/renderer.js`
+- `src/gameplay/weapons.js`
+- `src/maps.js`
+- `src/state.js`
+
+### Notes
+- Validation completed with `npm.cmd run build`.
+- Browser sweep completed with injected Duel/Training states and no runtime errors on the tested active abilities and ultimates.
+
+---
+
 ## 2026-04-07 16:33:25
 - **Author:** AKOMOSES
 - **Branch:** `codex/buildmaker-gameplay-identity-refactor`

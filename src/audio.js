@@ -637,6 +637,19 @@ export function playAbilityCue(abilityKey, owner = "player") {
     case "shockJavelin":
       playTone({ type: "sawtooth", frequency: 260, sweepTo: 680, duration: 0.14, gain: 0.05, filterType: "bandpass", filterFrequency: 1240, pan });
       break;
+    case "energyParry":
+      playNoise({ duration: 0.08, gain: 0.036, filterType: "highpass", filterFrequency: 1800, pan });
+      playTone({ type: "triangle", frequency: 320, sweepTo: 510, duration: 0.12, gain: 0.046, filterType: "bandpass", filterFrequency: 1500, pan });
+      break;
+    case "energyParrySuccess":
+      playNoise({ duration: 0.06, gain: 0.044, filterType: "bandpass", filterFrequency: 2100, q: 1.3, pan });
+      playTone({ type: "square", frequency: 620, sweepTo: 290, duration: 0.12, gain: 0.058, filterType: "bandpass", filterFrequency: 1850, pan });
+      playTone({ type: "sine", frequency: 220, sweepTo: 520, duration: 0.09, gain: 0.034, pan });
+      break;
+    case "energyParryFail":
+      playNoise({ duration: 0.08, gain: 0.024, filterType: "lowpass", filterFrequency: 760, pan });
+      playTone({ type: "sine", frequency: 260, sweepTo: 180, duration: 0.1, gain: 0.026, filterType: "lowpass", filterFrequency: 980, pan });
+      break;
     case "magneticField":
     case "gravityWell":
       playTone({ type: "sine", frequency: 130, sweepTo: 86, duration: 0.28, gain: 0.06, filterType: "lowpass", filterFrequency: 620, pan });

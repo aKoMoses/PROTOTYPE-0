@@ -462,6 +462,14 @@ function getAbilityValueLines(item) {
   const spellsShardActive = getSelectedRuneUltimateTree() === "spells";
 
   switch (item.key) {
+    case "energyParry":
+      return [
+        `Startup: ${formatSeconds(config.energyParryStartup)}. Active parry: ${formatSeconds(config.energyParryWindow)}. Fail recovery: ${formatSeconds(config.energyParryFailRecovery)}.`,
+        `If struck during the window: negate the hit, blink behind the attacker, gain ${formatNumber(config.energyParryShield)} shield for ${formatSeconds(config.energyParryShieldDuration)}.`,
+        `Success buff: +${formatPercent(config.energyParryMoveBonus)} move speed for ${formatSeconds(config.energyParryMoveDuration)} and next hit +${formatNumber(config.energyParryHitBonusDamage)} within ${formatSeconds(config.energyParryHitBonusDuration)}.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.energyParryCooldown))}.`,
+        "Role: high-skill defensive counter that punishes predictable burst and engages.",
+      ];
     case "shockJavelin":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.javelinCooldown))}.`,

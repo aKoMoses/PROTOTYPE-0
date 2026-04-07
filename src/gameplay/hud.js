@@ -149,6 +149,9 @@ export function updateHud() {
     playerBuildTag.textContent = player.lastStandTime > 0
       ? `${keystoneName} | ${perkName} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
       : `${keystoneName} | ${perkName}`;
+    if (player.energyParryHitBonusTime > 0 && player.energyParryHitBonusDamage > 0) {
+      playerBuildTag.textContent = `${playerBuildTag.textContent} | Counter +${Math.round(player.energyParryHitBonusDamage)}`;
+    }
   }
   const pulseMeterRatio = player.reloadTime > 0
     ? 1 - player.reloadTime / config.pulseReloadTime
@@ -321,6 +324,30 @@ export function getAbilityHudState(abilityKey) {
         cooldownRatio: abilityState.shield.cooldown <= 0 ? 0 : abilityState.shield.cooldown / config.shieldCooldown,
         timer: abilityState.shield.cooldown <= 0 ? "" : abilityState.shield.cooldown.toFixed(1),
       };
+    case "energyParry": {
+      const locked =
+        abilityState.energyParry.startupTime > 0 ||
+        abilityState.energyParry.activeTime > 0 ||
+        abilityState.energyParry.recoveryTime > 0;
+      return {
+        ready: abilityState.energyParry.cooldown <= 0 && !locked,
+        charging: abilityState.energyParry.startupTime > 0 || abilityState.energyParry.activeTime > 0,
+        cooldownRatio:
+          abilityState.energyParry.cooldown <= 0
+            ? 0
+            : Math.max(0, Math.min(1, abilityState.energyParry.cooldown / config.energyParryCooldown)),
+        timer:
+          abilityState.energyParry.activeTime > 0
+            ? "PARRY"
+            : abilityState.energyParry.recoveryTime > 0
+              ? "FAIL"
+              : abilityState.energyParry.startupTime > 0
+                ? "SET"
+                : abilityState.energyParry.cooldown <= 0
+                  ? ""
+                  : abilityState.energyParry.cooldown.toFixed(1),
+      };
+    }
     case "empBurst":
       return {
         ready: abilityState.emp.cooldown <= 0,
