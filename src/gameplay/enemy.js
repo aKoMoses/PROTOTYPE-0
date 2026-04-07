@@ -595,13 +595,32 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   }
 }
 
-export function castEnemyGrapple(forward) {
+export function castEnemyGrapple(forward, target = player) {
   enemy.abilityCooldowns.grapple = config.grappleCooldown + 0.6;
-  enemy.dodgeVectorX = forward.x;
-  enemy.dodgeVectorY = forward.y;
-  enemy.dodgeTime = 0.16;
   playAbilityCue("magneticGrapple", "enemy");
+  addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
+
+  if (target === player && abilityState.dash.invulnerabilityTime > 0) {
+    addImpact(player.x, player.y, "#b8f9c9", 20);
+    statusLine.textContent = "You slipped the enemy grapple with clean timing.";
+    return;
+  }
+
+  const toEnemy = normalize(enemy.x - target.x, enemy.y - target.y);
+  const currentDistance = length(target.x - enemy.x, target.y - enemy.y);
+  const desiredDistance = Math.max(enemy.radius + target.radius + 18, currentDistance - config.grapplePullDistance * 0.82);
+  target.x = enemy.x - toEnemy.x * desiredDistance;
+  target.y = enemy.y - toEnemy.y * desiredDistance;
+  target.velocityX = toEnemy.x * 260;
+  target.velocityY = toEnemy.y * 260;
+  resolveMapCollision(target);
+  maybeTeleportEntity(target);
+  applyStatusEffect(target, "slow", getStatusDuration(config.grappleSnareDuration * 0.85), config.grappleSnare);
+  addImpact(target.x, target.y, "#ffe5dd", 22);
+  statusLine.textContent = target === playerClone
+    ? "Enemy grapple dragged the phantom copy out of position."
+    : "Enemy grapple dragged you into close pressure.";
 }
 
 export function castEnemyShield() {
@@ -1009,7 +1028,7 @@ export function updateEnemy(dt) {
     distance > targetRange + 120 &&
     (shouldPunish || distance > behaviorProfile.abilityPressureDistance)
   ) {
-    castEnemyGrapple(forward);
+    castEnemyGrapple(forward, focusTargetEntity);
   }
 
   if (

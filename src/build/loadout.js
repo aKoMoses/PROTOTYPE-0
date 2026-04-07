@@ -14,31 +14,43 @@ export function getVisibleContentItems(group) {
     .filter((item) => item && item.state === "playable");
 }
 
-export function normalizeLoadoutSelections() {
-  if (!buildLabVisiblePools.weapons.includes(loadout.weapon)) {
-    loadout.weapon = buildLabVisiblePools.weapons[0];
-  }
+export function normalizeLoadoutSelections({ preserveEmptySlots = false } = {}) {
+  loadout.weapon = buildLabVisiblePools.weapons.includes(loadout.weapon)
+    ? loadout.weapon
+    : preserveEmptySlots
+      ? null
+      : buildLabVisiblePools.weapons[0];
 
-  loadout.abilities = [...new Set(loadout.abilities.filter((key) => buildLabVisiblePools.abilities.includes(key)))];
-  for (const fallback of ["shockJavelin", "magneticField", "energyShield", "magneticGrapple", "empBurst"]) {
-    if (!loadout.abilities.includes(fallback) && buildLabVisiblePools.abilities.includes(fallback)) {
-      loadout.abilities.push(fallback);
+  const seenAbilities = new Set();
+  const normalizedAbilities = Array.from({ length: 3 }, (_, index) => {
+    const abilityKey = loadout.abilities[index] ?? null;
+    if (!buildLabVisiblePools.abilities.includes(abilityKey) || seenAbilities.has(abilityKey)) {
+      return null;
     }
-    if (loadout.abilities.length >= 3) {
-      break;
+    seenAbilities.add(abilityKey);
+    return abilityKey;
+  });
+
+  if (!preserveEmptySlots) {
+    for (const fallback of ["shockJavelin", "magneticField", "energyShield", "magneticGrapple", "empBurst"]) {
+      if (!buildLabVisiblePools.abilities.includes(fallback) || normalizedAbilities.includes(fallback)) {
+        continue;
+      }
+
+      const emptyIndex = normalizedAbilities.indexOf(null);
+      if (emptyIndex === -1) {
+        break;
+      }
+      normalizedAbilities[emptyIndex] = fallback;
     }
   }
-  loadout.abilities = loadout.abilities.slice(0, 3);
+  loadout.abilities = normalizedAbilities;
 
-  if (!buildLabVisiblePools.perks.includes(loadout.perks[0])) {
-    loadout.perks = [buildLabVisiblePools.perks[0]];
-  } else {
-    loadout.perks = [loadout.perks[0]];
-  }
+  const perkKey = buildLabVisiblePools.perks.includes(loadout.perks[0]) ? loadout.perks[0] : null;
+  loadout.perks = [preserveEmptySlots ? perkKey : perkKey ?? buildLabVisiblePools.perks[0]];
 
-  if (!buildLabVisiblePools.ultimates.includes(loadout.ultimate)) {
-    loadout.ultimate = buildLabVisiblePools.ultimates[0];
-  }
+  const ultimateKey = buildLabVisiblePools.ultimates.includes(loadout.ultimate) ? loadout.ultimate : null;
+  loadout.ultimate = preserveEmptySlots ? ultimateKey : ultimateKey ?? buildLabVisiblePools.ultimates[0];
 }
 
 export function getContentItem(group, key) {
@@ -214,6 +226,15 @@ export function getRuneValue(treeKey, nodeKey) {
 
 export function getStatusDuration(duration) {
   return duration * (1 + getRuneValue("spells", "secondary") * 0.03);
+}
+
+export function hasRuneShard(treeKey) {
+  return getSelectedRuneUltimateTree() === treeKey;
+}
+
+export function getAbilityCooldown(baseCooldown) {
+  const reduction = Math.min(0.24, getRuneValue("spells", "secondary") * 0.04);
+  return baseCooldown * (1 - reduction);
 }
 
 export function getIconMarkup(item, type) {

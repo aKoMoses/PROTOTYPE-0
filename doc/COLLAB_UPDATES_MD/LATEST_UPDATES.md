@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-04-07 10:59:40
+- **Author:** AKOMOSES
+- **Branch:** `codex/buildmaker-gameplay-identity-refactor`
+- **Type:** Build Maker Rework, Lock/Unlock UX, Rune Gating, Competitive Identity Pass
+
+### Summary
+- Reworked the Build Maker into a true slot-based flow with explicit preview, manual validation, and no silent auto-skip between weapon, ability, perk, ultimate, and rune decisions.
+- Added a reliable `Lock In / Cancel Preview / Unlock Slot` interaction loop so players can preview, confirm, replace, and clear loadout choices without hidden fallback picks.
+- Made empty slots readable in the UI, blocked rune progression and match deployment until every required build slot is truly locked, and kept the builder detail panel synced to the active slot state.
+- Strengthened competitive readability by improving tooltips with real values, cleaning several gameplay identity hooks, and aligning the prematch flow with the intended 1v1 arena direction.
+- Preserved the in-training Build Lab workflow so build edits stay fast and test-friendly while using the same validation rules as the prematch builder.
+
+### Files
+- `index.html`
+- `src/build/loadout.js`
+- `src/build/ui.js`
+- `src/config.js`
+- `src/content.js`
+- `src/dom.js`
+- `src/gameplay/abilities.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/enemy.js`
+- `src/gameplay/input.js`
+- `src/gameplay/match.js`
+- `src/gameplay/player.js`
+- `src/gameplay/weapons.js`
+- `src/state.js`
+- `styles.css`
+
+### Notes
+- Validation completed with `npm.cmd run build`.
+- This push is intended as the shared collaborator baseline for the new Build Maker and gameplay identity pass.
+
+---
+
 ## 2026-04-06 23:53:33
 - **Author:** AKOMOSES
 - **Branch:** `codex/fix-interface-buttons`

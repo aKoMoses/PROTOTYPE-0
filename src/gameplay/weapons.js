@@ -272,17 +272,17 @@ export function getAxeComboProfile(step) {
       range: 286,
       width: 16,
       arc: 0.16,
-      damage: 68,
+      damage: 60,
       cleave: false,
       commitSpeed: 0,
       commitDuration: 0,
       stun: 0,
       color: "#74f6ff",
       impactColor: "#ddffff",
-      startup: 0.14,
+      startup: 0.12,
       shake: 11.2,
       impactSize: 42,
-      label: "Long electro edge bit hard through the lane.",
+      label: "Electro Axe opener landed clean and set up the follow-up.",
       miss: "Long opener whiffed. The axe is punishable if you miss the line.",
     };
   }
@@ -294,38 +294,38 @@ export function getAxeComboProfile(step) {
       range: 154,
       width: 56,
       arc: 1.34,
-      damage: 80,
+      damage: 72,
       cleave: true,
       commitSpeed: 0,
       commitDuration: 0,
       stun: 0,
       color: "#47cfff",
       impactColor: "#d4f6ff",
-      startup: 0.2,
+      startup: 0.16,
       shake: 15.8,
       impactSize: 50,
-      label: "Heavy cleave cracked wide with brutal electric force.",
+      label: "Electro Axe cleave connected and kept the pressure close.",
       miss: "Heavy cleave missed. The recovery is real, so swing with intent.",
     };
   }
 
   return {
     hitMode: "dashPath",
-    cooldown: 0.94,
-    range: 166,
-    width: 34,
+    cooldown: 0.88,
+    range: 172,
+    width: 28,
     arc: 0.44,
-    damage: 104,
+    damage: 88,
     cleave: false,
-    commitSpeed: 1340,
-    commitDuration: 0.24,
-    stun: 0.72,
+    commitSpeed: 1480,
+    commitDuration: 0.18,
+    stun: 0.6,
     color: "#ffd77e",
     impactColor: "#fff1bd",
-    startup: 0.28,
+    startup: 0.12,
     shake: 20.4,
     impactSize: 58,
-    label: "Dash finisher crushed through the target and stunned it.",
+    label: "Dash finisher caught, stopped on the target, and stunned it.",
     miss: "Finisher committed through empty space. The axe is deadly, but missing gets you kited.",
   };
 }
@@ -419,6 +419,14 @@ export function tryDashStrikeHits(profile, startX, startY, endX, endY) {
     applyStatusEffect(bot, "stun", getStatusDuration(profile.stun), 1);
     addImpact(bot.x, bot.y, profile.impactColor, 42);
     addImpact(bot.x, bot.y, "#fff7dc", 24);
+
+    const stopDistance = Math.max(player.radius + bot.radius + 6, 44);
+    player.x = bot.x - player.attackCommitX * stopDistance;
+    player.y = bot.y - player.attackCommitY * stopDistance;
+    resolveMapCollision(player);
+    player.attackCommitTime = 0;
+    player.velocityX = 0;
+    player.velocityY = 0;
 
     if (bot.kind === "hunter") {
       bot.dodgeCooldown = Math.max(bot.dodgeCooldown, 0.55);

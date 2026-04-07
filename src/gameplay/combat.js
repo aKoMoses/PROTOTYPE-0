@@ -10,7 +10,7 @@ import { player, playerClone, enemy, trainingBots, bots, abilityState, loadout, 
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue } from "../audio.js";
@@ -95,6 +95,32 @@ function getFriendlyCombatTargets() {
     targets.push(player);
   }
   return targets;
+}
+
+function triggerSupportRuneControl(type) {
+  if (type !== "slow" && type !== "stun") {
+    return;
+  }
+
+  const supportCore = getRuneValue("support", "primary");
+  const supportShard = hasRuneShard("support");
+  if (supportCore <= 0 && !supportShard) {
+    return;
+  }
+
+  const shieldAmount = supportCore * 4 + (supportShard && player.mainRuneCooldown <= 0 ? 8 : 0);
+  const hasteWindow = 0.4 + supportCore * 0.08 + (supportShard && player.mainRuneCooldown <= 0 ? 0.55 : 0);
+
+  player.afterDashHasteTime = Math.max(player.afterDashHasteTime, hasteWindow);
+  player.hasteTime = Math.max(player.hasteTime, 0.35 + supportCore * 0.1 + (supportShard && player.mainRuneCooldown <= 0 ? 0.75 : 0));
+  if (shieldAmount > 0) {
+    player.shield = Math.max(player.shield, shieldAmount);
+    player.shieldTime = Math.max(player.shieldTime, 1);
+  }
+  if (supportShard && player.mainRuneCooldown <= 0) {
+    player.mainRuneCooldown = 3.4;
+    addImpact(player.x, player.y, "#b9ffe0", 22);
+  }
 }
 
 function getEntityFieldModifier(entity) {
@@ -271,6 +297,9 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
       addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 20 : 16);
     }
     playStatusCue(type, entity === player ? "player" : "enemy");
+    if ((entity.team ?? "enemy") === "enemy") {
+      triggerSupportRuneControl(type);
+    }
     return existing;
   }
 
@@ -280,6 +309,9 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     addImpact(entity.x, entity.y, type === "stun" ? "#ffd37c" : "#8fd6ff", type === "stun" ? 24 : 18);
   }
   playStatusCue(type, entity === player ? "player" : "enemy");
+  if ((entity.team ?? "enemy") === "enemy") {
+    triggerSupportRuneControl(type);
+  }
   return effect;
 }
 
@@ -497,6 +529,13 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
     if (healAmount > 0.5) {
       addHealingText(player.x, player.y - player.radius - 10, healAmount);
     }
+  }
+
+  if (hasRuneShard("attack") && bot.hp > 0 && bot.hp / bot.maxHp <= 0.35 && player.mainRuneCooldown <= 0) {
+    player.mainRuneCooldown = 3.6;
+    player.hasteTime = Math.max(player.hasteTime, 1.2);
+    player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.9);
+    addImpact(player.x, player.y, "#ffd78b", 24);
   }
 
   if (bot.hp <= 0) {
@@ -790,18 +829,28 @@ export function applyPlayerDamage(amount, source = "hit") {
   playDamageCue("player", finalDamage, source, false);
   addDamageText(player.x, player.y - player.radius - 8, finalDamage, { heavy: heavyHit, color: source === "axe-finisher" ? "#ffb066" : "#ff7469" });
 
+  const defenseCore = getRuneValue("defense", "primary");
+  if (defenseCore > 0 && previousHp - player.hp >= 18 && player.defenseRuneShieldCooldown <= 0) {
+    player.defenseRuneShieldCooldown = 2.4;
+    player.shield = Math.max(player.shield, defenseCore * 4);
+    player.shieldTime = Math.max(player.shieldTime, 1.25);
+    addImpact(player.x, player.y, "#b5ddff", 18);
+  }
+
   if (hasPerk("arcFeedback") && previousHp - player.hp >= 18) {
     player.shield = Math.max(player.shield, getBuildStats().shieldOnBurst);
     player.shieldTime = Math.max(player.shieldTime, 1.8);
   }
 
   if (player.hp <= 0) {
-    if (hasPerk("lastStandBuffer") && player.failsafeReady) {
+    if ((hasPerk("lastStandBuffer") || hasRuneShard("defense")) && player.failsafeReady) {
       player.failsafeReady = false;
       player.hp = Math.max(1, getBuildStats().maxHp * 0.2);
-      player.shield = Math.max(player.shield, 18);
+      player.shield = Math.max(player.shield, hasRuneShard("defense") ? 22 : 18);
       player.shieldTime = 2;
-      statusLine.textContent = "Last Stand Buffer kept you alive.";
+      statusLine.textContent = hasRuneShard("defense")
+        ? "Last Stand Capacitor kept you alive."
+        : "Last Stand Buffer kept you alive.";
       return true;
     }
 

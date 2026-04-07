@@ -1,15 +1,16 @@
 // Prematch / Build Lab UI rendering
 import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, abilityState, loadout, uiState, sandbox, matchState, input, botBuildState, trainingBots, trainingToolState } from "../state.js";
+import { abilityState, loadout, uiState, sandbox, matchState, input, botBuildState, trainingBots, trainingToolState } from "../state.js";
 import * as dom from "../dom.js";
 import { sanitizeIconClass } from "../utils.js";
 import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsForMode, normalizeSelectedMap, getSelectedMapMeta, getMapLayout } from "../maps.js";
 import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoadoutSelections,
   hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
-  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize } from "./loadout.js";
+  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
+import { getAxeComboProfile } from "../gameplay/weapons.js";
 
 // Forward declarations
 let _resetPlayer = null;
@@ -43,6 +44,14 @@ export function setPrematchStep(step) {
 
 export function syncPrematchState() {
   dom.gameShell.classList.toggle("prematch-open", uiState.prematchOpen);
+  updateTrainingBuildButton();
+}
+
+export function updateTrainingBuildButton() {
+  dom.trainingBuildButton?.classList.toggle(
+    "is-visible",
+    sandbox.mode === sandboxModes.training.key && !uiState.prematchOpen,
+  );
 }
 
 export function openPrematch(step = "mode") {
@@ -87,7 +96,7 @@ export function relaunchCurrentSession() {
 export function updatePrematchSummary() {
   const selectedMode = sandboxModes[uiState.selectedMode];
   const selectedMap = getSelectedMapMeta(uiState.selectedMode, uiState.selectedMap);
-  const selectedWeapon = weapons[loadout.weapon];
+  const selectedWeapon = weapons[loadout.weapon] ?? null;
   const remainingPoints = getRemainingRunePoints();
   const selectedUltimateTree = getSelectedRuneUltimateTree();
   const selectedAvatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
@@ -99,7 +108,7 @@ export function updatePrematchSummary() {
     dom.selectedMapLabel.textContent = selectedMap.name;
   }
   if (dom.selectedWeaponLabel) {
-    dom.selectedWeaponLabel.textContent = selectedWeapon.name;
+    dom.selectedWeaponLabel.textContent = selectedWeapon?.name ?? "Weapon slot empty";
   }
   if (dom.runePointsLabel) {
     dom.runePointsLabel.textContent = `${remainingPoints} remaining`;
@@ -109,8 +118,15 @@ export function updatePrematchSummary() {
   }
   if (dom.runeUltimateInline) {
     dom.runeUltimateInline.textContent = selectedUltimateTree
-      ? `${content.runeTrees[selectedUltimateTree].name} ultimate active`
-      : "No ultimate selected";
+      ? `${content.runeTrees[selectedUltimateTree].name} Main Shard active`
+      : "No Main Shard selected";
+  }
+  if (dom.continueRunes) {
+    dom.continueRunes.disabled = !isBuildComplete();
+    dom.continueRunes.textContent = isBuildComplete() ? "Continue to Runes ->" : "Lock all build slots first";
+  }
+  if (dom.startSession) {
+    dom.startSession.disabled = !isBuildComplete();
   }
   if (dom.prematchDescription) {
     dom.prematchDescription.textContent =
@@ -141,9 +157,23 @@ export function renderSelectionGrid(container, items, selectedKeys, onSelect, op
     if (options.activeKeys?.includes(item.key)) {
       row.classList.add("is-active");
     }
+    if (options.previewKey === item.key) {
+      row.classList.add("is-previewing");
+    }
 
-    const stateLabel = item.state === "playable" ? "" : item.state === "preview" ? "PREVIEW" : "LOCKED";
-    const stateClass = item.state === "preview" ? " item-row__state--preview" : "";
+    let stateLabel = "";
+    let stateClass = "";
+    if (options.previewKey === item.key) {
+      stateLabel = "PREVIEW";
+      stateClass = " item-row__state--pending";
+    } else if (selectedKeys.includes(item.key)) {
+      stateLabel = "LOCKED IN";
+    } else if (item.state === "preview") {
+      stateLabel = "PREVIEW";
+      stateClass = " item-row__state--preview";
+    } else if (item.state !== "playable") {
+      stateLabel = "LOCKED";
+    }
 
     row.innerHTML = `
       ${getIconMarkup(item, options.iconType ?? "generic")}
@@ -212,28 +242,28 @@ export function getPrematchCategoryConfig(category) {
       title: "Weapons",
       hint: "Choose the weapon chassis that defines your round pacing and commitment level.",
       iconType: "weapon",
-      selectedKeys: [loadout.weapon],
+      selectedKeys: [loadout.weapon].filter(Boolean),
       compatibleSlots: ["weapon"],
     },
     ability: {
       title: "Active Abilities",
       hint: "Pick a tool, then snap it into Ability 1, 2, or 3. Replacing a slot is instant.",
       iconType: "ability",
-      selectedKeys: loadout.abilities,
+      selectedKeys: loadout.abilities.filter(Boolean),
       compatibleSlots: ["ability-0", "ability-1", "ability-2"],
     },
     perk: {
       title: "Passive Perks",
       hint: "Lock one balancing perk for this test pass so its effect is easy to read in combat.",
       iconType: "perk",
-      selectedKeys: loadout.perks.slice(0, 1),
+      selectedKeys: loadout.perks.slice(0, 1).filter(Boolean),
       compatibleSlots: ["perk-0"],
     },
     ultimate: {
       title: "Ultimates",
       hint: "Lock one round-defining spike from the current balancing set.",
       iconType: "ultimate",
-      selectedKeys: [loadout.ultimate],
+      selectedKeys: [loadout.ultimate].filter(Boolean),
       compatibleSlots: ["ultimate"],
     },
   };
@@ -305,8 +335,372 @@ export function getItemStateLabel(item) {
   return "Selectable";
 }
 
+function formatNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+  return Number.isInteger(value) ? `${value}` : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatSeconds(value) {
+  return `${formatNumber(value)}s`;
+}
+
+function formatPercent(value, digits = 0) {
+  return `${(value * 100).toFixed(digits).replace(/0+$/, "").replace(/\.$/, "")}%`;
+}
+
+function renderDetailValues(lines) {
+  if (!dom.detailValues) {
+    return;
+  }
+  dom.detailValues.textContent = "";
+  lines.forEach((line) => {
+    const row = document.createElement("div");
+    row.className = "detail-values__row";
+    row.innerHTML = `<span class="detail-values__bullet"></span><span>${line}</span>`;
+    dom.detailValues.appendChild(row);
+  });
+}
+
+function getWeaponValueLines(item) {
+  if (item.key === weapons.pulse.key) {
+    return [
+      `Deals ${config.pulseDamage} damage per shot.`,
+      `Fires every ${formatSeconds(getWeaponCooldown(item.key))}.`,
+      `Magazine: ${getPulseMagazineSize()} shots, reload ${formatSeconds(config.pulseReloadTime)}.`,
+      "Role: medium-long lane pressure with low commitment.",
+    ];
+  }
+
+  if (item.key === weapons.axe.key) {
+    const hit1 = getAxeComboProfile(1);
+    const hit2 = getAxeComboProfile(2);
+    const hit3 = getAxeComboProfile(3);
+    return [
+      `Hit 1: ${formatNumber(hit1.damage)} damage, ${formatNumber(hit1.range)} range, ${formatSeconds(hit1.startup)} startup.`,
+      `Hit 2: ${formatNumber(hit2.damage)} damage, ${formatNumber(hit2.range)} reach, wide cleave.`,
+      `Hit 3: ${formatNumber(hit3.damage)} damage, dash engage, ${formatSeconds(hit3.stun)} stun on hit.`,
+      "Role: slow brutal melee with strong punish if you commit cleanly.",
+    ];
+  }
+
+  if (item.key === weapons.shotgun.key) {
+    return [
+      "6 pellets at 9 damage each.",
+      "Point-blank burst: up to 54 damage.",
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}.`,
+      "Role: close punish weapon that cashes in on forced spacing.",
+    ];
+  }
+
+  if (item.key === weapons.sniper.key) {
+    return [
+      "Deals 34 damage on hit.",
+      "Applies 12% slow for 0.45s.",
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}.`,
+      "Role: precision punish and long lane denial.",
+    ];
+  }
+
+  if (item.key === weapons.staff.key) {
+    return [
+      "Deals 12 damage on hit.",
+      "On hit: heals 8 and grants 6 shield for 0.8s.",
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}.`,
+      "Role: sustain hybrid for measured trading.",
+    ];
+  }
+
+  if (item.key === weapons.injector.key) {
+    return [
+      "Deals 9 damage on hit.",
+      "Applies a 4.2s bio-mark, up to 3 stacks.",
+      "At 3 marks: consumes for 12 heal.",
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}.`,
+    ];
+  }
+
+  if (item.key === weapons.lance.key) {
+    return [
+      `Primary: ${config.lancePrimaryDamage} damage, ${config.lancePrimaryRange} range, ${formatPercent(config.lancePrimarySlow)} slow for ${formatSeconds(config.lancePrimarySlowDuration)}.`,
+      `Alt fire: ${config.lanceAltDamage} damage, ${config.lanceAltRange} range, ${formatSeconds(config.lanceAltShockDuration)} stun.`,
+      `Primary cadence ${formatSeconds(config.lancePrimaryCooldown)}, alt cadence ${formatSeconds(config.lanceAltCooldown)}.`,
+      "Role: engage bruiser that cashes in on straight-line confirms.",
+    ];
+  }
+
+  if (item.key === weapons.cannon.key) {
+    return [
+      `Primary: ${config.cannonPrimaryDamage} direct, ${config.cannonSplashDamage} splash in ${formatNumber(config.cannonSplashRadius)} radius.`,
+      `Primary burn: ${formatPercent(config.cannonBurnMagnitude)} slow for ${formatSeconds(config.cannonBurnDuration)}.`,
+      `Alt fire: ${config.cannonAltDamage} direct, ${formatSeconds(config.cannonFreezeDuration)} freeze.`,
+      `Cadence: ${formatSeconds(config.cannonPrimaryCooldown)} primary, ${formatSeconds(config.cannonAltCooldown)} cryo.`,
+    ];
+  }
+
+  return [];
+}
+
+function getAbilityValueLines(item) {
+  const spellsShardActive = getSelectedRuneUltimateTree() === "spells";
+
+  switch (item.key) {
+    case "shockJavelin":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.javelinCooldown))}.`,
+        `Tap cast: ${config.javelinTapDamage} damage and ${formatPercent(config.javelinTapSlow)} slow for ${formatSeconds(getStatusDuration(config.javelinTapSlowDuration))}.`,
+        `Charged cast: ${config.javelinHoldDamage + (spellsShardActive ? 12 : 0)} damage and ${formatSeconds(getStatusDuration(config.javelinHoldStun + (spellsShardActive ? 0.18 : 0)))} stun.`,
+        "Role: punish tool that turns charge timing into a clean confirm.",
+      ];
+    case "magneticField":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.fieldCooldown))}.`,
+        `Tap cast: ${formatNumber(config.fieldTapRadius)} radius, ${formatSeconds(config.fieldTapDuration)} duration, ${formatPercent(config.fieldTapSlow)} slow, ${formatPercent(config.fieldTapDamageReduction)} mitigation.`,
+        `Charged cast: ${formatNumber(config.fieldHoldRadius)} radius, ${formatSeconds(config.fieldHoldDuration + (spellsShardActive ? 0.6 : 0))} duration, ${formatPercent(config.fieldHoldSlow + (spellsShardActive ? 0.08 : 0))} slow.`,
+        "Role: space control and projectile timing denial.",
+      ];
+    case "magneticGrapple":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.grappleCooldown))}.`,
+        `Reach: ${formatNumber(config.grappleRange)} with a ${formatNumber(config.grappleWidth)} width catch line.`,
+        `On hit: pulls the target ${formatNumber(config.grapplePullDistance)} units and applies ${formatPercent(config.grappleSnare)} snare for ${formatSeconds(getStatusDuration(config.grappleSnareDuration))}.`,
+        "Role: engage confirm for shotgun, axe and lance punish windows.",
+      ];
+    case "energyShield":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.shieldCooldown))}.`,
+        `Grants ${formatNumber(26 + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(2.4)}.`,
+        "Absorbs burst without giving away movement control.",
+        "Role: anti-burst defensive timing check.",
+      ];
+    case "empBurst":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boosterCooldown))}.`,
+        "Radius: 120.",
+        `Applies ${formatPercent(0.38)} slow for ${formatSeconds(getStatusDuration(1))} and delays bot fire by 0.8s.`,
+        "Destroys enemy projectiles inside the pulse.",
+      ];
+    case "chainLightning":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(5.4))}.`,
+        "Range: 520 first snap, then up to 2 extra hops within 220.",
+        "Damage: 28 first hit, then each hop deals 72% of the previous hit.",
+        `Applies 18 to 26% slow for ${formatSeconds(getStatusDuration(0.55))}.`,
+      ];
+    case "blinkStep":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(3.4))}.`,
+        "Teleports 148 units to your aim.",
+        "No damage, pure spacing and outplay.",
+        "Role: instant reposition without commit frames.",
+      ];
+    case "phaseDash":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(4.6))}.`,
+        "Dash speed: 1580 for 0.18s.",
+        "Untargetable for 0.42s during the pass.",
+        "Role: projectile break and hard timing outplay.",
+      ];
+    case "pulseBurst":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(3.2))}.`,
+        "Fires 5 pulse bolts at 12 damage each.",
+        "Total burst if all connect: 60 damage.",
+        "Role: close-mid lane flood for punish windows.",
+      ];
+    case "railShot":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(5.1))}.`,
+        "Deals 46 damage and pierces.",
+        `Applies ${formatPercent(0.22)} slow for ${formatSeconds(getStatusDuration(0.8))}.`,
+        "Role: high-commit punish line that cashes in on clean aim.",
+      ];
+    case "gravityWell":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(5.8))}.`,
+        `Creates a ${formatNumber(118)} radius trap for ${formatSeconds(2.1)}.`,
+        `Inside the zone: ${formatPercent(0.44)} slow.`,
+        "Role: deny exits and force predictable movement.",
+      ];
+    case "phaseShift":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(5.6))}.`,
+        `Intangible for ${formatSeconds(0.55)}.`,
+        "No displacement, pure timing answer to burst.",
+        "Role: defensive clutch button.",
+      ];
+    case "hologramDecoy":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(6.2))}.`,
+        `Creates a false read for ${formatSeconds(2.8)}.`,
+        "Pairs well with sharp sidesteps and Phantom Split.",
+        "Role: information denial and focus break.",
+      ];
+    case "speedSurge":
+      return [
+        `Cooldown: ${formatSeconds(getAbilityCooldown(4.2))}.`,
+        `Haste window: ${formatSeconds(2.2)}.`,
+        `After-dash tempo extension: ${formatSeconds(1.2)}.`,
+        "Role: tempo spike for chase, disengage or reset.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function getFallbackDetailKey(type) {
+  if (type === "weapon") {
+    return loadout.weapon ?? buildLabVisiblePools.weapons[0];
+  }
+  if (type === "ability") {
+    return loadout.abilities.find(Boolean) ?? buildLabVisiblePools.abilities[0];
+  }
+  if (type === "perk") {
+    return loadout.perks[0] ?? buildLabVisiblePools.perks[0];
+  }
+  if (type === "ultimate") {
+    return loadout.ultimate ?? buildLabVisiblePools.ultimates[0];
+  }
+  return null;
+}
+
+function getPerkValueLines(item) {
+  switch (item.key) {
+    case "scavengerPlates":
+      return ["+30 max HP.", "Role: pure durability and easier mistake survival."];
+    case "reactiveArmor":
+      return ["-12% incoming damage.", "Role: softens burst matchups."];
+    case "dashCooling":
+      return ["-16% dash cooldown.", "Role: more access to core mobility."];
+    case "executionRelay":
+      return ["+18% damage to slowed targets.", "+4% more per Attack Core point.", "Role: turns control into real punish."];
+    case "comboDriver":
+      return ["+22% Electro Axe finisher damage.", "Role: all-in melee payoff."];
+    case "shockBuffer":
+      return ["-28% crowd-control duration taken.", "Role: anti-pick defensive stability."];
+    default:
+      return [];
+  }
+}
+
+function getUltimateValueLines(item) {
+  switch (item.key) {
+    case "phantomSplit":
+      return [
+        `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
+        `Creates a live clone for ${formatSeconds(config.phantomDuration)} with ${formatPercent(config.phantomHpScale)} HP and ${formatPercent(config.phantomDamageScale)} damage.`,
+        `Clone shields, healing and status durations are scaled to ${formatPercent(config.phantomShieldScale)} / ${formatPercent(config.phantomHealScale)} / ${formatPercent(config.phantomStatusScale)}.`,
+        `Replay delay: ${formatSeconds(config.phantomReplayDelay)}, action echo: ${formatSeconds(config.phantomActionDelay)}.`,
+      ];
+    case "revivalProtocol":
+      return [
+        `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
+        "Primes a 5s lethal-save window.",
+        "If lethal damage hits during the window, you survive and reset the fight once.",
+        "Role: clutch anti-burst safety net.",
+      ];
+    case "empCataclysm":
+      return [
+        `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
+        "Triggers EMP Burst immediately.",
+        `Adds a ${formatSeconds(getStatusDuration(0.45))} stun and 1.6s enemy dash lock.`,
+        "Role: round-breaking anti-tech punish.",
+      ];
+    case "arenaLockdown":
+      return [
+        `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
+        `Shrinks the arena with a ${formatNumber(278)} radius lockdown for ${formatSeconds(4.2)}.`,
+        "Outside the zone: 24% movement penalty.",
+        "Role: force the duel into a no-kite finish.",
+      ];
+    case "berserkCore":
+      return [
+        `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
+        `Gain haste, shield and after-dash tempo for ${formatSeconds(4.2)}.`,
+        "Shield amount: 28.",
+        "Role: aggressive all-in closer.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function getDetailValueLines(item, type) {
+  if (type === "weapon") return getWeaponValueLines(item);
+  if (type === "ability") return getAbilityValueLines(item);
+  if (type === "perk") return getPerkValueLines(item);
+  if (type === "ultimate") return getUltimateValueLines(item);
+  return [];
+}
+
 export function updateDetailPanel() {
-  const detail = uiState.selectedDetail ?? { type: "weapon", key: loadout.weapon };
+  const detail = uiState.selectedDetail ?? { type: "weapon", key: getFallbackDetailKey("weapon") };
+  const resolvedKey =
+    detail.key ??
+    (["weapon", "ability", "perk", "ultimate"].includes(detail.type)
+      ? getFallbackDetailKey(detail.type)
+      : null);
+  const collectionName =
+    detail.type === "ability"
+      ? "abilities"
+      : detail.type === "perk"
+        ? "perks"
+        : detail.type === "ultimate"
+          ? "ultimates"
+          : detail.type === "avatar"
+            ? "avatars"
+            : detail.type === "skin"
+              ? "weaponSkins"
+              : "weapons";
+  const item = getContentItem(collectionName, resolvedKey);
+
+  if (!item) {
+    if (dom.detailFloat) dom.detailFloat.classList.add("is-hidden");
+    renderDetailValues([]);
+    updateDetailActions();
+    return;
+  }
+
+  if (dom.detailFloat) dom.detailFloat.classList.remove("is-hidden");
+  dom.detailIcon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${detail.type}-${item.key}`)}`;
+  if (item.category) {
+    dom.detailIcon.classList.add(`content-icon--${item.category}`);
+  }
+  dom.detailName.textContent = item.name;
+  dom.detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} · ${getItemStateLabel(item)}`;
+  dom.detailDescription.textContent = item.description;
+  const previewDetail =
+    uiState.previewSelection &&
+    uiState.previewSelection.category === detail.type &&
+    uiState.previewSelection.key === detail.key;
+  dom.detailMeta.textContent = previewDetail
+    ? `${getSlotDisplayName(uiState.previewSelection.slotKey)} | Preview pending`
+    : dom.detailMeta.textContent.replace("Â·", "|");
+  dom.detailMeta.textContent = previewDetail
+    ? `${getSlotDisplayName(uiState.previewSelection.slotKey)} | Preview pending`
+    : dom.detailMeta.textContent.replace("Â·", "|");
+  renderDetailValues(getDetailValueLines(item, detail.type));
+  const slotState = getBuildSlotState();
+  const slotPreviewDetail =
+    slotState.previewPending &&
+    slotState.preview?.category === detail.type &&
+    slotState.preview?.key === item.key;
+  const lockedDetail =
+    slotState.lockedItem?.key === item.key &&
+    slotState.category === detail.type;
+  dom.detailMeta.textContent = slotPreviewDetail
+    ? `${STEP_LABELS[slotState.slotKey] ?? getSlotDisplayName(slotState.slotKey)} | Preview pending`
+    : lockedDetail
+      ? `${STEP_LABELS[slotState.slotKey] ?? getSlotDisplayName(slotState.slotKey)} | Locked in`
+      : `${getItemMetaLabel(item, detail.type)} | ${getItemStateLabel(item)}`;
+  updateDetailActions();
+}
+
+export function syncDetailPanelEnhancements() {
+  updateDetailActions();
+  return;
+  const detail = uiState.selectedDetail ?? { type: "weapon", key: getFallbackDetailKey("weapon") };
   const collectionName =
     detail.type === "ability"
       ? "abilities"
@@ -322,18 +716,148 @@ export function updateDetailPanel() {
   const item = getContentItem(collectionName, detail.key);
 
   if (!item) {
-    if (dom.detailFloat) dom.detailFloat.classList.add("is-hidden");
+    renderDetailValues([]);
     return;
   }
 
-  if (dom.detailFloat) dom.detailFloat.classList.remove("is-hidden");
-  dom.detailIcon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${detail.type}-${item.key}`)}`;
-  if (item.category) {
-    dom.detailIcon.classList.add(`content-icon--${item.category}`);
+  const previewDetail =
+    uiState.previewSelection &&
+    uiState.previewSelection.category === detail.type &&
+    uiState.previewSelection.key === detail.key;
+  if (previewDetail) {
+    dom.detailMeta.textContent = `${getSlotDisplayName(uiState.previewSelection.slotKey)} · Preview`;
   }
-  dom.detailName.textContent = item.name;
-  dom.detailMeta.textContent = `${getItemMetaLabel(item, detail.type)} · ${getItemStateLabel(item)}`;
-  dom.detailDescription.textContent = item.description;
+  renderDetailValues(getDetailValueLines(item, detail.type));
+}
+
+function getBuildSlotState(slotKey = uiState.selectedLoadoutSlot ?? getCurrentBuildStep().slotKey) {
+  const resolvedSlotKey = slotKey ?? "weapon";
+  const category = getSlotCategory(resolvedSlotKey);
+  const lockedItem = getLoadoutItemForSlot(resolvedSlotKey);
+  const preview = getPreviewSelectionForSlot(resolvedSlotKey);
+  return {
+    slotKey: resolvedSlotKey,
+    category,
+    lockedItem,
+    preview,
+    previewPending: isPreviewPendingForSlot(resolvedSlotKey),
+    empty: !lockedItem,
+  };
+}
+
+function getEmptySlotLabel(slotKey) {
+  if (slotKey === "weapon") return "Empty weapon slot";
+  if (slotKey === "ultimate") return "Empty ultimate slot";
+  if (slotKey === "perk-0") return "Empty perk slot";
+  return `${STEP_LABELS[slotKey] ?? "Empty slot"}`;
+}
+
+export function isBuildComplete() {
+  return WIZARD_SEQUENCE.every((slotKey) => Boolean(getLoadoutItemForSlot(slotKey)));
+}
+
+export function getFirstIncompleteBuildSlot() {
+  return WIZARD_SEQUENCE.find((slotKey) => !getLoadoutItemForSlot(slotKey)) ?? null;
+}
+
+export function cancelPreviewSelection() {
+  if (!uiState.previewSelection) {
+    return false;
+  }
+  const { slotKey, category } = uiState.previewSelection;
+  clearPreviewSelection();
+  uiState.selectedLoadoutSlot = slotKey;
+  uiState.buildCategory = getSlotCategory(slotKey);
+  uiState.selectedDetail = {
+    type: category,
+    key: getLoadoutItemForSlot(slotKey)?.key ?? getFallbackDetailKey(category),
+  };
+  renderPrematch();
+  return true;
+}
+
+export function unlockLoadoutSlot(slotKey = uiState.selectedLoadoutSlot ?? getCurrentBuildStep().slotKey) {
+  if (!slotKey) {
+    return false;
+  }
+
+  if (!getLoadoutItemForSlot(slotKey)) {
+    return false;
+  }
+
+  if (slotKey === "weapon") {
+    loadout.weapon = null;
+  } else if (slotKey === "ultimate") {
+    loadout.ultimate = null;
+  } else if (slotKey === "perk-0") {
+    loadout.perks = [null];
+  } else if (slotKey.startsWith("ability")) {
+    const index = Number(slotKey.split("-")[1]);
+    const nextAbilities = [...loadout.abilities];
+    while (nextAbilities.length < 3) {
+      nextAbilities.push(null);
+    }
+    nextAbilities[index] = null;
+    loadout.abilities = nextAbilities.slice(0, 3);
+  } else {
+    return false;
+  }
+
+  clearPreviewSelection();
+  uiState.selectedLoadoutSlot = slotKey;
+  uiState.buildCategory = getSlotCategory(slotKey);
+  uiState.selectedDetail = {
+    type: uiState.buildCategory,
+    key: getFallbackDetailKey(uiState.buildCategory),
+  };
+  renderPrematch();
+  return true;
+}
+
+export function lockActivePreviewSelection() {
+  const slotState = getBuildSlotState();
+  if (!slotState.previewPending || !slotState.preview) {
+    return false;
+  }
+  return applyLoadoutItemSelection(slotState.preview.category, slotState.preview.slotKey, slotState.preview.key);
+}
+
+function updateDetailActions() {
+  if (!dom.detailActions || !dom.detailLockButton || !dom.detailSecondaryButton) {
+    return;
+  }
+
+  const slotState = getBuildSlotState();
+  const buildDetailActive = ["weapon", "ability", "perk", "ultimate"].includes(
+    uiState.selectedDetail?.type ?? slotState.category,
+  );
+  dom.detailActions.classList.toggle("is-hidden", uiState.prematchStep !== "build" || !buildDetailActive);
+
+  if (uiState.prematchStep !== "build" || !buildDetailActive) {
+    return;
+  }
+
+  dom.detailLockButton.disabled = false;
+  dom.detailSecondaryButton.disabled = false;
+  dom.detailLockButton.classList.remove("is-hidden");
+  dom.detailSecondaryButton.classList.remove("is-hidden");
+
+  if (slotState.previewPending) {
+    dom.detailLockButton.textContent = "Lock In";
+    dom.detailSecondaryButton.textContent = "Cancel Preview";
+    return;
+  }
+
+  if (slotState.lockedItem) {
+    dom.detailLockButton.textContent = "Locked In";
+    dom.detailLockButton.disabled = true;
+    dom.detailSecondaryButton.textContent = "Unlock Slot";
+    return;
+  }
+
+  dom.detailLockButton.textContent = "Lock In";
+  dom.detailLockButton.disabled = true;
+  dom.detailSecondaryButton.classList.add("is-hidden");
 }
 
 export function renderValidationChips(container, items, type) {
@@ -408,12 +932,6 @@ const BUILD_WIZARD_STEPS = [
     hint: "Your round-deciding spike. Pick the capstone that fits your win condition.",
     colorClass: "c-ultimate",
   },
-  {
-    slotKey: "runes",     category: "runes",
-    title: "Rune Allocation",
-    hint: "Distribute rune points to sharpen your combat stats.",
-    colorClass: "c-runes",
-  },
 ];
 const STEP_LABELS = {
   weapon:      "Weapon",
@@ -422,18 +940,23 @@ const STEP_LABELS = {
   "ability-2": "Ability 3",
   "perk-0":    "Passive Perk",
   ultimate:    "Ultimate",
-  runes:       "Runes",
 };
-const WIZARD_SEQUENCE = BUILD_WIZARD_STEPS.filter((s) => s.slotKey !== "runes").map((s) => s.slotKey);
+const WIZARD_SEQUENCE = BUILD_WIZARD_STEPS.map((s) => s.slotKey);
+
+function clearPreviewSelection() {
+  uiState.previewSelection = null;
+}
 
 export function resetBuildWizard() {
   uiState.buildWizardStep = 0;
+  clearPreviewSelection();
 }
 
 export function advanceBuildWizard() {
   const next = uiState.buildWizardStep + 1;
   if (next < BUILD_WIZARD_STEPS.length) {
     uiState.buildWizardStep = next;
+    clearPreviewSelection();
   }
 }
 
@@ -441,6 +964,7 @@ export function prevBuildWizardStep() {
   const prev = uiState.buildWizardStep - 1;
   if (prev >= 0) {
     uiState.buildWizardStep = prev;
+    clearPreviewSelection();
   }
 }
 
@@ -448,7 +972,27 @@ export function goToBuildWizardStep(slotKey) {
   const idx = BUILD_WIZARD_STEPS.findIndex((s) => s.slotKey === slotKey);
   if (idx >= 0) {
     uiState.buildWizardStep = idx;
+    clearPreviewSelection();
   }
+}
+
+function getCurrentBuildStep() {
+  return BUILD_WIZARD_STEPS[uiState.buildWizardStep] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
+}
+
+function getPreviewSelectionForSlot(slotKey) {
+  if (!uiState.previewSelection || uiState.previewSelection.slotKey !== slotKey) {
+    return null;
+  }
+  return uiState.previewSelection;
+}
+
+function isPreviewPendingForSlot(slotKey) {
+  const preview = getPreviewSelectionForSlot(slotKey);
+  if (!preview) {
+    return false;
+  }
+  return getLoadoutItemForSlot(slotKey)?.key !== preview.key;
 }
 
 function updateBuildStepNav() {
@@ -461,17 +1005,24 @@ function updateBuildStepNav() {
   if (!labelEl) return;
   const total = BUILD_WIZARD_STEPS.length;
   const idx = uiState.buildWizardStep;
-  const step = BUILD_WIZARD_STEPS[idx] ?? BUILD_WIZARD_STEPS[total - 1];
+  const step = getCurrentBuildStep();
+  const pendingPreview = isPreviewPendingForSlot(step.slotKey);
+  const slotFilled = Boolean(getLoadoutItemForSlot(step.slotKey));
   if (eyebrow) eyebrow.textContent = `Step ${idx + 1} of ${total}`;
   if (titleEl) titleEl.textContent = step.title;
   if (hintEl)  hintEl.textContent  = step.hint;
   labelEl.textContent = `${idx + 1} / ${total} \u2014 ${STEP_LABELS[step.slotKey]}`;
   // Swap color class
-  const allColorClasses = ["c-weapon", "c-ability", "c-perk", "c-ultimate", "c-runes"];
+  const allColorClasses = ["c-weapon", "c-ability", "c-perk", "c-ultimate"];
   labelEl.classList.remove(...allColorClasses);
   if (step.colorClass) labelEl.classList.add(step.colorClass);
   if (prevBtn) prevBtn.disabled = idx === 0;
-  if (nextBtn) nextBtn.textContent = idx >= total - 1 ? "Done \u2713" : "Skip \u2192";
+  if (nextBtn) {
+    nextBtn.disabled = !pendingPreview && !slotFilled;
+    nextBtn.textContent = idx >= total - 1
+      ? pendingPreview ? "Validate & Runes \u2192" : "Continue to Runes \u2192"
+      : pendingPreview ? "Validate & Next \u2192" : slotFilled ? "Next Slot \u2192" : "Lock a choice first";
+  }
 }
 
 function getZoneIdForSlot(slotKey) {
@@ -572,26 +1123,51 @@ export function updateLoadoutSlots() {
   const compatibleSlots = getPrematchCategoryConfig(uiState.buildCategory)?.compatibleSlots ?? [];
 
   slotDescriptors.forEach(({ key, type }) => {
-    const button = dom.loadoutSlotButtons[key.replace("-", "")] ?? dom.loadoutSlotButtons[key];
-    const item = getLoadoutItemForSlot(key);
+    const lockedItem = getLoadoutItemForSlot(key);
+    const preview = getPreviewSelectionForSlot(key);
+    const previewItem = preview
+      ? getContentItem(
+          type === "ability"
+            ? "abilities"
+            : type === "perk"
+              ? "perks"
+              : type === "ultimate"
+                ? "ultimates"
+                : "weapons",
+          preview.key,
+        )
+      : null;
+    const item = previewItem ?? lockedItem;
     const icon = document.getElementById(`loadout-slot-${key}-icon`);
     const name = document.getElementById(`loadout-slot-${key}-name`);
     const meta = document.getElementById(`loadout-slot-${key}-meta`);
     const buttonNode = document.getElementById(`loadout-slot-${key}`);
 
-    if (!buttonNode || !icon || !name || !item) {
+    if (!buttonNode || !icon || !name) {
       return;
     }
 
+    const previewPending = Boolean(preview && lockedItem?.key !== preview.key);
     buttonNode.classList.toggle("is-active", uiState.selectedLoadoutSlot === key);
     buttonNode.classList.toggle("is-compatible", compatibleSlots.includes(key));
-    icon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${type}-${item.key}`)}`;
-    if (item.category) {
-      icon.classList.add(`content-icon--${item.category}`);
+    buttonNode.classList.toggle("is-previewing", previewPending);
+    buttonNode.classList.toggle("is-filled", Boolean(lockedItem));
+    if (item) {
+      icon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${type}-${item.key}`)}`;
+      if (item.category) {
+        icon.classList.add(`content-icon--${item.category}`);
+      }
+    } else {
+      icon.className = "content-icon content-icon--empty-slot";
     }
-    name.textContent = item.name;
+    name.textContent = item?.name ?? getEmptySlotLabel(key);
     if (meta) {
-      meta.textContent = item.role ?? item.description;
+      meta.classList.remove("is-hidden");
+      meta.textContent = previewPending
+        ? "Preview pending. Lock it in or cancel the preview."
+        : lockedItem
+          ? lockedItem.role ?? lockedItem.description
+          : "Click an item, preview it, then lock it in.";
     }
   });
 
@@ -632,77 +1208,115 @@ export function assignLoadoutItem(category, slotKey, itemKey) {
     return;
   }
 
+  uiState.selectedLoadoutSlot = slotKey;
+  uiState.selectedDetail = { type: category, key: itemKey };
+  if (getLoadoutItemForSlot(slotKey)?.key === itemKey) {
+    clearPreviewSelection();
+    renderPrematch();
+    return;
+  }
+  uiState.previewSelection = { category, slotKey, key: itemKey };
+  renderPrematch();
+}
+
+function applyLoadoutItemSelection(category, slotKey, itemKey) {
+  const item = getContentItem(
+    category === "ability"
+      ? "abilities"
+      : category === "perk"
+        ? "perks"
+        : category === "ultimate"
+          ? "ultimates"
+          : "weapons",
+    itemKey,
+  );
+
+  if (!item || item.state !== "playable") {
+    return false;
+  }
+
   if (category === "weapon") {
     loadout.weapon = itemKey;
-    player.weapon = itemKey;
   } else if (category === "ultimate") {
     loadout.ultimate = itemKey;
   } else if (category === "ability") {
     const targetIndex = Number(slotKey.split("-")[1]);
-    loadout.abilities = loadout.abilities.filter((key) => key !== itemKey);
-    while (loadout.abilities.length < 3) {
-      loadout.abilities.push(null);
+    const nextAbilities = Array.from({ length: 3 }, (_, index) => loadout.abilities[index] ?? null);
+    for (let index = 0; index < nextAbilities.length; index += 1) {
+      if (nextAbilities[index] === itemKey) {
+        nextAbilities[index] = null;
+      }
     }
-    loadout.abilities[targetIndex] = itemKey;
-    loadout.abilities = loadout.abilities.filter(Boolean);
-    while (loadout.abilities.length < 3) {
-      loadout.abilities.push(["shockJavelin", "magneticField", "energyShield"].find((fallback) => !loadout.abilities.includes(fallback)) ?? "shockJavelin");
-      loadout.abilities = [...new Set(loadout.abilities)];
-    }
-    loadout.abilities = loadout.abilities.slice(0, 3);
+    nextAbilities[targetIndex] = itemKey;
+    loadout.abilities = nextAbilities;
   } else if (category === "perk") {
     loadout.perks = [itemKey];
   }
 
-  // Auto-advance wizard when this slot matches the current step
-  const currentWizardStep = BUILD_WIZARD_STEPS[uiState.buildWizardStep];
-  if (currentWizardStep && currentWizardStep.slotKey === slotKey) {
-    advanceBuildWizard();
-  }
-
   uiState.selectedLoadoutSlot = slotKey;
   uiState.selectedDetail = { type: category, key: itemKey };
-  renderPrematch();
+  clearPreviewSelection();
+  return true;
+}
+
+export function commitBuildStepSelection() {
+  const step = getCurrentBuildStep();
+  const preview = getPreviewSelectionForSlot(step.slotKey);
+  const lockedItem = getLoadoutItemForSlot(step.slotKey);
+
+  if (preview) {
+    applyLoadoutItemSelection(preview.category, preview.slotKey, preview.key);
+  } else if (!lockedItem) {
+    return "blocked";
+  }
+
+  if (uiState.buildWizardStep >= BUILD_WIZARD_STEPS.length - 1) {
+    if (!isBuildComplete()) {
+      return "incomplete";
+    }
+    return "runes";
+  }
+
+  advanceBuildWizard();
+  return "next";
+}
+
+export function commitActivePreviewSelection() {
+  if (!uiState.previewSelection) {
+    return false;
+  }
+
+  const { category, slotKey, key } = uiState.previewSelection;
+  return applyLoadoutItemSelection(category, slotKey, key);
 }
 
 export function renderBuildLibrary() {
-  // Sync category and selected slot from current wizard step
-  const wizardStep = BUILD_WIZARD_STEPS[uiState.buildWizardStep] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
+  const wizardStep = getCurrentBuildStep();
   uiState.buildCategory = wizardStep.category;
-  if (wizardStep.slotKey !== "runes") {
-    uiState.selectedLoadoutSlot = wizardStep.slotKey;
-  }
+  uiState.selectedLoadoutSlot = wizardStep.slotKey;
   updateBuildStepNav();
-
-  const isRunesTab = uiState.buildCategory === "runes";
-
-  dom.buildLibraryGrid.style.display = isRunesTab ? "none" : "";
-  if (dom.runePanel) {
-    dom.runePanel.classList.toggle("is-hidden", !isRunesTab);
-  }
+  dom.buildLibraryGrid.style.display = "";
 
   dom.libraryTabs.forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.library === uiState.buildCategory);
   });
 
-  if (isRunesTab) {
-    return;
-  }
-
   const config = getPrematchCategoryConfig(uiState.buildCategory);
   const items = getPrematchCategoryItems(uiState.buildCategory);
+  const targetSlot = getCategoryTargetSlot(uiState.buildCategory);
+  const previewKey = getPreviewSelectionForSlot(targetSlot)?.key ?? null;
 
   renderSelectionGrid(
     dom.buildLibraryGrid,
     items,
     config.selectedKeys,
     (itemKey) => {
-      const targetSlot = getCategoryTargetSlot(uiState.buildCategory);
       assignLoadoutItem(uiState.buildCategory, targetSlot, itemKey);
     },
     {
       activeKeys: config.selectedKeys,
       iconType: config.iconType,
+      previewKey,
     },
   );
 }
@@ -824,6 +1438,126 @@ export function renderTrainingBotPanel() {
   );
 }
 
+function getRuneNodeValueLines(treeKey, nodeKey) {
+  const points = getRuneValue(treeKey, nodeKey);
+
+  if (treeKey === "attack" && nodeKey === "secondary") {
+    return [
+      `Current: +${formatPercent(points * 0.02)} damage.`,
+      "Per point: +2% weapon and ability damage.",
+      "Use it for cleaner punish thresholds and faster round closes.",
+    ];
+  }
+  if (treeKey === "attack" && nodeKey === "primary") {
+    return [
+      `Current: +${formatPercent(points * 0.04)} damage to slowed or stunned targets.`,
+      `Current: +${formatPercent(points * 0.05)} Electro Axe finisher damage.`,
+      "Per point: +4% controlled-target damage and +5% axe finisher damage.",
+    ];
+  }
+  if (treeKey === "attack" && nodeKey === "ultimate") {
+    return [
+      "Main Rune Shard: Execution Surge.",
+      "Hitting a target below 35% HP grants a brief combat surge.",
+      "Gameplay change: punish windows snowball much harder.",
+    ];
+  }
+
+  if (treeKey === "defense" && nodeKey === "secondary") {
+    return [
+      `Current: +${points * 5} max HP.`,
+      `Current: -${formatPercent(points * 0.01)} incoming damage.`,
+      `Current: -${formatPercent(points * 0.02)} crowd-control duration taken.`,
+    ];
+  }
+  if (treeKey === "defense" && nodeKey === "primary") {
+    return [
+      `Current: abilities heal ${points * 2} HP on cast.`,
+      `Current: heavy hits can grant ${points * 4} shield.`,
+      "Per point: +2 heal on cast and +4 reactive shield on burst.",
+    ];
+  }
+  if (treeKey === "defense" && nodeKey === "ultimate") {
+    return [
+      "Main Rune Shard: Last Stand Capacitor.",
+      "Once per round, lethal damage leaves you alive and grants a shield.",
+      "Gameplay change: much stronger clutch stability versus burst.",
+    ];
+  }
+
+  if (treeKey === "spells" && nodeKey === "secondary") {
+    const reduction = Math.min(0.24, points * 0.04);
+    return [
+      `Current: -${formatPercent(reduction)} ability cooldowns.`,
+      `Current: +${formatPercent(points * 0.03)} status duration.`,
+      "Per point: -4% cooldowns and +3% status duration.",
+    ];
+  }
+  if (treeKey === "spells" && nodeKey === "primary") {
+    return [
+      `Current: ability casts grant ${formatSeconds(0.35 + points * 0.12)} haste tempo.`,
+      `Current: +${formatPercent(points * 0.06)} haste while the buff is active.`,
+      "Per point: stronger weave window after casting.",
+    ];
+  }
+  if (treeKey === "spells" && nodeKey === "ultimate") {
+    return [
+      "Main Rune Shard: Arc Script.",
+      "Charged Javelin and charged Magnetic Field gain a stronger payoff.",
+      "Gameplay change: charge-based abilities become real threat multipliers.",
+    ];
+  }
+
+  if (treeKey === "support" && nodeKey === "secondary") {
+    return [
+      `Current: +${formatPercent(points * 0.015, 1)} move speed.`,
+      `Current: +${formatPercent(points * 0.01)} haste multiplier.`,
+      "Per point: stronger spacing, chase and disengage.",
+    ];
+  }
+  if (treeKey === "support" && nodeKey === "primary") {
+    return [
+      `Current: control actions grant ${points * 4} shield and a short tempo buff.`,
+      `Current: dash follow-up window ${formatSeconds(0.4 + points * 0.08)}.`,
+      "Per point: more utility conversion after landing control.",
+    ];
+  }
+  if (treeKey === "support" && nodeKey === "ultimate") {
+    return [
+      "Main Rune Shard: Command Uplink.",
+      "Landing slow or stun grants a strong self-buff on a short cooldown.",
+      "Gameplay change: control confirms turn directly into chase tempo.",
+    ];
+  }
+
+  return [];
+}
+
+function renderRuneDetailPanel() {
+  if (!dom.runeNodeDetail) {
+    return;
+  }
+
+  const detail = uiState.selectedRuneDetail ?? { treeKey: "attack", nodeKey: "ultimate" };
+  const tree = content.runeTrees[detail.treeKey];
+  const node = tree?.nodes?.[detail.nodeKey];
+  if (!tree || !node) {
+    dom.runeNodeDetail.innerHTML = `<p class="rune-holo-detail__placeholder">Click a node to view its effect</p>`;
+    return;
+  }
+
+  const isMainShard = detail.nodeKey === "ultimate";
+  const lines = getRuneNodeValueLines(detail.treeKey, detail.nodeKey);
+  dom.runeNodeDetail.innerHTML = `
+    <span class="eyebrow">${tree.name} · ${isMainShard ? "Main Shard" : detail.nodeKey === "primary" ? "Core Node" : "Minor Node"}</span>
+    <h3>${node.name}</h3>
+    <p>${node.description}</p>
+    <div class="detail-values">
+      ${lines.map((line) => `<div class="detail-values__row"><span class="detail-values__bullet"></span><span>${line}</span></div>`).join("")}
+    </div>
+  `;
+}
+
 export function renderRuneTrees() {
   dom.runeGrid.textContent = "";
   const selectedUltimateTree = getSelectedRuneUltimateTree();
@@ -854,9 +1588,9 @@ export function renderRuneTrees() {
       nodesMarkup += `
         <div class="rune-node-v2 ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""}">
           <div class="rune-node-v2__dot ${points > 0 ? "has-points" : ""}">${points}</div>
-          <div class="rune-node-v2__info">
+          <div class="rune-node-v2__info" data-rune-detail="${tree.key}:${node.key}">
             <span class="rune-node-v2__name">${node.name}</span>
-            <span class="rune-node-v2__tier">${isUltimate ? "Capstone" : node.key === "primary" ? "Core" : "Minor"} · ${points}/${node.max}</span>
+            <span class="rune-node-v2__tier">${isUltimate ? "Main Shard" : node.key === "primary" ? "Core Node" : "Minor Node"} · ${points}/${node.max}</span>
           </div>
           <div class="rune-node-v2__controls">
             <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="remove" ${points <= 0 ? "disabled" : ""}>−</button>
@@ -882,6 +1616,7 @@ export function renderRuneTrees() {
       const treeKey = button.dataset.runeTree;
       const nodeKey = button.dataset.runeNode;
       const action = button.dataset.runeAction;
+      uiState.selectedRuneDetail = { treeKey, nodeKey };
 
       if (action === "toggle") {
         toggleRuneUltimate(treeKey);
@@ -891,6 +1626,16 @@ export function renderRuneTrees() {
       adjustRuneNode(treeKey, nodeKey, action === "add" ? 1 : -1);
     });
   });
+
+  dom.runeGrid.querySelectorAll("[data-rune-detail]").forEach((detailNode) => {
+    detailNode.addEventListener("click", () => {
+      const [treeKey, nodeKey] = detailNode.dataset.runeDetail.split(":");
+      uiState.selectedRuneDetail = { treeKey, nodeKey };
+      renderRuneDetailPanel();
+    });
+  });
+
+  renderRuneDetailPanel();
 }
 
 export function adjustRuneNode(treeKey, nodeKey, delta) {
@@ -957,22 +1702,18 @@ export function resetRuneAllocation() {
 }
 
 export function renderPrematch() {
-  normalizeLoadoutSelections();
+  normalizeLoadoutSelections({ preserveEmptySlots: true });
   if (
     uiState.selectedDetail &&
     ["weapon", "ability", "perk", "ultimate"].includes(uiState.selectedDetail.type) &&
-    !getPrematchCategoryItems(uiState.selectedDetail.type).some((item) => item.key === uiState.selectedDetail.key)
+    (
+      !uiState.selectedDetail.key ||
+      !getPrematchCategoryItems(uiState.selectedDetail.type).some((item) => item.key === uiState.selectedDetail.key)
+    )
   ) {
     uiState.selectedDetail = {
       type: uiState.selectedDetail.type,
-      key:
-        uiState.selectedDetail.type === "weapon"
-          ? loadout.weapon
-          : uiState.selectedDetail.type === "ultimate"
-            ? loadout.ultimate
-            : uiState.selectedDetail.type === "perk"
-              ? loadout.perks[0]
-              : loadout.abilities[0],
+      key: getFallbackDetailKey(uiState.selectedDetail.type),
     };
   }
   dom.modeDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.duel.key);
@@ -989,6 +1730,7 @@ export function renderPrematch() {
   renderTrainingBotPanel();
   renderRuneTrees();
   updatePrematchSummary();
+  updateTrainingBuildButton();
 }
 
 export function toggleHelpPanel(forceOpen) {

@@ -8,12 +8,13 @@ import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematc
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
   botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
   buildStepPrev, buildStepNext, botConfigToggle, botConfigCard,
-  continueRunes, backBuild, runeResetButton } from "../dom.js";
+  detailLockButton, detailSecondaryButton,
+  continueRunes, backBuild, runeResetButton, trainingBuildButton } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
-import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetRuneAllocation } from "../build/ui.js";
+import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetBuildWizard, resetRuneAllocation, lockActivePreviewSelection, cancelPreviewSelection, unlockLoadoutSlot } from "../build/ui.js";
 import { setBotBuildMode } from "../build/loadout.js";
 import { resize, updateCameraState } from "./renderer.js";
 
@@ -56,6 +57,16 @@ export function clearJoystick() {
   input.moveTouchY = 0;
   moveStick.style.transform = "translate(0px, 0px)";
   moveJoystick.classList.remove("active");
+}
+
+function formatBuildSlotLabel(slotKey) {
+  if (slotKey === "weapon") return "Weapon";
+  if (slotKey === "ultimate") return "Ultimate";
+  if (slotKey === "perk-0") return "Perk";
+  if (slotKey === "ability-0") return "Ability 1";
+  if (slotKey === "ability-1") return "Ability 2";
+  if (slotKey === "ability-2") return "Ability 3";
+  return "Slot";
 }
 
 export function setupInputListeners() {
@@ -189,14 +200,46 @@ bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
 bindPrematchButton(buildStepPrev, "build-step-prev");
-bindPrematchButton(buildStepNext, "build-step-next");
-bindPrematchButton(continueRunes, "continue-runes");
-bindPrematchButton(backBuild, "back-build");
+  bindPrematchButton(buildStepNext, "build-step-next");
+  bindPrematchButton(continueRunes, "continue-runes");
+  bindPrematchButton(backBuild, "back-build");
 
-runeResetButton?.addEventListener("click", () => {
-  resetRuneAllocation();
-  statusLine.textContent = "Rune allocation reset.";
-});
+  detailLockButton?.addEventListener("click", () => {
+    const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
+    if (!lockActivePreviewSelection()) {
+      statusLine.textContent = "Preview an item first, then lock it in.";
+      return;
+    }
+    renderPrematch();
+    const lockedItem = getLoadoutItemForSlot(slotKey);
+    statusLine.textContent = `${formatBuildSlotLabel(slotKey)} locked: ${lockedItem?.name ?? "selection confirmed"}.`;
+  });
+
+  detailSecondaryButton?.addEventListener("click", () => {
+    const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
+    const previewPending =
+      uiState.previewSelection?.slotKey === slotKey &&
+      getLoadoutItemForSlot(slotKey)?.key !== uiState.previewSelection.key;
+    if (previewPending) {
+      if (!cancelPreviewSelection()) {
+        statusLine.textContent = "No preview to cancel.";
+        return;
+      }
+      statusLine.textContent = `${formatBuildSlotLabel(slotKey)} preview canceled.`;
+      return;
+    }
+
+    if (!unlockLoadoutSlot(slotKey)) {
+      statusLine.textContent = `${formatBuildSlotLabel(slotKey)} is already empty.`;
+      return;
+    }
+    statusLine.textContent = `${formatBuildSlotLabel(slotKey)} unlocked. Pick a new option to preview.`;
+  });
+
+  runeResetButton?.addEventListener("click", () => {
+    resetRuneAllocation();
+    statusLine.textContent = "Rune allocation reset.";
+  });
 
 botConfigToggle?.addEventListener("click", () => {
   const hidden = botConfigCard?.classList.toggle("is-hidden");
@@ -218,20 +261,23 @@ if (labTabLoadout && labTabStyle && labLoadout && labStyle) {
 
 libraryTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
-    uiState.buildCategory = tab.dataset.library;
-    if (uiState.buildCategory !== "runes") {
-      uiState.selectedDetail = {
-        type: uiState.buildCategory,
-        key:
-          uiState.buildCategory === "weapon"
-            ? loadout.weapon
-            : uiState.buildCategory === "ultimate"
-              ? loadout.ultimate
-              : uiState.buildCategory === "perk"
-                ? loadout.perks[0]
-                : loadout.abilities[0],
-      };
-    }
+    const category = tab.dataset.library;
+    const targetSlot =
+      category === "weapon"
+        ? "weapon"
+        : category === "perk"
+          ? "perk-0"
+          : category === "ultimate"
+            ? "ultimate"
+            : uiState.selectedLoadoutSlot?.startsWith("ability")
+              ? uiState.selectedLoadoutSlot
+              : "ability-0";
+
+    goToBuildWizardStep(targetSlot);
+    uiState.selectedLoadoutSlot = targetSlot;
+    uiState.buildCategory = getSlotCategory(targetSlot);
+    const item = getLoadoutItemForSlot(targetSlot);
+    uiState.selectedDetail = { type: uiState.buildCategory, key: item?.key ?? null };
     renderPrematch();
   });
 });
@@ -257,9 +303,7 @@ Object.entries(loadoutSlotButtons).forEach(([slotKey, button]) => {
     uiState.selectedLoadoutSlot = normalizedSlot;
     uiState.buildCategory = getSlotCategory(normalizedSlot);
     const item = getLoadoutItemForSlot(normalizedSlot);
-    if (item) {
-      uiState.selectedDetail = { type: uiState.buildCategory, key: item.key };
-    }
+    uiState.selectedDetail = { type: uiState.buildCategory, key: item?.key ?? null };
     renderPrematch();
   });
 });
@@ -292,24 +336,17 @@ trainingFireOn?.addEventListener("click", () => {
   statusLine.textContent = "Training bots now fire steady pulse shots.";
 });
 
-window.addEventListener("keyup", (event) => {
-  if (uiState.prematchOpen) {
+trainingBuildButton?.addEventListener("click", () => {
+  if (sandbox.mode !== sandboxModes.training.key) {
     return;
   }
-
-  input.keys.delete(event.code);
-
-  if (event.code === "Space" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
-    releaseAbilityInput(0);
-  }
-
-  if (event.code === "KeyQ") {
-      releaseAbilityInput(1);
-  }
-
-  if (event.code === "KeyF") {
-    releaseAbilityInput(2);
-  }
+  trainingToolState.editingBuild = true;
+  uiState.selectedMode = sandboxModes.training.key;
+  uiState.selectedMap = sandbox.mapKey;
+  resetBuildWizard();
+  openPrematch("build");
+  renderPrematch();
+  statusLine.textContent = "Build Lab opened in training. Preview, validate, then jump straight back into the lane.";
 });
 
 canvas.addEventListener("mousemove", (event) => {

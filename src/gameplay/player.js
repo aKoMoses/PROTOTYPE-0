@@ -83,6 +83,8 @@ export function resetPlayer({ silent = false } = {}) {
   player.decoyTime = 0;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
+  player.mainRuneCooldown = 0;
+  player.defenseRuneShieldCooldown = 0;
   input.altFiring = false;
   clearStatusEffects(player);
   resetPhantomClone({ silent: true });
@@ -141,6 +143,8 @@ export function updatePlayer(dt) {
   player.slashFlash = Math.max(0, player.slashFlash - dt);
   player.attackStartupTime = Math.max(0, player.attackStartupTime - dt);
   player.hitReactionTime = Math.max(0, player.hitReactionTime - dt);
+  player.mainRuneCooldown = Math.max(0, player.mainRuneCooldown - dt);
+  player.defenseRuneShieldCooldown = Math.max(0, player.defenseRuneShieldCooldown - dt);
   updateStatusEffects(player, dt);
   tickEntityMarks(player, dt);
   const playerStatus = getStatusState(player);

@@ -30,6 +30,8 @@ export const uiState = {
   buildWizardStep: 0,
   selectedLoadoutSlot: "weapon",
   selectedDetail: { type: "weapon", key: weapons.pulse.key },
+  previewSelection: null,
+  selectedRuneDetail: { treeKey: "attack", nodeKey: "ultimate" },
 };
 
 
@@ -48,6 +50,7 @@ export const botBuildState = {
 
 export const trainingToolState = {
   botsFire: false,
+  editingBuild: false,
 };
 
 export const input = {
@@ -102,6 +105,8 @@ export const player = {
   decoyTime: 0,
   injectorMarks: 0,
   injectorMarkTime: 0,
+  mainRuneCooldown: 0,
+  defenseRuneShieldCooldown: 0,
 };
 
 export const playerClone = {

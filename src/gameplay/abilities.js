@@ -6,11 +6,12 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getAbilityCooldown, hasRuneShard } from "../build/loadout.js";
 import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
+import { collectTargetsAlongLine } from "./weapons.js";
 
 export function getJavelinProfile(mode = abilityState.javelin.mode) {
   const profile = mode === "hold" ? abilityConfig.javelin.hold : abilityConfig.javelin.tap;
@@ -34,6 +35,32 @@ export function getFieldProfile(mode = abilityState.field.mode) {
     moveBoost: 1,
     moveBoostDuration: 0,
   };
+}
+
+function triggerAbilityCastRuneEffects() {
+  const defenseCore = getRuneValue("defense", "primary");
+  if (defenseCore > 0) {
+    const buildStats = getBuildStats();
+    player.hp = clamp(player.hp + defenseCore * 2, 0, buildStats.maxHp);
+  }
+
+  const spellsCore = getRuneValue("spells", "primary");
+  if (spellsCore > 0) {
+    player.hasteTime = Math.max(player.hasteTime, 0.35 + spellsCore * 0.12);
+  }
+}
+
+function getMagneticGrappleTarget() {
+  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
+  const hits = collectTargetsAlongLine(
+    player,
+    Math.atan2(direction.y, direction.x),
+    config.grappleRange,
+    config.grappleWidth,
+    getAllBots(),
+    true,
+  );
+  return hits[0]?.target ?? null;
 }
 
 export function startDashInput() {
@@ -192,7 +219,12 @@ export function releaseShockJavelin() {
   const chargeTime = abilityState.javelin.chargeTime;
   const isCharged = chargeTime >= abilityConfig.javelin.chargeThreshold;
   abilityState.javelin.mode = isCharged ? "hold" : "tap";
-  const javelinProfile = getJavelinProfile(abilityState.javelin.mode);
+  const javelinProfile = { ...getJavelinProfile(abilityState.javelin.mode) };
+  if (isCharged && hasRuneShard("spells")) {
+    javelinProfile.damage += 12;
+    javelinProfile.stun += 0.18;
+    javelinProfile.radius += 2;
+  }
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
 
   shockJavelins.push({
@@ -216,7 +248,8 @@ export function releaseShockJavelin() {
 
   abilityState.javelin.charging = false;
   abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.cooldown = abilityConfig.javelin.cooldown;
+  abilityState.javelin.cooldown = getAbilityCooldown(abilityConfig.javelin.cooldown);
+  triggerAbilityCastRuneEffects();
   player.recoil = Math.max(player.recoil, 0.22);
   queuePhantomAbility("shockJavelin", {
     mode: abilityState.javelin.mode,
@@ -302,7 +335,11 @@ export function releaseMagneticField() {
 
   const isHold = abilityState.field.chargeTime >= abilityConfig.field.chargeThreshold;
   abilityState.field.mode = isHold ? "hold" : "tap";
-  const fieldProfile = getFieldProfile(abilityState.field.mode);
+  const fieldProfile = { ...getFieldProfile(abilityState.field.mode) };
+  if (isHold && hasRuneShard("spells")) {
+    fieldProfile.duration += 0.6;
+    fieldProfile.slow += 0.08;
+  }
   const centerX = fieldProfile.anchor === "player" ? player.x : input.mouseX;
   const centerY = fieldProfile.anchor === "player" ? player.y : input.mouseY;
 
@@ -328,7 +365,8 @@ export function releaseMagneticField() {
 
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
-  abilityState.field.cooldown = abilityConfig.field.cooldown;
+  abilityState.field.cooldown = getAbilityCooldown(abilityConfig.field.cooldown);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("magneticField", {
     mode: abilityState.field.mode,
     facing: player.facing,
@@ -374,18 +412,37 @@ export function castMagneticGrapple() {
   }
 
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
-  player.attackCommitX = direction.x;
-  player.attackCommitY = direction.y;
-  player.attackCommitSpeed = 1440;
-  player.attackCommitTime = 0.16;
-  abilityState.grapple.cooldown = config.grappleCooldown;
+  const target = getMagneticGrappleTarget();
+  abilityState.grapple.cooldown = getAbilityCooldown(config.grappleCooldown);
+  triggerAbilityCastRuneEffects();
   player.flash = 0.08;
   queuePhantomAbility("magneticGrapple", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("magneticGrapple");
+
+  if (!target) {
+    addImpact(player.x, player.y, "#c5f6ff", 22);
+    addAfterimage(player.x, player.y, player.facing, player.radius + 3, "#9ee9ff");
+    addShake(3.8);
+    statusLine.textContent = "Magnetic Grapple missed. Commit only when the catch line is real.";
+    return;
+  }
+
+  const toPlayer = normalize(player.x - target.x, player.y - target.y);
+  const currentDistance = length(target.x - player.x, target.y - player.y);
+  const desiredDistance = Math.max(player.radius + target.radius + 18, currentDistance - config.grapplePullDistance);
+  target.x = player.x - toPlayer.x * desiredDistance;
+  target.y = player.y - toPlayer.y * desiredDistance;
+  resolveMapCollision(target);
+  maybeTeleportEntity(target);
+  target.velocityX = toPlayer.x * 320;
+  target.velocityY = toPlayer.y * 320;
+  applyStatusEffect(target, "slow", getStatusDuration(config.grappleSnareDuration), config.grappleSnare);
+  addBeamEffect(player.x, player.y, target.x, target.y, "#bdf4ff", 5, 0.18);
   addImpact(player.x, player.y, "#c5f6ff", 30);
-  addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#9ee9ff");
-  addShake(6.4);
-  statusLine.textContent = "Magnetic Grapple yanked you into a new line.";
+  addImpact(target.x, target.y, "#dffbff", 24);
+  applyHitReaction(target, player.x, player.y, 1.1);
+  addShake(7.2);
+  statusLine.textContent = "Magnetic Grapple caught and dragged the target into punish range.";
 }
 
 export function castEnergyShield() {
@@ -393,7 +450,8 @@ export function castEnergyShield() {
     return;
   }
 
-  abilityState.shield.cooldown = config.shieldCooldown;
+  abilityState.shield.cooldown = getAbilityCooldown(config.shieldCooldown);
+  triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, 26 + getRuneValue("defense", "primary") * 3);
   player.shieldTime = 2.4;
   queuePhantomAbility("energyShield");
@@ -408,7 +466,8 @@ export function castEmpBurst() {
     return;
   }
 
-  abilityState.emp.cooldown = config.boosterCooldown;
+  abilityState.emp.cooldown = getAbilityCooldown(config.boosterCooldown);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("empBurst");
   playAbilityCue("empBurst");
   addImpact(player.x, player.y, "#be9dff", 34);
@@ -448,7 +507,8 @@ export function castBackstepBurst() {
   player.y += retreat.y * 158;
   resolveMapCollision(player);
   maybeTeleportEntity(player);
-  abilityState.backstep.cooldown = 3.6;
+  abilityState.backstep.cooldown = getAbilityCooldown(3.6);
+  triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
@@ -480,7 +540,8 @@ export function castChainLightning() {
     return;
   }
 
-  abilityState.chainLightning.cooldown = 5.4;
+  abilityState.chainLightning.cooldown = getAbilityCooldown(5.4);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("chainLightning", { facing: player.facing, aimX: firstTarget.x, aimY: firstTarget.y });
   let sourceX = player.x;
   let sourceY = player.y;
@@ -525,7 +586,8 @@ export function castBlinkStep() {
   player.y += direction.y * 148;
   resolveMapCollision(player);
   maybeTeleportEntity(player);
-  abilityState.blink.cooldown = 3.4;
+  abilityState.blink.cooldown = getAbilityCooldown(3.4);
+  triggerAbilityCastRuneEffects();
   player.flash = 0.1;
   queuePhantomAbility("blinkStep", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("blinkStep");
@@ -544,7 +606,8 @@ export function castPhaseDash() {
   player.attackCommitY = direction.y;
   player.attackCommitSpeed = 1580;
   player.attackCommitTime = 0.18;
-  abilityState.phaseDash.cooldown = 4.6;
+  abilityState.phaseDash.cooldown = getAbilityCooldown(4.6);
+  triggerAbilityCastRuneEffects();
   abilityState.phaseDash.time = 0.42;
   player.ghostTime = Math.max(player.ghostTime, 0.42);
   queuePhantomAbility("phaseDash", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
@@ -558,7 +621,8 @@ export function castPulseBurst() {
   if (!isCombatLive() || abilityState.pulseBurst.cooldown > 0) {
     return;
   }
-  abilityState.pulseBurst.cooldown = 3.2;
+  abilityState.pulseBurst.cooldown = getAbilityCooldown(3.2);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("pulseBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
@@ -581,7 +645,8 @@ export function castRailShotAbility() {
   if (!isCombatLive() || abilityState.railShot.cooldown > 0) {
     return;
   }
-  abilityState.railShot.cooldown = 5.1;
+  abilityState.railShot.cooldown = getAbilityCooldown(5.1);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("railShot", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * getPerkDamageMultiplier(getPrimaryBot()), {
     radius: 7,
@@ -601,7 +666,8 @@ export function castGravityWell() {
   if (!isCombatLive() || abilityState.gravityWell.cooldown > 0) {
     return;
   }
-  abilityState.gravityWell.cooldown = 5.8;
+  abilityState.gravityWell.cooldown = getAbilityCooldown(5.8);
+  triggerAbilityCastRuneEffects();
   queuePhantomAbility("gravityWell", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   supportZones.push({
     type: "gravity",
@@ -624,7 +690,8 @@ export function castPhaseShift() {
   if (!isCombatLive() || abilityState.phaseShift.cooldown > 0) {
     return;
   }
-  abilityState.phaseShift.cooldown = 5.6;
+  abilityState.phaseShift.cooldown = getAbilityCooldown(5.6);
+  triggerAbilityCastRuneEffects();
   abilityState.phaseShift.time = 0.55;
   player.ghostTime = Math.max(player.ghostTime, 0.55);
   queuePhantomAbility("phaseShift");
@@ -637,7 +704,8 @@ export function castHologramDecoy() {
   if (!isCombatLive() || abilityState.hologramDecoy.cooldown > 0) {
     return;
   }
-  abilityState.hologramDecoy.cooldown = 6.2;
+  abilityState.hologramDecoy.cooldown = getAbilityCooldown(6.2);
+  triggerAbilityCastRuneEffects();
   player.decoyTime = Math.max(player.decoyTime, 2.8);
   queuePhantomAbility("hologramDecoy");
   playAbilityCue("hologramDecoy");
@@ -650,7 +718,8 @@ export function castSpeedSurge() {
   if (!isCombatLive() || abilityState.speedSurge.cooldown > 0) {
     return;
   }
-  abilityState.speedSurge.cooldown = 4.2;
+  abilityState.speedSurge.cooldown = getAbilityCooldown(4.2);
+  triggerAbilityCastRuneEffects();
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
   queuePhantomAbility("speedSurge");
@@ -665,14 +734,14 @@ export function castUltimate() {
   }
 
   if (loadout.ultimate === "phantomSplit") {
-    abilityState.ultimate.cooldown = config.ultimateCooldown;
+    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
     playAbilityCue("phantomSplit");
     spawnPhantomClone();
     return;
   }
 
   if (loadout.ultimate === "revivalProtocol") {
-    abilityState.ultimate.cooldown = config.ultimateCooldown;
+    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
     player.revivalPrimed = 5;
     playAbilityCue("revivalProtocol");
     addImpact(player.x, player.y, "#a3ffd1", 30);
@@ -681,7 +750,7 @@ export function castUltimate() {
   }
 
   if (loadout.ultimate === "arenaLockdown") {
-    abilityState.ultimate.cooldown = config.ultimateCooldown;
+    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
     supportZones.push({
       type: "lockdown",
       team: "player",
@@ -701,7 +770,7 @@ export function castUltimate() {
   }
 
   if (loadout.ultimate === "empCataclysm") {
-    abilityState.ultimate.cooldown = config.ultimateCooldown;
+    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
     playAbilityCue("empCataclysm");
     castEmpBurst();
     abilityState.emp.cooldown = Math.max(abilityState.emp.cooldown, 0.1);
@@ -714,7 +783,7 @@ export function castUltimate() {
   }
 
   if (loadout.ultimate === "berserkCore") {
-    abilityState.ultimate.cooldown = config.ultimateCooldown;
+    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
     player.hasteTime = Math.max(player.hasteTime, 4.2);
     player.shield = Math.max(player.shield, 28);
     player.shieldTime = Math.max(player.shieldTime, 4.2);

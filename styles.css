@@ -172,6 +172,14 @@ body {
   outline: none;
 }
 
+.training-build-button {
+  display: none;
+}
+
+.training-build-button.is-visible {
+  display: inline-flex;
+}
+
 .audio-panel {
   display: grid;
   gap: 8px;
@@ -513,6 +521,27 @@ body {
 .content-icon::after {
   content: "";
   position: absolute;
+}
+
+.content-icon--empty-slot {
+  border-style: dashed;
+  border-color: rgba(159, 199, 255, 0.2);
+  background: linear-gradient(180deg, rgba(22, 34, 48, 0.88), rgba(8, 13, 20, 0.98));
+}
+
+.content-icon--empty-slot::before,
+.content-icon--empty-slot::after {
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(159, 199, 255, 0.62);
+  transform: translate(-50%, -50%);
+}
+
+.content-icon--empty-slot::after {
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .content-icon--weapon-pulse::before {
@@ -2366,19 +2395,20 @@ body {
 }
 
 .wizard-summary-chip {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  column-gap: 7px;
+  row-gap: 1px;
   padding: 5px 8px;
   border-radius: 8px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.06);
   font-size: 0.65rem;
   color: var(--muted);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: border-color 200ms ease, background 200ms ease;
+  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
 }
 
 .wizard-summary-chip.is-filled {
@@ -2388,6 +2418,12 @@ body {
 .wizard-summary-chip.is-active {
   border-color: rgba(119, 216, 255, 0.3);
   background: rgba(119, 216, 255, 0.06);
+}
+
+.wizard-summary-chip.is-previewing {
+  border-color: rgba(255, 211, 117, 0.42);
+  background: rgba(255, 211, 117, 0.08);
+  box-shadow: 0 0 18px rgba(255, 211, 117, 0.12);
 }
 
 .wizard-summary-chip--weapon.is-filled  { border-color: rgba(255,107,91,0.35); }
@@ -2408,12 +2444,34 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   min-width: 20px;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 .wizard-summary-chip--weapon.is-filled   .wizard-summary-chip__label { color: var(--cat-weapon); }
 .wizard-summary-chip--ability.is-filled  .wizard-summary-chip__label { color: var(--cat-ability); }
 .wizard-summary-chip--perk.is-filled     .wizard-summary-chip__label { color: var(--cat-perk); }
 .wizard-summary-chip--ultimate.is-filled .wizard-summary-chip__label { color: var(--cat-ultimate); }
+
+.wizard-summary-chip .content-icon {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.wizard-summary-chip .robot-slot__name {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.wizard-summary-chip .robot-slot__meta {
+  display: block;
+  grid-column: 3;
+  grid-row: 2;
+  line-height: 1.25;
+  white-space: normal;
+}
 
 /* Larger item-list in focus mode (no height cap) */
 .wizard-focus__picker .item-list {
@@ -2846,6 +2904,12 @@ body {
   border-color: rgba(119, 216, 255, 0.38);
 }
 
+.item-row.is-previewing {
+  background: rgba(255, 211, 117, 0.12);
+  border-color: rgba(255, 211, 117, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 211, 117, 0.16);
+}
+
 .item-row.is-locked {
   opacity: 0.45;
   cursor: default;
@@ -2890,6 +2954,10 @@ body {
 }
 
 .item-row__state--preview {
+  color: var(--gold);
+}
+
+.item-row__state--pending {
   color: var(--gold);
 }
 
@@ -3144,6 +3212,22 @@ body {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 10px rgba(119, 216, 255, 0.28);
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.detail-actions .primary-button,
+.detail-actions .secondary-button {
+  min-width: 134px;
+}
+
+.detail-actions .is-hidden {
+  display: none !important;
 }
 
 /* ──────────────────── STYLE PANEL (cosmetics) ──────────────────── */

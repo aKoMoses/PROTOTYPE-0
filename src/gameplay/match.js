@@ -1,12 +1,11 @@
 // Duel match flow, round management, session launch
 import { config, sandboxModes } from "../config.js";
-import { weapons } from "../content.js";
-import { player, enemy, trainingBots, abilityState, loadout, sandbox, matchState, uiState, mapState, botBuildState } from "../state.js";
-import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelectedMap, buildLabVisiblePools, resolveMapKey } from "../maps.js";
+import { player, enemy, trainingBots, abilityState, loadout, sandbox, matchState, uiState, mapState, botBuildState, trainingToolState } from "../state.js";
+import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelectedMap, resolveMapKey } from "../maps.js";
 import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBotsForMode, refreshHunterLoadout } from "./combat.js";
 import { addImpact, addShake } from "./effects.js";
-import { getBuildStats, normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoadout } from "../build/loadout.js";
-import { setPrematchStep, resetBuildWizard, advanceBuildWizard, prevBuildWizardStep } from "../build/ui.js";
+import { normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoadout } from "../build/loadout.js";
+import { setPrematchStep, resetBuildWizard, prevBuildWizardStep, commitBuildStepSelection, commitActivePreviewSelection, updateTrainingBuildButton, isBuildComplete, getFirstIncompleteBuildSlot, goToBuildWizardStep } from "../build/ui.js";
 import { startSurvivalRun } from "./survival.js";
 import * as dom from "../dom.js";
 export { relaunchCurrentSession } from "../build/ui.js";
@@ -156,37 +155,37 @@ export function switchSandboxMode(nextMode, nextMapKey = sandbox.mapKey) {
     resetBotsForMode(nextMode);
     showRoundBanner("", "", false);
     dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Static targets are ready for build testing.`;
+    updateTrainingBuildButton();
     return;
   }
 
   if (nextMode === sandboxModes.survival.key) {
     startSurvivalRun({ resetProgress: true });
     dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Survival gauntlet initialized.`;
+    updateTrainingBuildButton();
     return;
   }
 
   startDuelRound({ resetScore: true });
   dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Match flow initialized.`;
+  updateTrainingBuildButton();
 }
 
 
 export function launchSelectedSession() {
-  normalizeLoadoutSelections();
-  loadout.weapon = loadout.weapon in weapons ? loadout.weapon : weapons.pulse.key;
-  loadout.perks = loadout.perks.filter(Boolean).slice(0, 1);
-  if (loadout.perks.length === 0) {
-    loadout.perks = [buildLabVisiblePools.perks[0]];
-  }
-  while (loadout.abilities.length < 3) {
-    for (const fallback of ["shockJavelin", "magneticField", "energyShield", "magneticGrapple"]) {
-      if (!loadout.abilities.includes(fallback)) {
-        loadout.abilities.push(fallback);
-      }
-      if (loadout.abilities.length >= 3) {
-        break;
-      }
+  commitActivePreviewSelection();
+  normalizeLoadoutSelections({ preserveEmptySlots: true });
+  if (!isBuildComplete()) {
+    const missingSlot = getFirstIncompleteBuildSlot();
+    if (missingSlot) {
+      goToBuildWizardStep(missingSlot);
     }
+    setPrematchStep("build");
+    _renderPrematch?.();
+    dom.statusLine.textContent = "Lock every build slot before deploying the match.";
+    return;
   }
+
   botBuildState.current = botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
     : createRandomBotLoadout();
@@ -195,6 +194,21 @@ export function launchSelectedSession() {
   const previousMapKey = sandbox.mapKey;
   const resolvedMapKey = resolveMapKey(uiState.selectedMode, uiState.selectedMap, true);
   _closePrematch?.();
+  if (
+    trainingToolState.editingBuild &&
+    previousMode === sandboxModes.training.key &&
+    uiState.selectedMode === sandboxModes.training.key &&
+    previousMapKey === resolvedMapKey
+  ) {
+    trainingToolState.editingBuild = false;
+    _resetPlayer?.({ silent: true });
+    resetBotsForMode(sandboxModes.training.key);
+    showRoundBanner("", "", false);
+    dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} build applied. Training lane refreshed instantly.`;
+    updateTrainingBuildButton();
+    return;
+  }
+
   if (previousMode !== uiState.selectedMode || previousMapKey !== resolvedMapKey) {
     switchSandboxMode(uiState.selectedMode, resolvedMapKey);
   } else if (uiState.selectedMode === sandboxModes.training.key) {
@@ -214,6 +228,8 @@ export function launchSelectedSession() {
   } else {
     dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} loaded. Read the round and contest space cleanly.`;
   }
+  trainingToolState.editingBuild = false;
+  updateTrainingBuildButton();
 }
 
 
@@ -255,6 +271,7 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "step-build" || buttonId === "continue-build") {
+    trainingToolState.editingBuild = false;
     resetBuildWizard();
     setPrematchStep("build");
     dom.statusLine.textContent = "Build phase open. Lock the loadout, then press Ready.";
@@ -262,6 +279,17 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "continue-runes") {
+    commitActivePreviewSelection();
+    if (!isBuildComplete()) {
+      const missingSlot = getFirstIncompleteBuildSlot();
+      if (missingSlot) {
+        goToBuildWizardStep(missingSlot);
+      }
+      setPrematchStep("build");
+      _renderPrematch?.();
+      dom.statusLine.textContent = "Complete and lock every slot before opening runes.";
+      return;
+    }
     setPrematchStep("runes");
     _renderPrematch?.();
     dom.statusLine.textContent = "Neural augmentation station. Allocate core points across the talent tree.";
@@ -281,7 +309,19 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "build-step-next") {
-    advanceBuildWizard();
+    const result = commitBuildStepSelection();
+    if (result === "runes") {
+      setPrematchStep("runes");
+      dom.statusLine.textContent = "Rune pass open. Lock your main shard and final stat line.";
+    } else if (result === "blocked") {
+      dom.statusLine.textContent = "Preview an option, then lock it in before moving on.";
+    } else if (result === "incomplete") {
+      const missingSlot = getFirstIncompleteBuildSlot();
+      if (missingSlot) {
+        goToBuildWizardStep(missingSlot);
+      }
+      dom.statusLine.textContent = "Every slot must be locked before you can move to runes.";
+    }
     _renderPrematch?.();
     return;
   }
@@ -298,17 +338,22 @@ export function bindPrematchButton(button, actionId) {
     return;
   }
 
-  const runAction = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handlePrematchAction(actionId);
-  };
-
-  button.addEventListener("click", runAction);
-  button.addEventListener("pointerup", runAction);
+  if (button.dataset.codexBound === "true") {
+    return;
+  }
+  button.dataset.codexBound = "true";
+  if (!button.getAttribute("onclick")) {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handlePrematchAction(actionId);
+    });
+  }
   button.addEventListener("keydown", (event) => {
     if (event.code === "Enter" || event.code === "Space") {
-      runAction(event);
+      event.preventDefault();
+      event.stopPropagation();
+      handlePrematchAction(actionId);
     }
   });
 }
