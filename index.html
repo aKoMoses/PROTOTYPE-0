@@ -350,6 +350,15 @@
                           <button class="primary-button" id="detail-lock-button" type="button">Lock In</button>
                         </div>
                       </div>
+
+                      <section class="build-card build-card--presets">
+                        <div class="build-card__header">
+                          <span class="label">Starter Presets</span>
+                          <strong>Load a coherent fighter</strong>
+                        </div>
+                        <span class="builder-copy">Three clean starter builds so new players and balance tests can jump straight into a useful kit.</span>
+                        <div class="preset-grid" id="player-preset-grid"></div>
+                      </section>
                     </div>
                   </div>
                 </div>
@@ -401,6 +410,10 @@
                     <div class="toggle-strip">
                       <button class="toggle-chip is-active" id="bot-mode-random" type="button">Randomized</button>
                       <button class="toggle-chip" id="bot-mode-custom" type="button">Custom</button>
+                    </div>
+                    <div class="bot-config-group">
+                      <span class="label">Bot Presets</span>
+                      <div class="preset-grid preset-grid--compact" id="bot-preset-grid"></div>
                     </div>
                     <div class="bot-config-group">
                       <span class="label">Weapon</span>
@@ -503,6 +516,7 @@
                 <span class="label">Weapon</span>
                 <strong id="weapon-name">Pulse Rifle</strong>
                 <span class="weapon-pill__status" id="weapon-status">Ready</span>
+                <span class="weapon-pill__role" id="weapon-role">Mid range pressure</span>
               </div>
             </div>
             <div class="meter">
@@ -516,6 +530,7 @@
             <span class="label">Health</span>
             <strong id="player-health-text">100 / 100</strong>
           </div>
+          <span class="hud-build-tag" id="player-build-tag">Keystone offline</span>
           <div class="meter meter-health meter-health-player">
             <div class="meter-fill meter-fill-player" id="player-health-fill"></div>
           </div>

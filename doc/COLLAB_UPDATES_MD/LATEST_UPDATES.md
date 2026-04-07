@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-04-07 12:26:49
+- **Author:** AKOMOSES
+- **Branch:** `codex/buildmaker-gameplay-identity-refactor`
+- **Type:** Major Presentation Pass, Arena Fairness, HUD/Audio Polish, Presets, Rail Sniper Rework
+
+### Summary
+- Upgraded the in-game presentation with a cleaner competitive HUD, clearer weapon role/readiness copy, a visible perk-keystone tag, and clockwise cooldown masks for ability readability.
+- Reworked audio interaction flow so browser unlock is more reliable and UI actions, confirms, cancels, round states, weapon fire, and ability usage all route through a healthier sound pipeline.
+- Added curated starter presets for players and three coherent duel bot presets so testing, onboarding, and matchup labbing start from real synergistic builds instead of random loose kits.
+- Strengthened the `Rail Sniper` into a real identity weapon with hold-to-charge firing, stronger release feedback, damage that scales through charge plus travel distance, and a charged snare payoff.
+- Improved larger-map support with smarter camera look-ahead, expanded the `Wasteland Expanse` training space, and fixed Arena spawn logic so duel starts are now symmetrical and competition-ready.
+- Kept the pass focused on readability and competitive utility while preserving the existing modular build flow and Training Lab instant rebuild workflow.
+
+### Files
+- `index.html`
+- `src/audio.js`
+- `src/build/loadout.js`
+- `src/build/ui.js`
+- `src/config.js`
+- `src/content.js`
+- `src/dom.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/hud.js`
+- `src/gameplay/input.js`
+- `src/gameplay/match.js`
+- `src/gameplay/player.js`
+- `src/gameplay/renderer.js`
+- `src/gameplay/weapons.js`
+- `src/maps.js`
+- `src/state.js`
+- `styles.css`
+
+### Notes
+- Validation completed with `npm.cmd run build`.
+- Headless smoke coverage confirmed boot and Training Lab entry; shell-embedded visibility still limits full Arena UI assertions in automation, so this remains a code-validated and partially playtested pass.
+
+---
+
 ## 2026-04-07 10:59:40
 - **Author:** AKOMOSES
 - **Branch:** `codex/buildmaker-gameplay-identity-refactor`

@@ -1,11 +1,151 @@
 // Loadout, build stats, rune calculations, bot loadout management
 import { config, arena, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { loadout, player, enemy, botBuildState, uiState, abilityState } from "../state.js";
+import { loadout, player, enemy, botBuildState, uiState, abilityState, createInitialRuneAllocation } from "../state.js";
 import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getStatusState } from "../gameplay/combat.js";
 import { renderPrematch } from "./ui.js";
+
+function cloneRuneAllocation(source = null) {
+  const next = createInitialRuneAllocation();
+  if (!source) {
+    return next;
+  }
+
+  for (const [treeKey, treeState] of Object.entries(next)) {
+    const sourceTree = source[treeKey] ?? {};
+    treeState.secondary = Math.max(0, Number(sourceTree.secondary ?? 0));
+    treeState.primary = Math.max(0, Number(sourceTree.primary ?? 0));
+    treeState.ultimate = Math.max(0, Number(sourceTree.ultimate ?? 0));
+  }
+
+  return next;
+}
+
+function createPresetRunes(overrides = {}) {
+  const runes = createInitialRuneAllocation();
+  for (const [treeKey, values] of Object.entries(overrides)) {
+    if (!runes[treeKey]) {
+      continue;
+    }
+    runes[treeKey].secondary = values.secondary ?? 0;
+    runes[treeKey].primary = values.primary ?? 0;
+    runes[treeKey].ultimate = values.ultimate ?? 0;
+  }
+  return runes;
+}
+
+const playerStarterPresets = [
+  {
+    key: "stalker-rig",
+    name: "Stalker Rig",
+    role: "Easy pressure / stable punish",
+    description: "Pulse pressure with clean anti-burst tools and a forgiving clutch line.",
+    loadout: {
+      weapon: weapons.pulse.key,
+      abilities: ["shockJavelin", "magneticField", "phaseShift"],
+      perks: ["reactiveArmor"],
+      ultimate: "revivalProtocol",
+      runes: createPresetRunes({
+        attack: { secondary: 3, primary: 1, ultimate: 0 },
+        defense: { secondary: 3, primary: 1, ultimate: 1 },
+        spells: { secondary: 3, primary: 1, ultimate: 0 },
+        support: { secondary: 2, primary: 0, ultimate: 0 },
+      }),
+    },
+  },
+  {
+    key: "breach-kit",
+    name: "Breach Kit",
+    role: "Simple engage / close punish",
+    description: "Shotgun plus catch tools for players who want obvious punish windows and strong confirms.",
+    loadout: {
+      weapon: weapons.shotgun.key,
+      abilities: ["magneticGrapple", "shockJavelin", "energyShield"],
+      perks: ["executionRelay"],
+      ultimate: "phantomSplit",
+      runes: createPresetRunes({
+        attack: { secondary: 4, primary: 2, ultimate: 1 },
+        defense: { secondary: 2, primary: 0, ultimate: 0 },
+        spells: { secondary: 2, primary: 0, ultimate: 0 },
+        support: { secondary: 2, primary: 2, ultimate: 0 },
+      }),
+    },
+  },
+  {
+    key: "long-sight",
+    name: "Long Sight",
+    role: "Spacing / charged punish",
+    description: "Rail Sniper setup with clean self-peel and a strong lane-control identity.",
+    loadout: {
+      weapon: weapons.sniper.key,
+      abilities: ["shockJavelin", "gravityWell", "phaseShift"],
+      perks: ["dashCooling"],
+      ultimate: "phantomSplit",
+      runes: createPresetRunes({
+        attack: { secondary: 3, primary: 2, ultimate: 1 },
+        defense: { secondary: 1, primary: 0, ultimate: 0 },
+        spells: { secondary: 4, primary: 1, ultimate: 1 },
+        support: { secondary: 2, primary: 0, ultimate: 0 },
+      }),
+    },
+  },
+];
+
+const botPresetLibrary = [
+  {
+    key: "bot-hunter",
+    name: "Bot Hunter",
+    role: "Poke / punish",
+    description: "Keeps spacing, threatens long confirms, and punishes panic movement.",
+    loadout: {
+      weapon: weapons.sniper.key,
+      abilities: ["shockJavelin", "magneticField", "phaseShift"],
+      perk: "dashCooling",
+      ultimate: "phantomSplit",
+      runes: createPresetRunes({
+        attack: { secondary: 3, primary: 1, ultimate: 1 },
+        spells: { secondary: 3, primary: 1, ultimate: 1 },
+        support: { secondary: 2, primary: 0, ultimate: 0 },
+      }),
+    },
+  },
+  {
+    key: "bot-bourrin",
+    name: "Bot Bourrin",
+    role: "Commit / brawl",
+    description: "Walks you down with heavy melee commitment and short brutal punish windows.",
+    loadout: {
+      weapon: weapons.axe.key,
+      abilities: ["magneticGrapple", "energyShield", "phaseDash"],
+      perk: "comboDriver",
+      ultimate: "berserkCore",
+      runes: createPresetRunes({
+        attack: { secondary: 4, primary: 2, ultimate: 1 },
+        defense: { secondary: 3, primary: 1, ultimate: 0 },
+        support: { secondary: 2, primary: 1, ultimate: 0 },
+      }),
+    },
+  },
+  {
+    key: "bot-controller",
+    name: "Bot Controller",
+    role: "Zone / reset",
+    description: "Controls exits, slows the duel down, and forces predictable movement.",
+    loadout: {
+      weapon: weapons.cannon.key,
+      abilities: ["gravityWell", "magneticField", "empBurst"],
+      perk: "shockBuffer",
+      ultimate: "empCataclysm",
+      runes: createPresetRunes({
+        defense: { secondary: 2, primary: 1, ultimate: 0 },
+        spells: { secondary: 4, primary: 2, ultimate: 1 },
+        support: { secondary: 3, primary: 1, ultimate: 0 },
+      }),
+    },
+  },
+];
 
 export function getVisibleContentItems(group) {
   const pool = buildLabVisiblePools[group] ?? [];
@@ -85,9 +225,23 @@ export function ensureBotLoadoutFilled(loadoutConfig) {
     }
   }
 
+  const perkKey = getContentItem("perks", loadoutConfig.perk)?.state === "playable"
+    ? loadoutConfig.perk
+    : buildLabVisiblePools.perks[0];
+  const ultimateKey = getContentItem("ultimates", loadoutConfig.ultimate)?.state === "playable"
+    ? loadoutConfig.ultimate
+    : buildLabVisiblePools.ultimates[0];
+
   return {
     weapon: weaponKey,
     abilities: uniqueAbilities.slice(0, 3),
+    perk: perkKey,
+    ultimate: ultimateKey,
+    runes: cloneRuneAllocation(loadoutConfig.runes),
+    presetKey: loadoutConfig.presetKey ?? null,
+    name: loadoutConfig.name ?? null,
+    role: loadoutConfig.role ?? null,
+    description: loadoutConfig.description ?? null,
   };
 }
 
@@ -104,55 +258,14 @@ export function pickRandomItems(source, count) {
 }
 
 export function createRandomBotLoadout() {
-  const archetypes = [
-    {
-      weapon: weapons.pulse.key,
-      abilities: ["shockJavelin", "magneticField", "energyShield"],
-    },
-    {
-      weapon: weapons.pulse.key,
-      abilities: ["shockJavelin", "empBurst", "phaseShift"],
-    },
-    {
-      weapon: weapons.shotgun.key,
-      abilities: ["magneticGrapple", "empBurst", "blinkStep"],
-    },
-    {
-      weapon: weapons.shotgun.key,
-      abilities: ["shockJavelin", "magneticGrapple", "energyShield"],
-    },
-    {
-      weapon: weapons.axe.key,
-      abilities: ["magneticGrapple", "energyShield", "phaseDash"],
-    },
-    {
-      weapon: weapons.axe.key,
-      abilities: ["magneticField", "magneticGrapple", "shockJavelin"],
-    },
-    {
-      weapon: weapons.sniper.key,
-      abilities: ["shockJavelin", "energyShield", "magneticField"],
-    },
-    {
-      weapon: weapons.staff.key,
-      abilities: ["magneticField", "energyShield", "chainLightning"],
-    },
-    {
-      weapon: weapons.injector.key,
-      abilities: ["shockJavelin", "empBurst", "magneticGrapple"],
-    },
-    {
-      weapon: weapons.lance.key,
-      abilities: ["magneticGrapple", "phaseDash", "energyShield"],
-    },
-    {
-      weapon: weapons.cannon.key,
-      abilities: ["gravityWell", "magneticField", "phaseShift"],
-    },
-  ];
-
-  const selectedArchetype = archetypes[Math.floor(Math.random() * archetypes.length)];
-  return ensureBotLoadoutFilled(selectedArchetype);
+  const selectedPreset = botPresetLibrary[Math.floor(Math.random() * botPresetLibrary.length)] ?? botPresetLibrary[0];
+  return ensureBotLoadoutFilled({
+    ...selectedPreset.loadout,
+    presetKey: selectedPreset.key,
+    name: selectedPreset.name,
+    role: selectedPreset.role,
+    description: selectedPreset.description,
+  });
 }
 
 export function getBotConfiguredLoadout() {
@@ -213,6 +326,46 @@ export function getCurrentBotBuildPreview() {
   return botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
     : ensureBotLoadoutFilled(botBuildState.current);
+}
+
+export function getPlayerStarterPresets() {
+  return playerStarterPresets;
+}
+
+export function applyPlayerStarterPreset(presetKey) {
+  const preset = playerStarterPresets.find((entry) => entry.key === presetKey);
+  if (!preset) {
+    return false;
+  }
+
+  loadout.weapon = preset.loadout.weapon;
+  loadout.abilities = [...preset.loadout.abilities];
+  loadout.perks = [...preset.loadout.perks];
+  loadout.ultimate = preset.loadout.ultimate;
+  loadout.runes = cloneRuneAllocation(preset.loadout.runes);
+  return true;
+}
+
+export function getBotPresets() {
+  return botPresetLibrary;
+}
+
+export function applyBotPreset(presetKey) {
+  const preset = botPresetLibrary.find((entry) => entry.key === presetKey);
+  if (!preset) {
+    return false;
+  }
+
+  botBuildState.mode = "custom";
+  botBuildState.custom = ensureBotLoadoutFilled({
+    ...preset.loadout,
+    presetKey: preset.key,
+    name: preset.name,
+    role: preset.role,
+    description: preset.description,
+  });
+  botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
+  return true;
 }
 
 

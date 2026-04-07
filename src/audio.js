@@ -396,22 +396,8 @@ function refreshControls() {
 }
 
 function bindUnlockEvents() {
-  const unlock = async () => {
-    ensureAudioGraph();
-    if (!audioState.ctx) {
-      return;
-    }
-    try {
-      await audioState.ctx.resume();
-      audioState.unlocked = true;
-      applyMixTargets();
-    } catch {
-      // Keep the controls alive even when resume is denied.
-    }
-  };
-
   const handleUnlock = () => {
-    unlock();
+    unlockAudio();
     if (audioState.unlocked) {
       window.removeEventListener("pointerdown", handleUnlock);
       window.removeEventListener("keydown", handleUnlock);
@@ -422,6 +408,21 @@ function bindUnlockEvents() {
   window.addEventListener("pointerdown", handleUnlock, { passive: true });
   window.addEventListener("keydown", handleUnlock, { passive: true });
   window.addEventListener("touchstart", handleUnlock, { passive: true });
+}
+
+export async function unlockAudio() {
+  ensureAudioGraph();
+  if (!audioState.ctx) {
+    return false;
+  }
+  try {
+    await audioState.ctx.resume();
+    audioState.unlocked = true;
+    applyMixTargets();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function computeIntensity() {
@@ -476,7 +477,7 @@ function updateAmbienceLayers() {
   const mapKey = sandbox.mapKey;
   const electro = mapKey === "electroGallery" ? 1 : 0;
   const scrap = mapKey === "bricABroc" ? 1 : 0;
-  const training = mapKey === "trainingGround" ? 1 : 0;
+  const training = mapKey === "trainingGround" || mapKey === "trainingExpanse" ? 1 : 0;
 
   setParamTarget(audioState.ambience.electroHumGain.gain, electro ? 0.028 : 0.0001, 0.28);
   setParamTarget(audioState.ambience.electroNoiseGain.gain, electro ? 0.016 : 0.0001, 0.28);
@@ -753,4 +754,23 @@ export function playRoundCue(kind) {
     playTone({ type: "triangle", frequency: 180, sweepTo: 120, duration: 0.18, gain: 0.04 });
     playTone({ type: "sine", frequency: 120, sweepTo: 82, duration: 0.24, gain: 0.028 });
   }
+}
+
+export function playUiCue(kind = "click") {
+  if (!audioState.ctx) {
+    return;
+  }
+
+  if (kind === "confirm") {
+    playTone({ type: "triangle", frequency: 320, sweepTo: 430, duration: 0.11, gain: 0.038, filterType: "lowpass", filterFrequency: 1500 });
+    playTone({ type: "triangle", frequency: 430, sweepTo: 520, duration: 0.14, gain: 0.024, filterType: "lowpass", filterFrequency: 1700 });
+    return;
+  }
+
+  if (kind === "cancel") {
+    playTone({ type: "sine", frequency: 260, sweepTo: 190, duration: 0.08, gain: 0.03, filterType: "lowpass", filterFrequency: 1200 });
+    return;
+  }
+
+  playTone({ type: "triangle", frequency: 240, sweepTo: 300, duration: 0.07, gain: 0.022, filterType: "lowpass", filterFrequency: 1400 });
 }

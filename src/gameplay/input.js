@@ -17,6 +17,7 @@ import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
 import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetBuildWizard, resetRuneAllocation, lockActivePreviewSelection, cancelPreviewSelection, unlockLoadoutSlot } from "../build/ui.js";
 import { setBotBuildMode } from "../build/loadout.js";
 import { resize, updateCameraState } from "./renderer.js";
+import { playUiCue, unlockAudio } from "../audio.js";
 
 export function screenToArena(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
@@ -29,6 +30,11 @@ export function screenToArena(clientX, clientY) {
 }
 
 export function updatePointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const centerX = rect.left + rect.width * 0.5;
+  const centerY = rect.top + rect.height * 0.5;
+  input.lookX = clamp((clientX - centerX) / Math.max(1, rect.width * 0.5), -1, 1);
+  input.lookY = clamp((clientY - centerY) / Math.max(1, rect.height * 0.5), -1, 1);
   const point = screenToArena(clientX, clientY);
   input.mouseX = point.x;
   input.mouseY = point.y;
@@ -181,11 +187,19 @@ helpToggle.addEventListener("click", () => {
 });
 
 [menuButton, hudMenuButton].forEach((button) => {
-  button?.addEventListener("click", () => openPrematch("mode"));
+  button?.addEventListener("click", () => {
+    unlockAudio();
+    playUiCue("click");
+    openPrematch("mode");
+  });
 });
 
 [rematchButton, hudRematchButton].forEach((button) => {
-  button?.addEventListener("click", () => relaunchCurrentSession());
+  button?.addEventListener("click", () => {
+    unlockAudio();
+    playUiCue("confirm");
+    relaunchCurrentSession();
+  });
 });
 
 bindPrematchButton(modeDuel, "mode-duel");
@@ -205,43 +219,55 @@ bindPrematchButton(buildStepPrev, "build-step-prev");
   bindPrematchButton(backBuild, "back-build");
 
   detailLockButton?.addEventListener("click", () => {
+    unlockAudio();
     const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
     if (!lockActivePreviewSelection()) {
+      playUiCue("cancel");
       statusLine.textContent = "Preview an item first, then lock it in.";
       return;
     }
+    playUiCue("confirm");
     renderPrematch();
     const lockedItem = getLoadoutItemForSlot(slotKey);
     statusLine.textContent = `${formatBuildSlotLabel(slotKey)} locked: ${lockedItem?.name ?? "selection confirmed"}.`;
   });
 
   detailSecondaryButton?.addEventListener("click", () => {
+    unlockAudio();
     const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
     const previewPending =
       uiState.previewSelection?.slotKey === slotKey &&
       getLoadoutItemForSlot(slotKey)?.key !== uiState.previewSelection.key;
     if (previewPending) {
       if (!cancelPreviewSelection()) {
+        playUiCue("cancel");
         statusLine.textContent = "No preview to cancel.";
         return;
       }
+      playUiCue("cancel");
       statusLine.textContent = `${formatBuildSlotLabel(slotKey)} preview canceled.`;
       return;
     }
 
     if (!unlockLoadoutSlot(slotKey)) {
+      playUiCue("cancel");
       statusLine.textContent = `${formatBuildSlotLabel(slotKey)} is already empty.`;
       return;
     }
+    playUiCue("cancel");
     statusLine.textContent = `${formatBuildSlotLabel(slotKey)} unlocked. Pick a new option to preview.`;
   });
 
   runeResetButton?.addEventListener("click", () => {
+    unlockAudio();
+    playUiCue("cancel");
     resetRuneAllocation();
     statusLine.textContent = "Rune allocation reset.";
   });
 
 botConfigToggle?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   const hidden = botConfigCard?.classList.toggle("is-hidden");
   if (botConfigToggle) botConfigToggle.textContent = hidden ? "Configure Bot" : "Close Bot Config";
 });
@@ -309,16 +335,22 @@ Object.entries(loadoutSlotButtons).forEach(([slotKey, button]) => {
 });
 
 botModeRandom?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   setBotBuildMode("random");
   statusLine.textContent = "Hunter bot set to randomized loadouts.";
 });
 
 botModeCustom?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   setBotBuildMode("custom");
   statusLine.textContent = "Hunter bot locked to a custom build.";
 });
 
 trainingFireOff?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   trainingToolState.botsFire = false;
   for (const bot of trainingBots) {
     bot.shootCooldown = 999;
@@ -328,6 +360,8 @@ trainingFireOff?.addEventListener("click", () => {
 });
 
 trainingFireOn?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   trainingToolState.botsFire = true;
   trainingBots.forEach((bot, index) => {
     bot.shootCooldown = 0.35 + index * 0.08;
@@ -337,6 +371,8 @@ trainingFireOn?.addEventListener("click", () => {
 });
 
 trainingBuildButton?.addEventListener("click", () => {
+  unlockAudio();
+  playUiCue("click");
   if (sandbox.mode !== sandboxModes.training.key) {
     return;
   }
@@ -357,6 +393,7 @@ canvas.addEventListener("mousedown", (event) => {
   if (uiState.prematchOpen) {
     return;
   }
+  unlockAudio();
   updatePointer(event.clientX, event.clientY);
   if (event.button === 2) {
     input.altFiring = true;

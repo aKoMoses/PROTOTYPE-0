@@ -158,6 +158,12 @@ export function spawnBullet(owner, targetX, targetY, collection, color, speed, d
     effect: options.effect ?? null,
     source: options.source ?? "weapon",
     ownerTeam: owner.team ?? "player",
+    originX: startX,
+    originY: startY,
+    chargeRatio: options.chargeRatio ?? 0,
+    minDamage: options.minDamage ?? damage,
+    maxDamage: options.maxDamage ?? damage,
+    travelBonusRange: options.travelBonusRange ?? 1,
   });
 
   tracers.push({
@@ -313,6 +319,37 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     triggerSupportRuneControl(type);
   }
   return effect;
+}
+
+function getProjectileTravelRatio(projectile, impactX = projectile.x, impactY = projectile.y) {
+  if (projectile.originX === undefined || projectile.originY === undefined) {
+    return 0;
+  }
+
+  return clamp(
+    length(impactX - projectile.originX, impactY - projectile.originY) / Math.max(1, projectile.travelBonusRange ?? 1),
+    0,
+    1,
+  );
+}
+
+function getProjectileImpactStrength(projectile, impactX = projectile.x, impactY = projectile.y) {
+  if (projectile.source !== "rail-sniper") {
+    return 0;
+  }
+
+  const chargeRatio = clamp(projectile.chargeRatio ?? 0, 0, 1);
+  const travelRatio = getProjectileTravelRatio(projectile, impactX, impactY);
+  return clamp(chargeRatio * 0.45 + travelRatio * 0.55, 0, 1);
+}
+
+function getProjectileImpactDamage(projectile, impactX = projectile.x, impactY = projectile.y) {
+  if (projectile.source !== "rail-sniper") {
+    return projectile.damage;
+  }
+
+  const strength = getProjectileImpactStrength(projectile, impactX, impactY);
+  return projectile.minDamage + (projectile.maxDamage - projectile.minDamage) * strength;
 }
 
 export function updateStatusEffects(entity, dt) {
@@ -621,7 +658,13 @@ export function applyProjectileEffectToBot(bot, projectile) {
       addImpact(bot.x, bot.y, "#f0b8ff", 24);
     }
   } else if (effect.kind === "rail") {
-    applyStatusEffect(bot, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    const strength = getProjectileImpactStrength(projectile, bot.x, bot.y);
+    const slow = (effect.bonusSlow ?? 0.12) + ((effect.maxSlow ?? effect.bonusSlow ?? 0.12) - (effect.bonusSlow ?? 0.12)) * strength;
+    const duration = (effect.bonusSlowDuration ?? 0.4) + ((effect.maxSlowDuration ?? effect.bonusSlowDuration ?? 0.4) - (effect.bonusSlowDuration ?? 0.4)) * strength;
+    applyStatusEffect(bot, "slow", getStatusDuration(duration), slow);
+    if (strength >= 0.72) {
+      applyStatusEffect(bot, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
+    }
   }
 }
 
@@ -643,7 +686,13 @@ export function applyProjectileEffectToPlayer(projectile, target = player) {
       addImpact(target.x, target.y, "#f0b8ff", 20);
     }
   } else if (effect.kind === "rail") {
-    applyStatusEffect(target, "slow", getStatusDuration(effect.bonusSlowDuration ?? 0.4), effect.bonusSlow ?? 0.12);
+    const strength = getProjectileImpactStrength(projectile, target.x, target.y);
+    const slow = (effect.bonusSlow ?? 0.12) + ((effect.maxSlow ?? effect.bonusSlow ?? 0.12) - (effect.bonusSlow ?? 0.12)) * strength;
+    const duration = (effect.bonusSlowDuration ?? 0.4) + ((effect.maxSlowDuration ?? effect.bonusSlowDuration ?? 0.4) - (effect.bonusSlowDuration ?? 0.4)) * strength;
+    applyStatusEffect(target, "slow", getStatusDuration(duration), slow);
+    if (strength >= 0.72) {
+      applyStatusEffect(target, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
+    }
   }
 }
 
@@ -911,7 +960,8 @@ export function resolveCombat() {
 
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
-        damageBot(bot, bullet.damage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
+        const impactDamage = getProjectileImpactDamage(bullet, bot.x, bot.y);
+        damageBot(bot, impactDamage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "player", bot);
         if (!bullet.piercing) {
@@ -953,8 +1003,9 @@ export function resolveCombat() {
         statusLine.textContent = "Phantom copy intercepted enemy fire.";
       } else if (abilityState.dash.invulnerabilityTime <= 0) {
         const playerFieldModifier = getEntityFieldModifier(target);
+        const impactDamage = getProjectileImpactDamage(bullet, target.x, target.y);
         const defeatedByBullet = applyPlayerDamage(
-          bullet.damage * (1 - playerFieldModifier.damageReduction),
+          impactDamage * (1 - playerFieldModifier.damageReduction),
           "bullet",
         );
         applyProjectileEffectToPlayer(bullet, target);

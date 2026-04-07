@@ -8,6 +8,7 @@ import { normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoad
 import { setPrematchStep, resetBuildWizard, prevBuildWizardStep, commitBuildStepSelection, commitActivePreviewSelection, updateTrainingBuildButton, isBuildComplete, getFirstIncompleteBuildSlot, goToBuildWizardStep } from "../build/ui.js";
 import { startSurvivalRun } from "./survival.js";
 import * as dom from "../dom.js";
+import { playUiCue, unlockAudio } from "../audio.js";
 export { relaunchCurrentSession } from "../build/ui.js";
 
 // Forward declarations - these will be set by the modules that define them
@@ -234,15 +235,19 @@ export function launchSelectedSession() {
 
 
 export function handlePrematchAction(buttonId) {
+  unlockAudio();
+
   if (buttonId === "mode-duel") {
+    playUiCue("click");
     uiState.selectedMode = sandboxModes.duel.key;
     uiState.selectedMap = normalizeSelectedMap(sandboxModes.duel.key, uiState.selectedMap);
-    dom.statusLine.textContent = "Duel Map selected.";
+    dom.statusLine.textContent = "Arena (1v1) selected.";
     _renderPrematch?.();
     return;
   }
 
   if (buttonId === "mode-survival") {
+    playUiCue("click");
     uiState.selectedMode = sandboxModes.survival.key;
     uiState.selectedMap = normalizeSelectedMap(sandboxModes.survival.key, uiState.selectedMap);
     dom.statusLine.textContent = "Survival Mode selected.";
@@ -251,26 +256,30 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "mode-training") {
+    playUiCue("click");
     uiState.selectedMode = sandboxModes.training.key;
     uiState.selectedMap = mapChoices.trainingGround.key;
-    dom.statusLine.textContent = "Training Map selected.";
+    dom.statusLine.textContent = "Training Lab selected.";
     _renderPrematch?.();
     return;
   }
 
   if (buttonId === "step-mode" || buttonId === "back-mode") {
+    playUiCue("click");
     setPrematchStep("mode");
     dom.statusLine.textContent = "Mode select open.";
     return;
   }
 
   if (buttonId === "step-map" || buttonId === "continue-map" || buttonId === "back-map") {
+    playUiCue("click");
     setPrematchStep("map");
     dom.statusLine.textContent = "Map select open.";
     return;
   }
 
   if (buttonId === "step-build" || buttonId === "continue-build") {
+    playUiCue("click");
     trainingToolState.editingBuild = false;
     resetBuildWizard();
     setPrematchStep("build");
@@ -279,6 +288,7 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "continue-runes") {
+    playUiCue("confirm");
     commitActivePreviewSelection();
     if (!isBuildComplete()) {
       const missingSlot = getFirstIncompleteBuildSlot();
@@ -297,12 +307,14 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "back-build") {
+    playUiCue("click");
     setPrematchStep("build");
     dom.statusLine.textContent = "Back to build config.";
     return;
   }
 
   if (buttonId === "build-step-prev") {
+    playUiCue("click");
     prevBuildWizardStep();
     _renderPrematch?.();
     return;
@@ -310,6 +322,7 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "build-step-next") {
     const result = commitBuildStepSelection();
+    playUiCue(result === "blocked" ? "cancel" : "confirm");
     if (result === "runes") {
       setPrematchStep("runes");
       dom.statusLine.textContent = "Rune pass open. Lock your main shard and final stat line.";
@@ -327,6 +340,7 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "start-session") {
+    playUiCue("confirm");
     launchSelectedSession();
   }
 }

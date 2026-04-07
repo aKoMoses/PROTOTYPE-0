@@ -40,10 +40,18 @@ export const botBuildState = {
   custom: {
     weapon: weapons.pulse.key,
     abilities: ["shockJavelin", "magneticField", "energyShield"],
+    perk: "reactiveArmor",
+    ultimate: "revivalProtocol",
+    runes: createInitialRuneAllocation(),
+    presetKey: null,
   },
   current: {
     weapon: weapons.pulse.key,
     abilities: ["shockJavelin", "magneticField", "energyShield"],
+    perk: "reactiveArmor",
+    ultimate: "revivalProtocol",
+    runes: createInitialRuneAllocation(),
+    presetKey: null,
   },
 };
 
@@ -57,6 +65,8 @@ export const input = {
   keys: new Set(),
   mouseX: arena.width * 0.5,
   mouseY: arena.height * 0.5,
+  lookX: 0,
+  lookY: 0,
   firing: false,
   altFiring: false,
   moveTouchId: null,
@@ -81,6 +91,9 @@ export const player = {
   hitReactionY: 0,
   recoil: 0,
   weapon: weapons.pulse.key,
+  weaponCharge: 0,
+  weaponChargeActive: false,
+  weaponChargeFlash: 0,
   ammo: config.pulseMagazineSize,
   reloadTime: 0,
   attackStartupTime: 0,

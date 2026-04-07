@@ -6,7 +6,7 @@ import * as dom from "../dom.js";
 import { clamp } from "../utils.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getMapLayout } from "../maps.js";
-import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize, getSelectedRuneUltimateTree } from "../build/loadout.js";
 import { getAllBots, getPrimaryBot } from "./combat.js";
 
 const {
@@ -21,11 +21,13 @@ const {
   weaponName,
   weaponIcon,
   weaponStatus,
+  weaponRole,
   weaponMeter,
   playerHealthFill,
   enemyHealthFill,
   playerHealthText,
   enemyHealthText,
+  playerBuildTag,
   slotDash,
   slotDashIcon,
   slotDashName,
@@ -89,17 +91,31 @@ export function updateHud() {
   roundBanner.classList.toggle("fight", matchState.bannerStyle === "fight");
   weaponName.textContent = activeWeapon.name;
   weaponIcon.className = `content-icon content-icon--${sanitizeIconClass(activeWeapon.icon)}`;
+  if (weaponRole) {
+    weaponRole.textContent =
+      player.weapon === weapons.sniper.key
+        ? "Charge to punish space. Distance adds kill pressure."
+        : player.weapon === weapons.axe.key
+          ? "Heavy three-hit brawl chain with stun finisher."
+          : player.weapon === weapons.shotgun.key
+            ? "Explosive close punish with weak long trades."
+            : player.weapon === weapons.cannon.key
+              ? "Siege splash and cryo control for zone fights."
+              : activeWeapon.rangeProfile ?? activeWeapon.slotLabel ?? "";
+  }
   weaponStatus.textContent =
     player.weapon === weapons.pulse.key && player.reloadTime > 0
       ? `Reload ${player.reloadTime.toFixed(1)}s`
       : player.weapon === weapons.pulse.key
         ? `Ammo ${player.ammo}/${getPulseMagazineSize()}`
       : player.weapon === weapons.axe.key && player.comboTimer > 0
-      ? `Combo ${player.comboStep}/3`
+        ? `Combo ${player.comboStep}/3`
       : player.weapon === weapons.sniper.key
-        ? weaponReady
-          ? "Rail primed"
-          : `Rechamber ${player.fireCooldown.toFixed(2)}s`
+        ? player.weaponChargeActive
+          ? `Charge ${Math.round(player.weaponCharge * 100)}%`
+          : weaponReady
+            ? "Rail primed"
+            : `Rechamber ${player.fireCooldown.toFixed(2)}s`
       : player.weapon === weapons.staff.key
         ? weaponReady
           ? "Sustain beam ready"
@@ -123,9 +139,18 @@ export function updateHud() {
       : weaponReady
         ? "Ready"
         : `Cooling ${player.fireCooldown.toFixed(2)}s`;
+  if (playerBuildTag) {
+    const keystoneTree = getSelectedRuneUltimateTree();
+    const keystoneName = keystoneTree ? content.runeTrees[keystoneTree]?.nodes.ultimate.name : "No keystone";
+    const perkName = content.perks[loadout.perks[0]]?.name ?? "No perk";
+    playerBuildTag.textContent = `${keystoneName} | ${perkName}`;
+  }
   const pulseMeterRatio = player.reloadTime > 0
     ? 1 - player.reloadTime / config.pulseReloadTime
     : player.ammo / getPulseMagazineSize();
+  const sniperMeterRatio = player.weaponChargeActive
+    ? player.weaponCharge
+    : 1 - player.fireCooldown / Math.max(0.001, config.sniperBaseCooldown);
   weaponMeter.style.width = `${
     Math.max(
       0,
@@ -134,6 +159,8 @@ export function updateHud() {
         (
           player.weapon === weapons.pulse.key
             ? pulseMeterRatio
+            : player.weapon === weapons.sniper.key
+              ? sniperMeterRatio
             : 1 - player.fireCooldown / activeWeapon.cooldown
         ) * 100,
       ),
@@ -203,11 +230,13 @@ export function updateHud() {
 export function updateAbilitySlot(slot, overlay, timerLabel, state) {
   slot.classList.toggle("ready", state.ready);
   slot.classList.toggle("charging", state.charging);
+  slot.classList.toggle("cooling", !state.ready && !state.charging);
   const clampedRatio = Math.max(0, Math.min(1, state.cooldownRatio ?? 1));
-  const degrees = Math.round(clampedRatio * 360);
+  const cooldownDegrees = Math.round(clampedRatio * 360);
+  const clearDegrees = 360 - cooldownDegrees;
   const shadowColor = state.charging ? "rgba(55, 33, 10, 0.82)" : "rgba(6, 10, 14, 0.88)";
   const clearColor = state.charging ? "rgba(55, 33, 10, 0.16)" : "rgba(6, 10, 14, 0.12)";
-  overlay.style.background = `conic-gradient(from -90deg, ${shadowColor} 0deg ${degrees}deg, ${clearColor} ${degrees}deg 360deg)`;
+  overlay.style.background = `conic-gradient(from -90deg, ${clearColor} 0deg ${clearDegrees}deg, ${shadowColor} ${clearDegrees}deg 360deg)`;
   overlay.style.opacity = state.ready && !state.charging ? "0" : "1";
   timerLabel.textContent = state.timer;
 }

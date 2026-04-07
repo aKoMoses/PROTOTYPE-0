@@ -55,9 +55,18 @@ export function updateCameraState(viewportWidth = canvas.clientWidth || window.i
   const scale = Math.min(viewportWidth / cameraState.baseWidth, viewportHeight / cameraState.baseHeight);
   const viewWidth = viewportWidth / scale;
   const viewHeight = viewportHeight / scale;
+  const lookMagnitude = clamp(
+    (Math.hypot(input.lookX ?? 0, input.lookY ?? 0) - config.cameraLookDeadzone) / (1 - config.cameraLookDeadzone),
+    0,
+    1,
+  );
+  const lookOffsetX = (input.lookX ?? 0) * config.cameraLookAheadX * lookMagnitude;
+  const lookOffsetY = (input.lookY ?? 0) * config.cameraLookAheadY * lookMagnitude;
+  const targetX = clamp(player.x - viewWidth * 0.5 + lookOffsetX, 0, Math.max(0, arena.width - viewWidth));
+  const targetY = clamp(player.y - viewHeight * 0.5 + lookOffsetY, 0, Math.max(0, arena.height - viewHeight));
 
-  cameraState.x = clamp(player.x - viewWidth * 0.5, 0, Math.max(0, arena.width - viewWidth));
-  cameraState.y = clamp(player.y - viewHeight * 0.5, 0, Math.max(0, arena.height - viewHeight));
+  cameraState.x += (targetX - cameraState.x) * config.cameraLookSmoothing;
+  cameraState.y += (targetY - cameraState.y) * config.cameraLookSmoothing;
   cameraState.width = viewWidth;
   cameraState.height = viewHeight;
   cameraState.scale = scale;
@@ -333,7 +342,7 @@ export function drawActorFrame(actor, palette, options = {}) {
   ctx.restore();
 }
 
-function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0) {
+function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0, chargeRatio = 0) {
   const flashOn = actionFlash > 0;
   if (weaponKey === weapons.axe.key) {
     ctx.fillStyle = detailColor;
@@ -374,19 +383,40 @@ function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0)
   }
 
   if (weaponKey === weapons.sniper.key) {
+    const chargeGlow = clamp(chargeRatio, 0, 1);
+    const jitter = Math.sin(performance.now() * 0.08) * chargeGlow * 1.5;
+    ctx.save();
+    ctx.translate(0, jitter);
     ctx.fillStyle = detailColor;
     ctx.fillRect(-4, -4, 36, 8);
     ctx.fillStyle = tint;
     ctx.fillRect(18, -5, 34, 10);
+    ctx.shadowBlur = 18 + chargeGlow * 18;
+    ctx.shadowColor = glow;
     ctx.fillStyle = glow;
     ctx.fillRect(48, -2, 12, 4);
     ctx.fillRect(14, -9, 12, 4);
+    ctx.fillStyle = `rgba(255, 226, 134, ${0.18 + chargeGlow * 0.46})`;
+    ctx.fillRect(20, -3, 28, 6);
     ctx.strokeStyle = "rgba(255, 245, 210, 0.9)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(18, 0);
     ctx.lineTo(60, 0);
     ctx.stroke();
+    if (chargeGlow > 0.08) {
+      ctx.strokeStyle = `rgba(255, 240, 180, ${0.22 + chargeGlow * 0.54})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(18, -9);
+      ctx.lineTo(22 + chargeGlow * 8, -15);
+      ctx.lineTo(28 + chargeGlow * 10, -7);
+      ctx.moveTo(22, 9);
+      ctx.lineTo(30 + chargeGlow * 10, 14);
+      ctx.lineTo(36 + chargeGlow * 10, 7);
+      ctx.stroke();
+    }
+    ctx.restore();
     return;
   }
 
@@ -568,6 +598,7 @@ export function drawBot(bot) {
     bot.role === "training" ? "#bdefff" : bot.accent,
     bot.role === "training" ? "#e9fbff" : "#ffd5be",
     bot.flash,
+    0,
   );
 
   ctx.restore();
@@ -1253,7 +1284,7 @@ export function drawWorld() {
       },
       { scale: 0.98 },
     );
-    drawEquippedWeapon(playerClone.weapon, cloneAvatar.detailColor, cloneWeaponSkin.tint, cloneWeaponSkin.glow, (playerClone.slashFlash ?? 0) + (playerClone.actionFlash ?? 0));
+  drawEquippedWeapon(playerClone.weapon, cloneAvatar.detailColor, cloneWeaponSkin.tint, cloneWeaponSkin.glow, (playerClone.slashFlash ?? 0) + (playerClone.actionFlash ?? 0), 0);
     if (playerClone.shield > 0) {
       ctx.strokeStyle = "rgba(214, 188, 255, 0.9)";
       ctx.lineWidth = 3;
@@ -1294,7 +1325,7 @@ export function drawWorld() {
     },
     { scale: 1 },
   );
-  drawEquippedWeapon(player.weapon, avatar.detailColor, weaponSkin.tint, weaponSkin.glow, player.slashFlash);
+  drawEquippedWeapon(player.weapon, avatar.detailColor, weaponSkin.tint, weaponSkin.glow, player.slashFlash + (player.weaponChargeFlash ?? 0), player.weapon === weapons.sniper.key ? player.weaponCharge : 0);
 
   if (player.shield > 0) {
     ctx.strokeStyle = "rgba(160, 220, 255, 0.92)";

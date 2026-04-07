@@ -1877,6 +1877,27 @@ body {
   font-size: 0.78rem;
 }
 
+.weapon-pill__role {
+  color: rgba(227, 242, 252, 0.7);
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.hud-build-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 211, 117, 0.18);
+  background: rgba(255, 211, 117, 0.08);
+  color: rgba(255, 240, 205, 0.92);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .ability-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -3228,6 +3249,62 @@ body {
 
 .detail-actions .is-hidden {
   display: none !important;
+}
+
+.build-card--presets {
+  gap: 10px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.preset-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+
+.preset-chip {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(16, 27, 39, 0.92), rgba(10, 15, 22, 0.96));
+  color: var(--text);
+  text-align: left;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.preset-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(119, 216, 255, 0.3);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.preset-chip.is-active {
+  border-color: rgba(119, 216, 255, 0.36);
+  background: linear-gradient(180deg, rgba(22, 42, 58, 0.96), rgba(10, 15, 22, 0.98));
+  box-shadow: 0 0 18px rgba(119, 216, 255, 0.12);
+}
+
+.preset-chip__eyebrow {
+  color: var(--accent-2);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.preset-chip strong {
+  font-size: 0.8rem;
+}
+
+.preset-chip__copy {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 /* ──────────────────── STYLE PANEL (cosmetics) ──────────────────── */

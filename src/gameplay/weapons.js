@@ -96,9 +96,15 @@ export function attackScrapShotgun() {
   statusLine.textContent = "Scrap Shotgun cracked out a close-range burst.";
 }
 
-export function attackRailSniper() {
+export function attackRailSniper(chargeRatio = 0) {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.wastelux;
-  player.fireCooldown = getWeaponCooldown(weapons.sniper.key);
+  const charge = clamp(chargeRatio, 0, 1);
+  const damageMultiplier = getPerkDamageMultiplier(getPrimaryBot());
+  const minDamage = config.sniperMinDamage * damageMultiplier;
+  const maxDamage = config.sniperMaxDamage * damageMultiplier;
+  const projectileSpeed = config.sniperProjectileSpeed + (config.sniperChargedProjectileSpeed - config.sniperProjectileSpeed) * charge;
+
+  player.fireCooldown = getWeaponCooldown(weapons.sniper.key) * (1 + (1 - charge) * 0.04);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   spawnBullet(
     player,
@@ -106,23 +112,47 @@ export function attackRailSniper() {
     input.mouseY,
     bullets,
     activeSkin.tint,
-    1940,
-    34 * getPerkDamageMultiplier(getPrimaryBot()),
+    projectileSpeed,
+    minDamage,
     {
       radius: 6,
       life: 0.72,
       piercing: true,
-      trailColor: "#ffe7a8",
+      trailColor: charge >= 0.72 ? "#fff0b3" : "#ffe7a8",
       source: "rail-sniper",
-      effect: { kind: "rail", bonusSlow: 0.12, bonusSlowDuration: 0.45 },
+      chargeRatio: charge,
+      minDamage,
+      maxDamage,
+      travelBonusRange: config.sniperTravelBonusRange,
+      effect: {
+        kind: "rail",
+        bonusSlow: config.sniperSlow,
+        bonusSlowDuration: config.sniperSlowDuration,
+        maxSlow: 0.32,
+        maxSlowDuration: 0.78,
+        snareDuration: config.sniperChargedSnareDuration,
+        snareMagnitude: config.sniperChargedSnare,
+      },
     },
   );
   queuePhantomWeapon({ weaponKey: weapons.sniper.key });
   playWeaponFire(weapons.sniper.key);
-  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, "#ffe4a4", 20);
-  addShake(7.6);
-  player.recoil = 1.42;
-  statusLine.textContent = "Rail Sniper cracked a long precision shot.";
+  addBeamEffect(
+    player.x + direction.x * 24,
+    player.y + direction.y * 24,
+    player.x + direction.x * (80 + charge * 40),
+    player.y + direction.y * (80 + charge * 40),
+    charge >= 0.72 ? "#fff1bd" : "#ffe4a4",
+    3 + charge * 3,
+    0.08 + charge * 0.06,
+  );
+  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, charge >= 0.72 ? "#fff0b3" : "#ffe4a4", 18 + charge * 10);
+  addShake(6.2 + charge * 3.2);
+  player.recoil = 1.1 + charge * 0.6;
+  player.weaponChargeFlash = 0.14 + charge * 0.12;
+  statusLine.textContent = charge >= 0.72
+    ? "Rail Sniper discharged a charged puncture shot. Respect the lane."
+    : "Rail Sniper snapped a quick precision round.";
 }
 
 export function attackVoltStaff() {

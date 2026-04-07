@@ -22,6 +22,9 @@ export function setWeapon(nextWeapon) {
   player.weapon = nextWeapon;
   player.fireCooldown = 0;
   player.reloadTime = 0;
+  player.weaponCharge = 0;
+  player.weaponChargeActive = false;
+  player.weaponChargeFlash = 0;
   if (nextWeapon === weapons.pulse.key) {
     player.ammo = getPulseMagazineSize();
   }
@@ -58,6 +61,9 @@ export function resetPlayer({ silent = false } = {}) {
   player.ammo = getPulseMagazineSize();
   player.reloadTime = 0;
   player.fireCooldown = 0;
+  player.weaponCharge = 0;
+  player.weaponChargeActive = false;
+  player.weaponChargeFlash = 0;
   player.velocityX = 0;
   player.velocityY = 0;
   player.attackStartupTime = 0;
@@ -139,6 +145,7 @@ export function updatePlayer(dt) {
   player.reloadTime = Math.max(0, player.reloadTime - dt);
   player.flash = Math.max(0, player.flash - dt);
   player.recoil = Math.max(0, player.recoil - dt * 7.5);
+  player.weaponChargeFlash = Math.max(0, player.weaponChargeFlash - dt);
   player.comboTimer = Math.max(0, player.comboTimer - dt);
   player.slashFlash = Math.max(0, player.slashFlash - dt);
   player.attackStartupTime = Math.max(0, player.attackStartupTime - dt);
@@ -232,6 +239,26 @@ export function updatePlayer(dt) {
     input.altFiring &&
     (player.weapon === weapons.lance.key || player.weapon === weapons.cannon.key);
 
+  const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0;
+  if (player.weapon === weapons.sniper.key && !wantsAltFire) {
+    if (canUseWeapon && input.firing) {
+      player.weaponChargeActive = true;
+      player.weaponCharge = clamp(player.weaponCharge + dt / config.sniperChargeTime, 0, 1);
+      player.flash = Math.max(player.flash, 0.02 + player.weaponCharge * 0.04);
+      if (player.weaponCharge >= 1) {
+        player.weaponChargeFlash = Math.max(player.weaponChargeFlash, 0.12);
+      }
+    } else if (player.weaponChargeActive) {
+      attackRailSniper(player.weaponCharge);
+      player.weaponChargeActive = false;
+      player.weaponCharge = 0;
+      return;
+    }
+  } else if (player.weaponChargeActive) {
+    player.weaponChargeActive = false;
+    player.weaponCharge = 0;
+  }
+
   if (combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && (input.firing || wantsAltFire)) {
     if (wantsAltFire && player.weapon === weapons.lance.key) {
       attackChargeLance(true);
@@ -241,8 +268,6 @@ export function updatePlayer(dt) {
       attackElectricAxe();
     } else if (player.weapon === weapons.shotgun.key) {
       attackScrapShotgun();
-    } else if (player.weapon === weapons.sniper.key) {
-      attackRailSniper();
     } else if (player.weapon === weapons.staff.key) {
       attackVoltStaff();
     } else if (player.weapon === weapons.injector.key) {

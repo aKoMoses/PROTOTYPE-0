@@ -9,6 +9,7 @@ if (!canvas || !ctx) {
 
 
 export const weaponStatus = document.getElementById("weapon-status");
+export const weaponRole = document.getElementById("weapon-role");
 export const weaponName = document.getElementById("weapon-name");
 export const weaponIcon = document.getElementById("weapon-icon");
 export const mapName = document.getElementById("map-name");
@@ -27,6 +28,7 @@ export const playerHealthFill = document.getElementById("player-health-fill");
 export const enemyHealthFill = document.getElementById("enemy-health-fill");
 export const playerHealthText = document.getElementById("player-health-text");
 export const enemyHealthText = document.getElementById("enemy-health-text");
+export const playerBuildTag = document.getElementById("player-build-tag");
 export const menuButton = document.getElementById("menu-button");
 export const rematchButton = document.getElementById("rematch-button");
 export const audioPanel = document.getElementById("audio-panel");
@@ -125,6 +127,8 @@ export const botModeCustom = document.getElementById("bot-mode-custom");
 export const botWeaponGrid = document.getElementById("bot-weapon-grid");
 export const botAbilityGrid = document.getElementById("bot-ability-grid");
 export const botBuildSummary = document.getElementById("bot-build-summary");
+export const botPresetGrid = document.getElementById("bot-preset-grid");
+export const playerPresetGrid = document.getElementById("player-preset-grid");
 export const trainingFireOff = document.getElementById("training-fire-off");
 export const trainingFireOn = document.getElementById("training-fire-on");
 export const trainingBuildSummary = document.getElementById("training-build-summary");

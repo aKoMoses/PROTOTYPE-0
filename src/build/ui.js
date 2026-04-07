@@ -8,9 +8,11 @@ import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsFor
 import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoadoutSelections,
   hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
-  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration } from "./loadout.js";
+  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration,
+  getPlayerStarterPresets, applyPlayerStarterPreset, getBotPresets, applyBotPreset } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
 import { getAxeComboProfile } from "../gameplay/weapons.js";
+import { playUiCue, unlockAudio } from "../audio.js";
 
 // Forward declarations
 let _resetPlayer = null;
@@ -182,7 +184,11 @@ export function renderSelectionGrid(container, items, selectedKeys, onSelect, op
     `;
 
     if (!item.locked) {
-      row.addEventListener("click", () => onSelect(item.key));
+      row.addEventListener("click", () => {
+        unlockAudio();
+        playUiCue("click");
+        onSelect(item.key);
+      });
     } else {
       row.disabled = true;
     }
@@ -396,10 +402,10 @@ function getWeaponValueLines(item) {
 
   if (item.key === weapons.sniper.key) {
     return [
-      "Deals 34 damage on hit.",
-      "Applies 12% slow for 0.45s.",
-      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}.`,
-      "Role: precision punish and long lane denial.",
+      `Hold to charge up to ${formatSeconds(config.sniperChargeTime)}.`,
+      `Damage scales from ${config.sniperMinDamage} up to ${config.sniperMaxDamage} with charge plus travel distance.`,
+      `Charged shot: ${formatPercent(config.sniperChargedSnare)} snare for ${formatSeconds(config.sniperChargedSnareDuration)}.`,
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}. Role: long lane punish and spacing denial.`,
     ];
   }
 
@@ -1407,7 +1413,7 @@ export function renderTrainingBotPanel() {
   dom.botConfigCopy.textContent =
     botBuildState.mode === "random"
       ? "Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different."
-      : "Custom mode locks the hunter build. Use it to lab exact matchup pressure before entering the arena.";
+      : previewBuild.description ?? "Custom mode locks the hunter build. Use it to lab exact matchup pressure before entering the arena.";
 
   renderSelectionGrid(
     dom.botWeaponGrid,
@@ -1435,6 +1441,70 @@ export function renderTrainingBotPanel() {
     dom.botBuildSummary,
     [previewWeapon, ...previewAbilities],
     "ability",
+  );
+}
+
+function renderPresetButtons(container, presets, activeKey, onApply) {
+  if (!container) {
+    return;
+  }
+
+  container.textContent = "";
+  presets.forEach((preset) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "preset-chip";
+    if (preset.key === activeKey) {
+      button.classList.add("is-active");
+    }
+    button.innerHTML = `
+      <span class="preset-chip__eyebrow">${preset.role}</span>
+      <strong>${preset.name}</strong>
+      <span class="preset-chip__copy">${preset.description}</span>
+    `;
+    button.addEventListener("click", () => {
+      unlockAudio();
+      playUiCue("confirm");
+      onApply(preset.key);
+    });
+    container.appendChild(button);
+  });
+}
+
+function renderBuildPresets() {
+  renderPresetButtons(
+    dom.playerPresetGrid,
+    getPlayerStarterPresets(),
+    null,
+    (presetKey) => {
+      if (!applyPlayerStarterPreset(presetKey)) {
+        return;
+      }
+
+      const step = getCurrentBuildStep();
+      uiState.selectedLoadoutSlot = step.slotKey;
+      uiState.buildCategory = step.category;
+      uiState.selectedDetail = { type: step.category, key: getLoadoutItemForSlot(step.slotKey)?.key ?? getFallbackDetailKey(step.category) };
+      clearPreviewSelection();
+      renderPrematch();
+      const preset = getPlayerStarterPresets().find((entry) => entry.key === presetKey);
+      dom.statusLine.textContent = `${preset?.name ?? "Starter preset"} loaded. Fine-tune, lock your slots, then deploy.`;
+    },
+  );
+
+  const previewBuild = getCurrentBotBuildPreview();
+  renderPresetButtons(
+    dom.botPresetGrid,
+    getBotPresets(),
+    previewBuild.presetKey,
+    (presetKey) => {
+      if (!applyBotPreset(presetKey)) {
+        return;
+      }
+      renderPrematch();
+      const preset = getBotPresets().find((entry) => entry.key === presetKey);
+      dom.statusLine.textContent = `${preset?.name ?? "Bot preset"} armed for the arena bot.`;
+    },
   );
 }
 
@@ -1724,6 +1794,7 @@ export function renderPrematch() {
   renderMapSelection();
   renderBuildLibrary();
   renderCosmetics();
+  renderBuildPresets();
   updateLoadoutSlots();
   updateLoadoutSummaryPanels();
   updateDetailPanel();
