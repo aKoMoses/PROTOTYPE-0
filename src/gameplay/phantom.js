@@ -149,6 +149,7 @@ function executeCloneShotgun(action) {
 
 function executeCloneSniper(action) {
   const direction = getPhantomDirection(action);
+  const charge = Math.max(0, Math.min(1, action.chargeRatio ?? 0.45));
   playerClone.recoil = 1.18;
   spawnBullet(
     playerClone,
@@ -156,15 +157,19 @@ function executeCloneSniper(action) {
     playerClone.y + direction.y * 1200,
     bullets,
     "#ffe1a3",
-    1860,
-    getScaledDamage(34),
+    config.sniperProjectileSpeed + (config.sniperChargedProjectileSpeed - config.sniperProjectileSpeed) * charge,
+    getScaledDamage(config.sniperMinDamage),
     {
       radius: 5,
       life: 0.74,
-      piercing: true,
+      piercing: false,
       trailColor: "#fff0bf",
-      source: "phantom-rail",
-      effect: { kind: "rail", bonusSlow: 0.08, bonusSlowDuration: 0.25 },
+      source: "rail-sniper",
+      chargeRatio: charge,
+      minDamage: getScaledDamage(config.sniperMinDamage),
+      maxDamage: getScaledDamage(config.sniperMaxDamage),
+      travelBonusRange: config.sniperTravelBonusRange,
+      effect: { kind: "rail", bonusSlow: 0.08, bonusSlowDuration: 0.25, maxSlow: 0.18, maxSlowDuration: 0.45, snareDuration: 0.2, snareMagnitude: 0.64 },
     },
   );
   addCloneFlash("#ffe0a3", 18);
@@ -260,32 +265,41 @@ function executeCloneLance(action) {
 
 function executeCloneCannon(action) {
   const direction = getPhantomDirection(action);
-  const altFire = Boolean(action.altFire);
+  const charged = Boolean(action.charged);
+  const detonationDistance = Math.min(config.cannonMaxRange * 0.92, 520);
+  const detonateX = playerClone.x + direction.x * detonationDistance;
+  const detonateY = playerClone.y + direction.y * detonationDistance;
   spawnBullet(
     playerClone,
-    playerClone.x + direction.x * 960,
-    playerClone.y + direction.y * 960,
+    detonateX,
+    detonateY,
     bullets,
-    altFire ? "#d8f4ff" : "#ffd4ac",
-    altFire ? config.cannonAltSpeed : config.cannonPrimarySpeed,
-    getScaledDamage(altFire ? config.cannonAltDamage : config.cannonPrimaryDamage),
+    charged ? "#ffe4b2" : "#ffd4ac",
+    charged ? config.cannonAltSpeed : config.cannonPrimarySpeed,
+    getScaledDamage(charged ? config.cannonAltDamage : config.cannonPrimaryDamage),
     {
-      radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+      radius: charged ? config.cannonAltRadius : config.cannonPrimaryRadius,
       life: 1.06,
-      trailColor: altFire ? "#ecfbff" : "#ffe6d0",
-      source: altFire ? "phantom-cannon-cryo" : "phantom-cannon-shell",
+      trailColor: charged ? "#fff0cf" : "#ffe6d0",
+      source: charged ? "phantom-cannon-charged" : "phantom-cannon-shell",
+      detonateX,
+      detonateY,
+      explodeOnDestination: true,
       effect: {
         kind: "cannon",
-        splashRadius: altFire ? 60 : config.cannonSplashRadius * 0.82,
-        splashDamage: getScaledDamage(altFire ? 12 : config.cannonSplashDamage),
-        statusType: altFire ? "stun" : "slow",
-        statusDuration: altFire ? config.cannonFreezeDuration * 0.45 : config.cannonBurnDuration * 0.4,
-        statusMagnitude: altFire ? 1 : config.cannonBurnMagnitude,
+        splashRadius: charged ? Math.max(82, config.cannonSplashRadius * 0.95) : config.cannonSplashRadius * 0.82,
+        splashDamage: getScaledDamage(charged ? config.cannonSplashDamage * 0.85 : config.cannonSplashDamage),
+        statusType: charged ? "burnslow" : "burn",
+        statusDuration: charged ? config.cannonFreezeDuration * 0.55 : config.cannonBurnDuration * 0.4,
+        statusMagnitude: charged ? config.cannonFreezeMagnitude : config.cannonBurnMagnitude,
+        directDamageScale: charged ? 0.8 : 0.68,
+        impactColor: charged ? "#fff2d2" : "#fff0d8",
+        detonateOnDestination: true,
       },
     },
   );
-  playerClone.recoil = altFire ? 0.96 : 1.2;
-  addCloneFlash(altFire ? "#d6f4ff" : "#ffcf9d", altFire ? 18 : 22);
+  playerClone.recoil = charged ? 0.96 : 1.2;
+  addCloneFlash(charged ? "#ffe4b7" : "#ffcf9d", charged ? 18 : 22);
 }
 
 function executeCloneAxe(action) {
@@ -329,27 +343,26 @@ function executeCloneAxe(action) {
 
 function executeCloneJavelin(action) {
   const direction = getPhantomDirection(action);
-  const charged = action.mode === "hold";
   shockJavelins.push({
     x: playerClone.x + direction.x * (playerClone.radius + 12),
     y: playerClone.y + direction.y * (playerClone.radius + 12),
-    vx: direction.x * (charged ? config.javelinHoldSpeed * 0.92 : config.javelinTapSpeed * 0.96),
-    vy: direction.y * (charged ? config.javelinHoldSpeed * 0.92 : config.javelinTapSpeed * 0.96),
-    radius: charged ? Math.max(8, config.javelinHoldRadius * 0.82) : Math.max(6, config.javelinTapRadius * 0.84),
-    damage: getScaledDamage(charged ? config.javelinHoldDamage : config.javelinTapDamage),
-    charged,
-    life: 1,
-    color: charged ? "#ffe1a6" : "#a9efff",
-    glow: charged ? "#fff2ca" : "#dff7ff",
-    trail: charged ? "#ffd38b" : "#86e6ff",
+    vx: direction.x * (config.javelinSpeed * 0.96),
+    vy: direction.y * (config.javelinSpeed * 0.96),
+    radius: Math.max(7, config.javelinRadius * 0.84),
+    damage: getScaledDamage(config.javelinDamage),
+    charged: false,
+    life: config.javelinRange / Math.max(1, config.javelinSpeed) + 0.06,
+    color: "#a9efff",
+    glow: "#dff7ff",
+    trail: "#86e6ff",
     piercing: false,
-    slow: getScaledMagnitude(config.javelinTapSlow),
-    slowDuration: charged ? 0 : getScaledDuration(config.javelinTapSlowDuration),
-    stun: charged ? getScaledDuration(config.javelinHoldStun) : 0,
+    slow: getScaledMagnitude(config.javelinSlow),
+    slowDuration: getScaledDuration(config.javelinSlowDuration),
+    stun: 0,
     hitTargets: new Set(),
   });
   playerClone.recoil = Math.max(playerClone.recoil, 0.24);
-  addCloneFlash(charged ? "#ffe2a6" : "#9ae9ff", charged ? 22 : 18);
+  addCloneFlash("#9ae9ff", 18);
 }
 
 function executeCloneField(action) {
@@ -636,6 +649,8 @@ export function queuePhantomWeapon(action) {
     type: "weapon",
     weaponKey: action.weaponKey ?? player.weapon,
     altFire: Boolean(action.altFire),
+    charged: Boolean(action.charged),
+    chargeRatio: action.chargeRatio ?? null,
     comboStep: action.comboStep ?? null,
     facing: action.facing ?? player.facing,
     aimX: action.aimX ?? input.mouseX,

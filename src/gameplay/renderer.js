@@ -24,6 +24,10 @@ const cameraState = {
   scrollable: false,
   baseWidth: 1600,
   baseHeight: 900,
+  lookX: 0,
+  lookY: 0,
+  layoutKey: null,
+  lastUpdateAt: 0,
 };
 
 export function resize() {
@@ -35,11 +39,67 @@ export function resize() {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 }
 
-export function updateCameraState(viewportWidth = canvas.clientWidth || window.innerWidth, viewportHeight = canvas.clientHeight || window.innerHeight) {
-  const layout = getMapLayout();
+function syncCameraViewport(layout, viewportWidth, viewportHeight) {
   const scrollable = Boolean(layout.scrollable && (arena.width > cameraState.baseWidth || arena.height > cameraState.baseHeight));
 
   if (!scrollable) {
+    const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
+    cameraState.width = arena.width;
+    cameraState.height = arena.height;
+    cameraState.scale = scale;
+    cameraState.offsetX = (viewportWidth - arena.width * scale) * 0.5;
+    cameraState.offsetY = (viewportHeight - arena.height * scale) * 0.5;
+    cameraState.scrollable = false;
+    return;
+  }
+
+  const scale = Math.min(viewportWidth / cameraState.baseWidth, viewportHeight / cameraState.baseHeight);
+  const viewWidth = viewportWidth / scale;
+  const viewHeight = viewportHeight / scale;
+  cameraState.width = viewWidth;
+  cameraState.height = viewHeight;
+  cameraState.scale = scale;
+  cameraState.offsetX = (viewportWidth - viewWidth * scale) * 0.5;
+  cameraState.offsetY = (viewportHeight - viewHeight * scale) * 0.5;
+  cameraState.scrollable = true;
+}
+
+function getCameraLookOffset(lookX = cameraState.lookX, lookY = cameraState.lookY) {
+  const lookMagnitude = clamp(
+    (Math.hypot(lookX, lookY) - config.cameraLookDeadzone) / (1 - config.cameraLookDeadzone),
+    0,
+    1,
+  );
+
+  return {
+    x: lookX * config.cameraLookAheadX * lookMagnitude,
+    y: lookY * config.cameraLookAheadY * lookMagnitude,
+  };
+}
+
+function getCameraTargetPosition(lookOffsetX, lookOffsetY) {
+  const safeOffsetX = Math.min(config.cameraLookAheadX, cameraState.width * config.cameraPlayerSafeRatioX);
+  const safeOffsetY = Math.min(config.cameraLookAheadY, cameraState.height * config.cameraPlayerSafeRatioY);
+
+  return {
+    x: clamp(
+      player.x - cameraState.width * 0.5 + clamp(lookOffsetX, -safeOffsetX, safeOffsetX),
+      0,
+      Math.max(0, arena.width - cameraState.width),
+    ),
+    y: clamp(
+      player.y - cameraState.height * 0.5 + clamp(lookOffsetY, -safeOffsetY, safeOffsetY),
+      0,
+      Math.max(0, arena.height - cameraState.height),
+    ),
+  };
+}
+
+export function getCameraState(viewportWidth = canvas.clientWidth || window.innerWidth, viewportHeight = canvas.clientHeight || window.innerHeight) {
+  const layout = getMapLayout();
+  syncCameraViewport(layout, viewportWidth, viewportHeight);
+
+  if (!cameraState.scrollable) {
     const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
     cameraState.x = 0;
     cameraState.y = 0;
@@ -49,30 +109,64 @@ export function updateCameraState(viewportWidth = canvas.clientWidth || window.i
     cameraState.offsetX = (viewportWidth - arena.width * scale) * 0.5;
     cameraState.offsetY = (viewportHeight - arena.height * scale) * 0.5;
     cameraState.scrollable = false;
+    cameraState.lookX = 0;
+    cameraState.lookY = 0;
+    cameraState.layoutKey = layout.key;
+    cameraState.lastUpdateAt = performance.now();
     return cameraState;
   }
 
-  const scale = Math.min(viewportWidth / cameraState.baseWidth, viewportHeight / cameraState.baseHeight);
-  const viewWidth = viewportWidth / scale;
-  const viewHeight = viewportHeight / scale;
-  const lookMagnitude = clamp(
-    (Math.hypot(input.lookX ?? 0, input.lookY ?? 0) - config.cameraLookDeadzone) / (1 - config.cameraLookDeadzone),
+  if (cameraState.layoutKey !== layout.key || !Number.isFinite(cameraState.x) || !Number.isFinite(cameraState.y)) {
+    cameraState.lookX = input.lookX ?? 0;
+    cameraState.lookY = input.lookY ?? 0;
+    const initialOffset = getCameraLookOffset(cameraState.lookX, cameraState.lookY);
+    const initialTarget = getCameraTargetPosition(initialOffset.x, initialOffset.y);
+    cameraState.x = initialTarget.x;
+    cameraState.y = initialTarget.y;
+    cameraState.layoutKey = layout.key;
+    cameraState.lastUpdateAt = performance.now();
+  }
+
+  return cameraState;
+}
+
+export function updateCameraState(viewportWidth = canvas.clientWidth || window.innerWidth, viewportHeight = canvas.clientHeight || window.innerHeight) {
+  const layout = getMapLayout();
+  const previousLayoutKey = cameraState.layoutKey;
+  const camera = getCameraState(viewportWidth, viewportHeight);
+
+  if (!camera.scrollable) {
+    return camera;
+  }
+
+  const now = performance.now();
+  const deltaSeconds = clamp(
+    cameraState.lastUpdateAt > 0 ? (now - cameraState.lastUpdateAt) / 1000 : 1 / 60,
+    1 / 240,
+    0.05,
+  );
+  cameraState.lastUpdateAt = now;
+
+  if (previousLayoutKey !== layout.key) {
+    return cameraState;
+  }
+
+  const inputAlpha = 1 - Math.exp(-config.cameraLookInputSmoothing * deltaSeconds);
+  cameraState.lookX += ((input.lookX ?? 0) - cameraState.lookX) * inputAlpha;
+  cameraState.lookY += ((input.lookY ?? 0) - cameraState.lookY) * inputAlpha;
+
+  const lookOffset = getCameraLookOffset();
+  const target = getCameraTargetPosition(lookOffset.x, lookOffset.y);
+  const catchupFactor = clamp(
+    Math.hypot(target.x - cameraState.x, target.y - cameraState.y) / Math.max(1, config.cameraCatchupDistance),
     0,
     1,
   );
-  const lookOffsetX = (input.lookX ?? 0) * config.cameraLookAheadX * lookMagnitude;
-  const lookOffsetY = (input.lookY ?? 0) * config.cameraLookAheadY * lookMagnitude;
-  const targetX = clamp(player.x - viewWidth * 0.5 + lookOffsetX, 0, Math.max(0, arena.width - viewWidth));
-  const targetY = clamp(player.y - viewHeight * 0.5 + lookOffsetY, 0, Math.max(0, arena.height - viewHeight));
+  const followRate = config.cameraLookSmoothing + config.cameraCatchupBoost * catchupFactor;
+  const followAlpha = 1 - Math.exp(-followRate * deltaSeconds);
+  cameraState.x += (target.x - cameraState.x) * followAlpha;
+  cameraState.y += (target.y - cameraState.y) * followAlpha;
 
-  cameraState.x += (targetX - cameraState.x) * config.cameraLookSmoothing;
-  cameraState.y += (targetY - cameraState.y) * config.cameraLookSmoothing;
-  cameraState.width = viewWidth;
-  cameraState.height = viewHeight;
-  cameraState.scale = scale;
-  cameraState.offsetX = (viewportWidth - viewWidth * scale) * 0.5;
-  cameraState.offsetY = (viewportHeight - viewHeight * scale) * 0.5;
-  cameraState.scrollable = true;
   return cameraState;
 }
 
@@ -212,13 +306,21 @@ export function drawProjectileSprite(projectile, hostile = false) {
     ctx.stroke();
   } else if (source.includes("cannon")) {
     ctx.fillStyle = color;
-    traceRoundedRect(-10, -7, 20, 14, 4);
+    traceRoundedRect(source.includes("charged") ? -12 : -10, source.includes("charged") ? -8 : -7, source.includes("charged") ? 24 : 20, source.includes("charged") ? 16 : 14, 4);
     ctx.fill();
     ctx.fillStyle = hostile ? "rgba(255, 245, 224, 0.8)" : "rgba(240, 252, 255, 0.82)";
-    ctx.fillRect(4, -3, 12, 6);
+    ctx.fillRect(4, source.includes("charged") ? -4 : -3, source.includes("charged") ? 14 : 12, source.includes("charged") ? 8 : 6);
     ctx.strokeStyle = hostile ? "rgba(255, 225, 198, 0.7)" : "rgba(225, 247, 255, 0.78)";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-10, -7, 20, 14);
+    ctx.strokeRect(source.includes("charged") ? -12 : -10, source.includes("charged") ? -8 : -7, source.includes("charged") ? 24 : 20, source.includes("charged") ? 16 : 14);
+    if (source.includes("charged")) {
+      ctx.strokeStyle = hostile ? "rgba(255, 244, 200, 0.74)" : "rgba(255, 245, 208, 0.82)";
+      ctx.beginPath();
+      ctx.moveTo(-4, -8);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(-4, 8);
+      ctx.stroke();
+    }
   } else if (source.includes("shotgun")) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -491,19 +593,38 @@ function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0,
   }
 
   if (weaponKey === weapons.cannon.key) {
+    const chargeGlow = clamp(chargeRatio, 0, 1);
+    const jitter = Math.sin(performance.now() * 0.1) * chargeGlow * 1.6;
+    ctx.save();
+    ctx.translate(0, jitter);
     ctx.fillStyle = detailColor;
     ctx.fillRect(-6, -6, 24, 12);
     ctx.fillStyle = tint;
     traceRoundedRect(14, -9, 30, 18, 6);
     ctx.fill();
+    ctx.shadowBlur = 14 + chargeGlow * 18;
+    ctx.shadowColor = glow;
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(42, 0, 6, 0, Math.PI * 2);
+    ctx.arc(42, 0, 6 + chargeGlow * 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillRect(40, -3, 18, 6);
+    if (chargeGlow > 0.06) {
+      ctx.strokeStyle = `rgba(255, 230, 179, ${0.35 + chargeGlow * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(18, -10);
+      ctx.lineTo(28 + chargeGlow * 8, -16);
+      ctx.lineTo(36 + chargeGlow * 8, -7);
+      ctx.moveTo(18, 10);
+      ctx.lineTo(30 + chargeGlow * 8, 16);
+      ctx.lineTo(38 + chargeGlow * 8, 7);
+      ctx.stroke();
+    }
     ctx.strokeStyle = "rgba(255, 239, 220, 0.82)";
     ctx.lineWidth = 2;
     ctx.strokeRect(14, -9, 30, 18);
+    ctx.restore();
     return;
   }
 
@@ -1197,6 +1318,65 @@ export function drawWorld() {
 
   for (const zone of supportZones) {
     const pulse = 1 + Math.sin(performance.now() * 0.01 + zone.radius * 0.01) * 0.04;
+    if (zone.type === "gravity") {
+      const lifeRatio = zone.life / Math.max(0.001, zone.maxLife ?? zone.life ?? 1);
+      const spin = performance.now() * 0.0018;
+      ctx.save();
+      ctx.globalAlpha = 0.94;
+      ctx.fillStyle = "rgba(98, 72, 150, 0.12)";
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius * (0.98 + (1 - lifeRatio) * 0.05), 0, Math.PI * 2);
+      ctx.fill();
+
+      const coreGradient = ctx.createRadialGradient(zone.x, zone.y, zone.radius * 0.08, zone.x, zone.y, zone.radius);
+      coreGradient.addColorStop(0, "rgba(246, 239, 255, 0.32)");
+      coreGradient.addColorStop(0.22, "rgba(190, 152, 255, 0.2)");
+      coreGradient.addColorStop(0.6, "rgba(126, 104, 208, 0.1)");
+      coreGradient.addColorStop(1, "rgba(88, 72, 150, 0)");
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      for (let ring = 0; ring < 4; ring += 1) {
+        const radiusFactor = 0.28 + ring * 0.17 + Math.sin(spin * 2.2 + ring * 0.9) * 0.02;
+        ctx.strokeStyle = ring === 0 ? "rgba(255, 244, 255, 0.48)" : "rgba(190, 156, 255, 0.28)";
+        ctx.lineWidth = ring === 0 ? 2.8 : 1.6;
+        ctx.beginPath();
+        ctx.arc(zone.x, zone.y, zone.radius * radiusFactor, spin * (ring % 2 === 0 ? 1 : -1), spin * (ring % 2 === 0 ? 1 : -1) + Math.PI * 1.55);
+        ctx.stroke();
+      }
+
+      for (let particle = 0; particle < 12; particle += 1) {
+        const angle = spin * 1.6 + particle * (Math.PI * 2 / 12);
+        const outerRadius = zone.radius * (0.74 + Math.sin(spin + particle * 0.8) * 0.08);
+        const innerRadius = zone.radius * (0.18 + (particle % 3) * 0.06);
+        const startX = zone.x + Math.cos(angle) * outerRadius;
+        const startY = zone.y + Math.sin(angle) * outerRadius;
+        const endX = zone.x + Math.cos(angle + 0.28) * innerRadius;
+        const endY = zone.y + Math.sin(angle + 0.28) * innerRadius;
+        ctx.strokeStyle = particle % 2 === 0 ? "rgba(206, 188, 255, 0.44)" : "rgba(154, 214, 255, 0.28)";
+        ctx.lineWidth = particle % 2 === 0 ? 2 : 1.3;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(198, 170, 255, 0.72)";
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(244, 237, 255, 0.3)";
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+
     ctx.save();
     ctx.strokeStyle = zone.color;
     ctx.lineWidth = zone.type === "lockdown" ? 5 : 3;
@@ -1257,6 +1437,29 @@ export function drawWorld() {
     drawBot(bot);
   }
 
+  if (abilityState.grapple.phase === "flying" && abilityState.grapple.projectile) {
+    const grapple = abilityState.grapple.projectile;
+    ctx.save();
+    ctx.translate(grapple.x, grapple.y);
+    ctx.rotate(Math.atan2(grapple.vy, grapple.vx));
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = grapple.trail;
+    ctx.fillStyle = grapple.color;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(0, -9);
+    ctx.lineTo(-10, -4);
+    ctx.lineTo(-12, 0);
+    ctx.lineTo(-10, 4);
+    ctx.lineTo(0, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#effdff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawPendingAxeTelegraph();
 
   if (playerClone.active && playerClone.alive) {
@@ -1312,8 +1515,23 @@ export function drawWorld() {
     player.y + playerHitOffset.y - Math.sin(player.facing) * recoilOffset,
   );
   ctx.rotate(player.facing);
-  if (player.ghostTime > 0) {
-    ctx.globalAlpha = 0.5;
+  if (player.ghostTime > 0 || abilityState.phaseShift.time > 0) {
+    ctx.globalAlpha = abilityState.phaseShift.time > 0 ? 0.34 : 0.5;
+  }
+  if (player.lastStandTime > 0) {
+    ctx.save();
+    ctx.rotate(-player.facing);
+    ctx.strokeStyle = "rgba(255, 192, 116, 0.88)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius + 11 + Math.sin(performance.now() * 0.024) * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 111, 82, 0.62)";
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius + 18 + Math.cos(performance.now() * 0.018) * 2.4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
   drawActorFrame(
     player,
@@ -1325,13 +1543,27 @@ export function drawWorld() {
     },
     { scale: 1 },
   );
-  drawEquippedWeapon(player.weapon, avatar.detailColor, weaponSkin.tint, weaponSkin.glow, player.slashFlash + (player.weaponChargeFlash ?? 0), player.weapon === weapons.sniper.key ? player.weaponCharge : 0);
+  drawEquippedWeapon(
+    player.weapon,
+    avatar.detailColor,
+    weaponSkin.tint,
+    weaponSkin.glow,
+    player.slashFlash + (player.weaponChargeFlash ?? 0),
+    player.weapon === weapons.sniper.key || player.weapon === weapons.cannon.key ? player.weaponCharge : 0,
+  );
 
   if (player.shield > 0) {
     ctx.strokeStyle = "rgba(160, 220, 255, 0.92)";
     ctx.lineWidth = 3.5;
     ctx.beginPath();
     ctx.arc(0, 0, player.radius + 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (abilityState.phaseShift.time > 0) {
+    ctx.strokeStyle = "rgba(220, 245, 255, 0.9)";
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius + 14 + Math.sin(performance.now() * 0.022) * 1.2, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();

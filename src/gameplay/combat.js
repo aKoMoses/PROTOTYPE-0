@@ -18,6 +18,9 @@ import { applyPhantomDamage, resetPhantomClone } from "./phantom.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
 
+const playerWeaponAttackTrackers = new Map();
+let nextPlayerWeaponAttackId = 1;
+
 export function getAllBots() {
   if (sandbox.mode === sandboxModes.survival.key) {
     return survivalEnemies;
@@ -97,6 +100,97 @@ function getFriendlyCombatTargets() {
   return targets;
 }
 
+function finalizePlayerWeaponAttack(attackId) {
+  if (attackId == null) {
+    return;
+  }
+
+  const tracker = playerWeaponAttackTrackers.get(attackId);
+  if (!tracker) {
+    return;
+  }
+
+  if (tracker.hit) {
+    player.precisionMomentumStacks = clamp(
+      player.precisionMomentumStacks + 1,
+      0,
+      config.precisionMomentumMaxStacks,
+    );
+    player.precisionMomentumFlash = 0.45;
+  } else {
+    player.precisionMomentumStacks = 0;
+    player.precisionMomentumFlash = 0;
+  }
+
+  playerWeaponAttackTrackers.delete(attackId);
+}
+
+export function beginPlayerWeaponAttack(projectileCount = 1) {
+  if (!hasPerk("precisionMomentum")) {
+    return null;
+  }
+
+  const attackId = nextPlayerWeaponAttackId;
+  nextPlayerWeaponAttackId += 1;
+  playerWeaponAttackTrackers.set(attackId, {
+    remaining: Math.max(1, projectileCount),
+    hit: false,
+  });
+  return attackId;
+}
+
+export function registerPlayerWeaponHit(attackId) {
+  if (attackId == null) {
+    return;
+  }
+
+  const tracker = playerWeaponAttackTrackers.get(attackId);
+  if (!tracker) {
+    return;
+  }
+  tracker.hit = true;
+}
+
+export function settlePlayerWeaponAttack(attackId, didHit = false) {
+  if (attackId == null) {
+    return;
+  }
+
+  const tracker = playerWeaponAttackTrackers.get(attackId);
+  if (!tracker) {
+    return;
+  }
+
+  if (didHit) {
+    tracker.hit = true;
+  }
+  tracker.remaining = Math.max(0, tracker.remaining - 1);
+  if (tracker.remaining <= 0) {
+    finalizePlayerWeaponAttack(attackId);
+  }
+}
+
+export function completePlayerWeaponAttack(attackId, didHit = false) {
+  if (attackId == null) {
+    return;
+  }
+
+  const tracker = playerWeaponAttackTrackers.get(attackId);
+  if (!tracker) {
+    return;
+  }
+
+  tracker.hit = tracker.hit || didHit;
+  tracker.remaining = 0;
+  finalizePlayerWeaponAttack(attackId);
+}
+
+export function resetPlayerWeaponMomentum() {
+  playerWeaponAttackTrackers.clear();
+  player.precisionMomentumStacks = 0;
+  player.precisionMomentumFlash = 0;
+}
+
 function triggerSupportRuneControl(type) {
   if (type !== "slow" && type !== "stun") {
     return;
@@ -164,6 +258,10 @@ export function spawnBullet(owner, targetX, targetY, collection, color, speed, d
     minDamage: options.minDamage ?? damage,
     maxDamage: options.maxDamage ?? damage,
     travelBonusRange: options.travelBonusRange ?? 1,
+    attackId: options.attackId ?? null,
+    detonateX: options.detonateX ?? null,
+    detonateY: options.detonateY ?? null,
+    explodeOnDestination: options.explodeOnDestination ?? false,
   });
 
   tracers.push({
@@ -225,12 +323,8 @@ export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
     } else {
       const defeatedByPylon = applyPlayerDamage(22, "pylon");
       applyStatusEffect(target, "stun", getStatusDuration(0.55), 1);
-      if (defeatedByPylon) {
-        if (sandbox.mode === sandboxModes.duel.key) {
-          finishDuelRound("enemy");
-        } else {
-          resetPlayer();
-        }
+      if (defeatedByPylon && !player.alive) {
+        break;
       }
     }
     target.x += fallVector.x * 42;
@@ -265,6 +359,9 @@ export function hitMapWithProjectile(projectile, team = "player") {
 
   for (const pylon of mapState.pylons) {
     if (pylon.alive && circleIntersectsCircle(projectile.x, projectile.y, projectile.radius, pylon.x, pylon.y, pylon.radius)) {
+      if (team === "player") {
+        registerPlayerWeaponHit(projectile.attackId);
+      }
       damagePylon(pylon, projectile.damage * 0.6, projectile.x, projectile.y, team);
       return true;
     }
@@ -278,6 +375,7 @@ export function hitMapWithProjectile(projectile, team = "player") {
 }
 
 export function damagePylonsAlongLine(startX, startY, endX, endY, damage, team = "player") {
+  let hitAny = false;
   for (const pylon of mapState.pylons) {
     if (!pylon.alive) {
       continue;
@@ -285,13 +383,19 @@ export function damagePylonsAlongLine(startX, startY, endX, endY, damage, team =
     const distanceToPath = pointToSegmentDistance(pylon.x, pylon.y, startX, startY, endX, endY);
     if (distanceToPath <= pylon.radius + 12) {
       damagePylon(pylon, damage, startX, startY, team);
+      hitAny = true;
     }
   }
+  return hitAny;
 }
 
 export function applyStatusEffect(entity, type, duration, magnitude = 0) {
   if (!entity.statusEffects) {
     entity.statusEffects = [];
+  }
+
+  if (entity === player && abilityState.phaseShift.time > 0) {
+    return null;
   }
 
   const existing = entity.statusEffects.find((effect) => effect.type === type);
@@ -372,6 +476,7 @@ export function clearStatusEffects(entity) {
 }
 
 export function clearCombatArtifacts() {
+  resetPlayerWeaponMomentum();
   bullets.length = 0;
   enemyBullets.length = 0;
   impacts.length = 0;
@@ -430,6 +535,53 @@ export function updateSupportZones(dt) {
     zone.life -= dt;
     if (zone.life <= 0) {
       supportZones.splice(index, 1);
+      continue;
+    }
+
+    if (zone.type !== "gravity") {
+      continue;
+    }
+
+    const hostileTargets = [
+      ...getAllBots(),
+      ...(player.alive ? [player] : []),
+      ...(playerClone.active && playerClone.alive ? [playerClone] : []),
+    ];
+
+    for (const entity of hostileTargets) {
+      if (!entity?.alive) {
+        continue;
+      }
+
+      const entityTeam = entity.team ?? "player";
+      if (entityTeam === zone.team) {
+        continue;
+      }
+      if (entity === player && abilityState.phaseShift.time > 0) {
+        continue;
+      }
+
+      const offsetX = zone.x - entity.x;
+      const offsetY = zone.y - entity.y;
+      const distance = length(offsetX, offsetY);
+      if (distance <= 0 || distance > zone.radius + entity.radius) {
+        continue;
+      }
+
+      const direction = normalize(offsetX, offsetY);
+      const intensity = 0.35 + (1 - clamp(distance / Math.max(1, zone.radius), 0, 1)) * 0.65;
+      const pullStrength = zone.pullStrength ?? config.gravityWellPullStrength;
+      const pullStep = pullStrength * intensity * dt;
+      entity.x += direction.x * pullStep;
+      entity.y += direction.y * pullStep;
+
+      if ("velocityX" in entity) {
+        entity.velocityX = approach(entity.velocityX ?? 0, direction.x * pullStrength * 0.5, 960 * dt);
+        entity.velocityY = approach(entity.velocityY ?? 0, direction.y * pullStrength * 0.5, 960 * dt);
+      }
+
+      resolveMapCollision(entity);
+      maybeTeleportEntity(entity);
     }
   }
 }
@@ -443,7 +595,12 @@ export function getZoneEffectsForEntity(entity, dt = 0) {
     if (zone.type === "lockdown" && !inside) {
       slowMultiplier = Math.min(slowMultiplier, 0.76);
     }
-    if (zone.type === "gravity" && inside && zone.team !== (entity.team ?? "player")) {
+    if (
+      zone.type === "gravity" &&
+      inside &&
+      zone.team !== (entity.team ?? "player") &&
+      !(entity === player && abilityState.phaseShift.time > 0)
+    ) {
       slowMultiplier = Math.min(slowMultiplier, 1 - (zone.slow ?? 0.34));
     }
     if (zone.type === "mitigation" && inside && zone.team === (entity.team ?? "player")) {
@@ -703,15 +860,18 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
   }
 
   const explosionColor = team === "player"
-    ? projectile.source?.includes("cryo")
+    ? projectile.source?.includes("charged")
       ? "#d9f6ff"
       : "#ffd7b8"
-    : projectile.source?.includes("cryo")
+    : projectile.source?.includes("charged")
       ? "#d8f1ff"
       : "#ffc2a2";
   addExplosion(impactX, impactY, effect.splashRadius ?? 72, explosionColor);
-  addImpact(impactX, impactY, projectile.source?.includes("cryo") ? "#effcff" : "#fff0d8", 26);
-  addShake(projectile.source?.includes("cryo") ? 5.2 : 7);
+  addImpact(impactX, impactY, effect.impactColor ?? (projectile.source?.includes("charged") ? "#effcff" : "#fff0d8"), 26);
+  addShake(projectile.source?.includes("charged") ? 6.2 : 7);
+  if ((effect.pushMax ?? 0) > 0) {
+    addExplosion(impactX, impactY, Math.max(42, (effect.splashRadius ?? 72) * 0.66), "#fff6d8");
+  }
 
   if (team === "player") {
     for (const bot of getAllBots()) {
@@ -719,40 +879,77 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
         continue;
       }
       const isDirectTarget = bot === directTarget;
-      if (!isDirectTarget && length(bot.x - impactX, bot.y - impactY) > (effect.splashRadius ?? 72) + bot.radius) {
+      const distance = length(bot.x - impactX, bot.y - impactY);
+      if (!isDirectTarget && distance > (effect.splashRadius ?? 72) + bot.radius) {
         continue;
       }
 
-      if (!isDirectTarget) {
-        damageBot(bot, effect.splashDamage ?? 0, explosionColor, bot.x, bot.y, 0);
-      }
-      applyStatusEffect(
+      registerPlayerWeaponHit(projectile.attackId);
+      damageBot(
         bot,
-        effect.statusType ?? "slow",
-        getStatusDuration(effect.statusDuration ?? 0.6),
-        effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+        (effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1),
+        explosionColor,
+        bot.x,
+        bot.y,
+        0,
       );
-      addImpact(bot.x, bot.y, projectile.source?.includes("cryo") ? "#e8fbff" : "#fff0cf", isDirectTarget ? 20 : 16);
+      if (effect.statusType === "burnslow") {
+        applyStatusEffect(bot, "burn", getStatusDuration(effect.statusDuration ?? 1.2), 1);
+        applyStatusEffect(bot, "slow", getStatusDuration(effect.statusDuration ?? 1.2), effect.statusMagnitude ?? 0.2);
+      } else if (effect.statusType === "burn") {
+        applyStatusEffect(bot, "burn", getStatusDuration(effect.statusDuration ?? 1.2), 1);
+        if ((effect.statusMagnitude ?? 0) > 0) {
+          applyStatusEffect(bot, "slow", getStatusDuration(effect.statusDuration ?? 1.2), effect.statusMagnitude ?? 0.2);
+        }
+      } else {
+        applyStatusEffect(
+          bot,
+          effect.statusType ?? "slow",
+          getStatusDuration(effect.statusDuration ?? 0.6),
+          effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+        );
+      }
+      if ((effect.pushMax ?? 0) > 0) {
+        const intensity = 1 - clamp(distance / Math.max(1, effect.splashRadius ?? 72), 0, 1);
+        const pushDistance = (effect.pushMin ?? 0) + ((effect.pushMax ?? 0) - (effect.pushMin ?? 0)) * intensity;
+        const pushDirection = distance > 0 ? normalize(bot.x - impactX, bot.y - impactY) : normalize(bot.x - player.x, bot.y - player.y);
+        bot.x += pushDirection.x * pushDistance;
+        bot.y += pushDirection.y * pushDistance;
+        bot.velocityX = (bot.velocityX ?? 0) + pushDirection.x * pushDistance * 5.2;
+        bot.velocityY = (bot.velocityY ?? 0) + pushDirection.y * pushDistance * 5.2;
+        resolveMapCollision(bot);
+        maybeTeleportEntity(bot);
+      }
+      addImpact(bot.x, bot.y, projectile.source?.includes("charged") ? "#e8fbff" : "#fff0cf", isDirectTarget ? 20 : 16);
     }
     return;
   }
 
   for (const target of getFriendlyCombatTargets()) {
     const isDirectTarget = target === directTarget;
-    if (!isDirectTarget && length(target.x - impactX, target.y - impactY) > (effect.splashRadius ?? 72) + target.radius) {
+    const distance = length(target.x - impactX, target.y - impactY);
+    if (!isDirectTarget && distance > (effect.splashRadius ?? 72) + target.radius) {
       continue;
     }
 
     if (target === playerClone) {
-      if (!isDirectTarget) {
-        applyPhantomDamage(effect.splashDamage ?? 0, "cannon");
+      applyPhantomDamage((effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1), "cannon");
+      if (effect.statusType === "burnslow") {
+        applyStatusEffect(target, "burn", getStatusDuration(effect.statusDuration ?? 1.2), 1);
+        applyStatusEffect(target, "slow", getStatusDuration(effect.statusDuration ?? 1.2), effect.statusMagnitude ?? 0.2);
+      } else if (effect.statusType === "burn") {
+        applyStatusEffect(target, "burn", getStatusDuration(effect.statusDuration ?? 1.2), 1);
+        if ((effect.statusMagnitude ?? 0) > 0) {
+          applyStatusEffect(target, "slow", getStatusDuration(effect.statusDuration ?? 1.2), effect.statusMagnitude ?? 0.2);
+        }
+      } else {
+        applyStatusEffect(
+          target,
+          effect.statusType ?? "slow",
+          getStatusDuration(effect.statusDuration ?? 0.6),
+          effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+        );
       }
-      applyStatusEffect(
-        target,
-        effect.statusType ?? "slow",
-        getStatusDuration(effect.statusDuration ?? 0.6),
-        effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
-      );
       continue;
     }
 
@@ -761,15 +958,37 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
     }
 
     const fieldModifier = getEntityFieldModifier(target);
-    if (!isDirectTarget) {
-      applyPlayerDamage((effect.splashDamage ?? 0) * (1 - fieldModifier.damageReduction), "cannon");
-    }
-    applyStatusEffect(
-      target,
-      effect.statusType ?? "slow",
-      getStatusDuration((effect.statusDuration ?? 0.6) * (1 - getBuildStats().ccReduction)),
-      effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+    applyPlayerDamage(
+      (effect.splashDamage ?? 0) * (isDirectTarget ? effect.directDamageScale ?? 1 : 1) * (1 - fieldModifier.damageReduction),
+      "cannon",
     );
+    if (effect.statusType === "burnslow") {
+      applyStatusEffect(target, "burn", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), 1);
+      applyStatusEffect(target, "slow", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), effect.statusMagnitude ?? 0.2);
+    } else if (effect.statusType === "burn") {
+      applyStatusEffect(target, "burn", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), 1);
+      if ((effect.statusMagnitude ?? 0) > 0) {
+        applyStatusEffect(target, "slow", getStatusDuration((effect.statusDuration ?? 1.2) * (1 - getBuildStats().ccReduction)), effect.statusMagnitude ?? 0.2);
+      }
+    } else {
+      applyStatusEffect(
+        target,
+        effect.statusType ?? "slow",
+        getStatusDuration((effect.statusDuration ?? 0.6) * (1 - getBuildStats().ccReduction)),
+        effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
+      );
+    }
+    if ((effect.pushMax ?? 0) > 0 && target === player && abilityState.phaseShift.time <= 0) {
+      const intensity = 1 - clamp(distance / Math.max(1, effect.splashRadius ?? 72), 0, 1);
+      const pushDistance = (effect.pushMin ?? 0) + ((effect.pushMax ?? 0) - (effect.pushMin ?? 0)) * intensity;
+      const pushDirection = distance > 0 ? normalize(target.x - impactX, target.y - impactY) : normalize(target.x - enemy.x, target.y - enemy.y);
+      target.x += pushDirection.x * pushDistance;
+      target.y += pushDirection.y * pushDistance;
+      target.velocityX = (target.velocityX ?? 0) + pushDirection.x * pushDistance * 5.2;
+      target.velocityY = (target.velocityY ?? 0) + pushDirection.y * pushDistance * 5.2;
+      resolveMapCollision(target);
+      maybeTeleportEntity(target);
+    }
   }
 }
 
@@ -811,6 +1030,7 @@ export function absorbPlayerProjectiles() {
     }
 
     if (absorbed) {
+      settlePlayerWeaponAttack(bullet.attackId);
       bullets.splice(i, 1);
     }
   }
@@ -824,8 +1044,25 @@ export function updateBullets(collection, dt) {
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
 
+    if (
+      bullet.explodeOnDestination &&
+      bullet.detonateX !== null &&
+      bullet.detonateY !== null &&
+      length(bullet.x - bullet.detonateX, bullet.y - bullet.detonateY) <= Math.max(10, length(bullet.vx, bullet.vy) * dt + bullet.radius)
+    ) {
+      triggerCannonExplosion(bullet, bullet.detonateX, bullet.detonateY, team);
+      if (team === "player") {
+        settlePlayerWeaponAttack(bullet.attackId);
+      }
+      collection.splice(i, 1);
+      continue;
+    }
+
     if (hitMapWithProjectile(bullet, team)) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
+      if (team === "player") {
+        settlePlayerWeaponAttack(bullet.attackId);
+      }
       collection.splice(i, 1);
       continue;
     }
@@ -838,8 +1075,25 @@ export function updateBullets(collection, dt) {
 
     if (bullet.life <= 0 || out) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
+      if (team === "player") {
+        settlePlayerWeaponAttack(bullet.attackId);
+      }
       collection.splice(i, 1);
     }
+  }
+}
+
+export function defeatPlayer(source = "hit") {
+  player.alive = false;
+  if (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") {
+    finishDuelRound("enemy");
+  } else if (sandbox.mode === sandboxModes.survival.key) {
+    statusLine.textContent = "Run collapsing. Survival sequence ending.";
+  } else if (sandbox.mode === sandboxModes.training.key) {
+    statusLine.textContent = "Training knockout. Resetting your build test position.";
+    resetPlayer({ silent: true });
+  } else {
+    statusLine.textContent = source === "decay" ? "Your overload state burned out." : "You were eliminated.";
   }
 }
 
@@ -892,15 +1146,26 @@ export function applyPlayerDamage(amount, source = "hit") {
   }
 
   if (player.hp <= 0) {
-    if ((hasPerk("lastStandBuffer") || hasRuneShard("defense")) && player.failsafeReady) {
+    if (hasPerk("lastStandBuffer") && player.failsafeReady) {
       player.failsafeReady = false;
+      player.hp = getBuildStats().maxHp;
+      player.lastStandTime = config.lastStandDuration;
+      player.lastStandDecayPerSecond = getBuildStats().maxHp / Math.max(0.001, config.lastStandDuration);
+      player.flash = Math.max(player.flash, 0.18);
+      player.ghostTime = Math.max(player.ghostTime, 0.16);
+      addImpact(player.x, player.y, "#ffd998", 32);
+      addExplosion(player.x, player.y, 64, "#ffb26a");
+      statusLine.textContent = "Baroud d'Honneur déclenché. Trois secondes pour retourner le duel.";
+      return false;
+    }
+
+    if (hasRuneShard("defense") && player.defenseFailsafeReady) {
+      player.defenseFailsafeReady = false;
       player.hp = Math.max(1, getBuildStats().maxHp * 0.2);
-      player.shield = Math.max(player.shield, hasRuneShard("defense") ? 22 : 18);
+      player.shield = Math.max(player.shield, 22);
       player.shieldTime = 2;
-      statusLine.textContent = hasRuneShard("defense")
-        ? "Last Stand Capacitor kept you alive."
-        : "Last Stand Buffer kept you alive.";
-      return true;
+      statusLine.textContent = "Defense keystone kept you barely alive.";
+      return false;
     }
 
     if (hasPerk("cloneFailover") && player.decoyTime <= 0) {
@@ -912,7 +1177,7 @@ export function applyPlayerDamage(amount, source = "hit") {
       addAfterimage(player.x - 38, player.y + 12, player.facing, player.radius + 6, "#d8b2ff");
       addImpact(player.x, player.y, "#d8b2ff", 28);
       statusLine.textContent = "Clone Failover dumped a decoy and saved the round.";
-      return true;
+      return false;
     }
 
     if (player.revivalPrimed > 0) {
@@ -921,7 +1186,7 @@ export function applyPlayerDamage(amount, source = "hit") {
       player.shield = Math.max(player.shield, 24);
       player.shieldTime = 2.4;
       statusLine.textContent = "Revival Protocol rescued you from lethal damage.";
-      return true;
+      return false;
     }
   }
 
@@ -930,15 +1195,7 @@ export function applyPlayerDamage(amount, source = "hit") {
   }
 
   if (player.hp <= 0) {
-    player.alive = false;
-    if (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") {
-      finishDuelRound("enemy");
-    } else if (sandbox.mode === sandboxModes.survival.key) {
-      statusLine.textContent = "Run collapsing. Survival sequence ending.";
-    } else if (sandbox.mode === sandboxModes.training.key) {
-      statusLine.textContent = "Training knockout. Resetting your build test position.";
-      resetPlayer({ silent: true });
-    }
+    defeatPlayer(source);
     return true;
   }
 
@@ -958,13 +1215,22 @@ export function resolveCombat() {
         continue;
       }
 
+      if (bullet.explodeOnDestination && bullet.detonateX !== null && bullet.detonateY !== null) {
+        const distanceToDetonation = length(bullet.x - bullet.detonateX, bullet.y - bullet.detonateY);
+        if (distanceToDetonation > bullet.radius + bot.radius + 10) {
+          continue;
+        }
+      }
+
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
         const impactDamage = getProjectileImpactDamage(bullet, bot.x, bot.y);
+        registerPlayerWeaponHit(bullet.attackId);
         damageBot(bot, impactDamage, bullet.color ?? "#77d8ff", bullet.x, bullet.y, 0);
         applyProjectileEffectToBot(bot, bullet);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "player", bot);
         if (!bullet.piercing) {
+          settlePlayerWeaponAttack(bullet.attackId, true);
           bullets.splice(i, 1);
           consumed = true;
           break;
@@ -987,6 +1253,13 @@ export function resolveCombat() {
       const targetKey = getFriendlyTargetKey(target);
       if (bullet.hitTargets.has(targetKey)) {
         continue;
+      }
+
+      if (bullet.explodeOnDestination && bullet.detonateX !== null && bullet.detonateY !== null) {
+        const distanceToDetonation = length(bullet.x - bullet.detonateX, bullet.y - bullet.detonateY);
+        if (distanceToDetonation > bullet.radius + target.radius + 10) {
+          continue;
+        }
       }
 
       if (length(bullet.x - target.x, bullet.y - target.y) > bullet.radius + target.radius) {
@@ -1014,11 +1287,11 @@ export function resolveCombat() {
           ? "Magnetic Field softened the incoming shot."
           : "You were hit. Use dash to break pressure.";
         if (defeatedByBullet) {
-          if (sandbox.mode === sandboxModes.duel.key) {
-            finishDuelRound("enemy");
-          } else {
-            resetPlayer();
+          if (!bullet.piercing) {
+            enemyBullets.splice(i, 1);
           }
+          consumed = true;
+          break;
         }
       } else {
         addImpact(player.x, player.y, "#b8f9c9", 22);

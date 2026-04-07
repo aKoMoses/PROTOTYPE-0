@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-04-07 16:33:25
+- **Author:** AKOMOSES
+- **Branch:** `codex/buildmaker-gameplay-identity-refactor`
+- **Type:** Targeted Gameplay Refinement, Defensive Rules Pass, Perk Pool Cleanup, Cannon/Axe Feel Pass
+
+### Summary
+- Reworked `Gravity Well` into a true gravitational control spell with stronger authored visuals, a living singularity feel, real inward pull over time, and cleaner zoning value instead of a flat static circle.
+- Rebuilt `Phase Shift` into a strict defensive intangibility tool: it now purges active debuffs, blocks incoming damage and control, and cleanly locks out attacks and ability casts while keeping dash as the only allowed action.
+- Cleaned the active perk pool by retiring `Combo Driver`, strengthening `Omnivamp Core`, adding the clutch perk `Baroud d'Honneur`, and introducing `Precision Momentum` to reward confirmed auto attacks with stack-based next-hit damage.
+- Added a proper 3 second memory window to the `Electro Axe` combo chain so hit 1, hit 2, and hit 3 can be paced deliberately instead of rushed, while preserving the dash-stun finisher identity.
+- Refined `Heavy Cannon` charged fire into a more skillful zoning tool with larger overloaded detonation, burn plus slow payload, and distance-scaled pushback to create kite space without turning it into a hard displacement ult.
+- Updated HUD and Build Lab readability so the new perk states, overload survival window, Gravity Well values, Phase Shift rules, axe combo memory, and cannon knockback utility are all explained in-game with real numbers.
+
+### Files
+- `doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md`
+- `shell-ui.js`
+- `src/build/loadout.js`
+- `src/build/ui.js`
+- `src/config.js`
+- `src/content.js`
+- `src/gameplay/abilities.js`
+- `src/gameplay/combat.js`
+- `src/gameplay/enemy.js`
+- `src/gameplay/hud.js`
+- `src/gameplay/input.js`
+- `src/gameplay/match.js`
+- `src/gameplay/phantom.js`
+- `src/gameplay/player.js`
+- `src/gameplay/renderer.js`
+- `src/gameplay/weapons.js`
+- `src/main.js`
+- `src/maps.js`
+- `src/session.js`
+- `src/state.js`
+- `styles.css`
+
+### Notes
+- Validation completed with `npm.cmd run build`.
+- This entry captures the working gameplay/stability state currently validated in local desktop use and requested for collaborator sync.
+
+---
+
 ## 2026-04-07 12:26:49
 - **Author:** AKOMOSES
 - **Branch:** `codex/buildmaker-gameplay-identity-refactor`

@@ -6,8 +6,8 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addSlashEffect, applyHitReaction, addBeamEffect } from "./effects.js";
 import { resolveMapCollision, getMapLayout } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getPulseMagazineSize, getContentItem, getWeaponCooldown, getStatusDuration } from "../build/loadout.js";
-import { getAllBots, getPrimaryBot, isCombatLive, damageBot, spawnBullet, startPulseReload, finalizePulseReload, applyStatusEffect, getStatusState, damagePylonsAlongLine, getPlayerSpawn, clearStatusEffects } from "./combat.js";
+import { getBuildStats, getWeaponDamageMultiplier, getPulseMagazineSize, getContentItem, getWeaponCooldown, getStatusDuration } from "../build/loadout.js";
+import { getAllBots, getPrimaryBot, isCombatLive, damageBot, spawnBullet, startPulseReload, finalizePulseReload, applyStatusEffect, getStatusState, damagePylonsAlongLine, getPlayerSpawn, clearStatusEffects, beginPlayerWeaponAttack, registerPlayerWeaponHit, completePlayerWeaponAttack, resetPlayerWeaponMomentum } from "./combat.js";
 import { mapState } from "../state.js";
 import { playWeaponFire } from "../audio.js";
 import { queuePhantomWeapon } from "./phantom.js";
@@ -48,11 +48,13 @@ export function attackPulseRifle() {
   }
 
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.stock;
+  const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.pulse.key);
-  spawnBullet(player, input.mouseX, input.mouseY, bullets, activeSkin.tint, config.bulletSpeed, config.pulseDamage * getPerkDamageMultiplier(), {
+  spawnBullet(player, input.mouseX, input.mouseY, bullets, activeSkin.tint, config.bulletSpeed, config.pulseDamage * getWeaponDamageMultiplier(), {
     radius: 4,
     source: "pulse-rifle",
     trailColor: "#c6f5ff",
+    attackId,
   });
   queuePhantomWeapon({ weaponKey: weapons.pulse.key });
   playWeaponFire(weapons.pulse.key);
@@ -72,6 +74,7 @@ export function attackPulseRifle() {
 
 export function attackScrapShotgun() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.rustfang;
+  const attackId = beginPlayerWeaponAttack(6);
   player.fireCooldown = getWeaponCooldown(weapons.shotgun.key);
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
 
@@ -80,10 +83,11 @@ export function attackScrapShotgun() {
     const angle = baseAngle + spread;
     const targetX = player.x + Math.cos(angle) * 100;
     const targetY = player.y + Math.sin(angle) * 100;
-    spawnBullet(player, targetX, targetY, bullets, activeSkin.tint, config.bulletSpeed * 0.85, 9 * getPerkDamageMultiplier(), {
+    spawnBullet(player, targetX, targetY, bullets, activeSkin.tint, config.bulletSpeed * 0.85, 9 * getWeaponDamageMultiplier(), {
       radius: 4,
       source: "shotgun-pellet",
       trailColor: "#ffd0aa",
+      attackId,
     });
   }
 
@@ -99,7 +103,8 @@ export function attackScrapShotgun() {
 export function attackRailSniper(chargeRatio = 0) {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.wastelux;
   const charge = clamp(chargeRatio, 0, 1);
-  const damageMultiplier = getPerkDamageMultiplier(getPrimaryBot());
+  const damageMultiplier = getWeaponDamageMultiplier(getPrimaryBot());
+  const attackId = beginPlayerWeaponAttack(1);
   const minDamage = config.sniperMinDamage * damageMultiplier;
   const maxDamage = config.sniperMaxDamage * damageMultiplier;
   const projectileSpeed = config.sniperProjectileSpeed + (config.sniperChargedProjectileSpeed - config.sniperProjectileSpeed) * charge;
@@ -117,13 +122,14 @@ export function attackRailSniper(chargeRatio = 0) {
     {
       radius: 6,
       life: 0.72,
-      piercing: true,
+      piercing: false,
       trailColor: charge >= 0.72 ? "#fff0b3" : "#ffe7a8",
       source: "rail-sniper",
       chargeRatio: charge,
       minDamage,
       maxDamage,
       travelBonusRange: config.sniperTravelBonusRange,
+      attackId,
       effect: {
         kind: "rail",
         bonusSlow: config.sniperSlow,
@@ -135,7 +141,7 @@ export function attackRailSniper(chargeRatio = 0) {
       },
     },
   );
-  queuePhantomWeapon({ weaponKey: weapons.sniper.key });
+  queuePhantomWeapon({ weaponKey: weapons.sniper.key, chargeRatio: charge });
   playWeaponFire(weapons.sniper.key);
   addBeamEffect(
     player.x + direction.x * 24,
@@ -157,6 +163,7 @@ export function attackRailSniper(chargeRatio = 0) {
 
 export function attackVoltStaff() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.shockglass;
+  const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.staff.key);
   spawnBullet(
     player,
@@ -165,12 +172,13 @@ export function attackVoltStaff() {
     bullets,
     activeSkin.tint,
     980,
-    12 * getPerkDamageMultiplier(getPrimaryBot()),
+    12 * getWeaponDamageMultiplier(getPrimaryBot()),
     {
       radius: 5,
       life: 0.9,
       trailColor: "#b6ffd4",
       source: "volt-staff",
+      attackId,
       effect: { kind: "staff", heal: 8 },
     },
   );
@@ -184,6 +192,7 @@ export function attackVoltStaff() {
 
 export function attackBioInjector() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.voidchrome;
+  const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.injector.key);
   spawnBullet(
     player,
@@ -192,12 +201,13 @@ export function attackBioInjector() {
     bullets,
     activeSkin.tint,
     1260,
-    9 * getPerkDamageMultiplier(getPrimaryBot()),
+    9 * getWeaponDamageMultiplier(getPrimaryBot()),
     {
       radius: 4,
       life: 0.84,
       trailColor: "#f0b2ff",
       source: "injector",
+      attackId,
       effect: { kind: "injector", markDuration: 4.2, markMax: 3, healOnConsume: 12 },
     },
   );
@@ -208,9 +218,10 @@ export function attackBioInjector() {
 }
 
 export function attackChargeLance(altFire = false) {
+  const attackId = beginPlayerWeaponAttack(1);
   const range = altFire ? config.lanceAltRange : config.lancePrimaryRange;
   const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
-  const damage = (altFire ? config.lanceAltDamage : config.lancePrimaryDamage) * getPerkDamageMultiplier();
+  const damage = (altFire ? config.lanceAltDamage : config.lancePrimaryDamage) * getWeaponDamageMultiplier();
   const endX = player.x + Math.cos(player.facing) * range;
   const endY = player.y + Math.sin(player.facing) * range;
   const hits = collectTargetsAlongLine(player, player.facing, range, width, getAllBots(), true);
@@ -218,7 +229,7 @@ export function attackChargeLance(altFire = false) {
   player.fireCooldown = altFire ? config.lanceAltCooldown : config.lancePrimaryCooldown;
   player.recoil = altFire ? 1.1 : 0.78;
   player.flash = Math.max(player.flash, altFire ? 0.14 : 0.1);
-  damagePylonsAlongLine(player.x, player.y, endX, endY, damage * 0.3, "player");
+  const pylonHit = damagePylonsAlongLine(player.x, player.y, endX, endY, damage * 0.3, "player");
   addBeamEffect(
     player.x,
     player.y,
@@ -233,6 +244,7 @@ export function attackChargeLance(altFire = false) {
   addImpact(player.x + Math.cos(player.facing) * 28, player.y + Math.sin(player.facing) * 28, "#ffe2a3", altFire ? 22 : 16);
 
   if (hits.length === 0) {
+    completePlayerWeaponAttack(attackId, pylonHit);
     addShake(altFire ? 5.8 : 3.6);
     statusLine.textContent = altFire
       ? "Charge Lance drive missed. The recovery is real if you whiff the burst."
@@ -241,6 +253,7 @@ export function attackChargeLance(altFire = false) {
   }
 
   for (const hit of hits) {
+    registerPlayerWeaponHit(attackId);
     damageBot(hit.target, damage, altFire ? "#ffe3a0" : "#fff1c9", hit.target.x, hit.target.y, 0);
     applyStatusEffect(
       hit.target,
@@ -251,6 +264,8 @@ export function attackChargeLance(altFire = false) {
     addImpact(hit.target.x, hit.target.y, altFire ? "#fff1bf" : "#fff6dd", altFire ? 28 : 20);
   }
 
+  completePlayerWeaponAttack(attackId, true);
+
   addShake(altFire ? 8.2 : 5.4);
   statusLine.textContent = altFire
     ? "Charge Lance drive connected and jolted the target."
@@ -258,40 +273,58 @@ export function attackChargeLance(altFire = false) {
 }
 
 export function fireHeavyCannon(altFire = false) {
+  const charge = clamp(typeof altFire === "number" ? altFire : altFire ? 1 : 0, 0, 1);
+  const charged = charge >= 0.55;
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.stock;
-  player.fireCooldown = altFire ? config.cannonAltCooldown : config.cannonPrimaryCooldown;
-  player.recoil = altFire ? 1.02 : 1.28;
-  player.flash = Math.max(player.flash, altFire ? 0.1 : 0.14);
+  const attackId = beginPlayerWeaponAttack(1);
+  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
+  const rawDistance = length(input.mouseX - player.x, input.mouseY - player.y);
+  const clampedDistance = Math.min(config.cannonMaxRange, rawDistance);
+  const detonateX = player.x + direction.x * clampedDistance;
+  const detonateY = player.y + direction.y * clampedDistance;
+  player.fireCooldown = charged ? config.cannonAltCooldown : config.cannonPrimaryCooldown;
+  player.recoil = charged ? 1.08 : 1.28;
+  player.flash = Math.max(player.flash, charged ? 0.14 : 0.1);
   spawnBullet(
     player,
-    input.mouseX,
-    input.mouseY,
+    detonateX,
+    detonateY,
     bullets,
-    altFire ? "#d6f4ff" : activeSkin.tint,
-    altFire ? config.cannonAltSpeed : config.cannonPrimarySpeed,
-    (altFire ? config.cannonAltDamage : config.cannonPrimaryDamage) * getPerkDamageMultiplier(getPrimaryBot()),
+    charged ? "#ffdba6" : activeSkin.tint,
+    charged ? config.cannonAltSpeed : config.cannonPrimarySpeed,
+    (charged ? config.cannonAltDamage : config.cannonPrimaryDamage) * getWeaponDamageMultiplier(getPrimaryBot()),
     {
-      radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+      radius: charged ? config.cannonAltRadius : config.cannonPrimaryRadius,
       life: 1.08,
-      source: altFire ? "cannon-cryo" : "cannon-shell",
-      trailColor: altFire ? "#ebfbff" : "#ffe5cc",
+      source: charged ? "cannon-charged" : "cannon-shell",
+      trailColor: charged ? "#fff0cc" : "#ffe5cc",
+      detonateX,
+      detonateY,
+      explodeOnDestination: true,
       effect: {
         kind: "cannon",
-        splashRadius: altFire ? Math.max(58, config.cannonSplashRadius * 0.78) : config.cannonSplashRadius,
-        splashDamage: (altFire ? config.cannonSplashDamage * 0.72 : config.cannonSplashDamage) * getPerkDamageMultiplier(getPrimaryBot()),
-        statusType: altFire ? "stun" : "slow",
-        statusDuration: altFire ? config.cannonFreezeDuration : config.cannonBurnDuration,
-        statusMagnitude: altFire ? 1 : config.cannonBurnMagnitude,
+        splashRadius: charged ? Math.max(110, config.cannonSplashRadius * 1.3) : config.cannonSplashRadius,
+        splashDamage: (charged ? config.cannonSplashDamage * 1.35 : config.cannonSplashDamage) * getWeaponDamageMultiplier(getPrimaryBot()),
+        statusType: charged ? "burnslow" : "burn",
+        statusDuration: charged ? config.cannonFreezeDuration : config.cannonBurnDuration,
+        statusMagnitude: charged ? config.cannonFreezeMagnitude : config.cannonBurnMagnitude,
+        directDamageScale: charged ? 0.82 : 0.66,
+        impactColor: charged ? "#fff0cb" : "#fff0d8",
+        pushMin: charged ? config.cannonChargedPushMin : 0,
+        pushMax: charged ? config.cannonChargedPushMax : 0,
+        detonateOnDestination: true,
       },
+      attackId,
     },
   );
-  queuePhantomWeapon({ weaponKey: weapons.cannon.key, altFire });
+  queuePhantomWeapon({ weaponKey: weapons.cannon.key, charged });
   playWeaponFire(weapons.cannon.key);
-  addImpact(player.x + Math.cos(player.facing) * 26, player.y + Math.sin(player.facing) * 26, altFire ? "#d6f4ff" : "#ffcf9f", altFire ? 18 : 24);
-  addShake(altFire ? 6 : 8.4);
-  statusLine.textContent = altFire
-    ? "Heavy Cannon cryo shell launched. Lock the target down on impact."
-    : "Heavy Cannon shell fired. Splash pressure is online.";
+  addImpact(player.x + Math.cos(player.facing) * 26, player.y + Math.sin(player.facing) * 26, charged ? "#ffe4b0" : "#ffcf9f", charged ? 22 : 24);
+  addBeamEffect(player.x, player.y, detonateX, detonateY, charged ? "#fff0cb" : "#ffd7bb", charged ? 4.2 : 3.2, 0.07);
+  addShake(charged ? 8.8 : 7.4);
+  statusLine.textContent = charged
+    ? "Heavy Cannon overload fired. Burn the zone and hold the space."
+    : "Heavy Cannon shell fired to the marked impact point.";
 }
 
 export function getAxeComboProfile(step) {
@@ -302,7 +335,7 @@ export function getAxeComboProfile(step) {
       range: 286,
       width: 16,
       arc: 0.16,
-      damage: 60,
+      damage: 54,
       cleave: false,
       commitSpeed: 0,
       commitDuration: 0,
@@ -324,7 +357,7 @@ export function getAxeComboProfile(step) {
       range: 154,
       width: 56,
       arc: 1.34,
-      damage: 72,
+      damage: 66,
       cleave: true,
       commitSpeed: 0,
       commitDuration: 0,
@@ -345,11 +378,11 @@ export function getAxeComboProfile(step) {
     range: 172,
     width: 28,
     arc: 0.44,
-    damage: 88,
+    damage: 80,
     cleave: false,
     commitSpeed: 1480,
     commitDuration: 0.18,
-    stun: 0.6,
+    stun: 0.48,
     color: "#ffd77e",
     impactColor: "#fff1bd",
     startup: 0.12,
@@ -416,7 +449,10 @@ export function tryDashStrikeHits(profile, startX, startY, endX, endY) {
   }
 
   let hitAny = false;
-  damagePylonsAlongLine(startX, startY, endX, endY, profile.damage * 0.35, "player");
+  const pylonHit = damagePylonsAlongLine(startX, startY, endX, endY, profile.damage * 0.35, "player");
+  if (pylonHit) {
+    player.activeAxeStrike.worldHit = true;
+  }
 
   for (const bot of getAllBots()) {
     if (!bot.alive || player.activeAxeStrike.hitTargets.has(bot.kind)) {
@@ -438,6 +474,7 @@ export function tryDashStrikeHits(profile, startX, startY, endX, endY) {
 
     player.activeAxeStrike.hitTargets.add(bot.kind);
     hitAny = true;
+    registerPlayerWeaponHit(player.activeAxeStrike.attackId);
     damageBot(
       bot,
       profile.damage,
@@ -482,6 +519,8 @@ export function resolveQueuedAxeStrike(queuedStrike) {
       comboStep: queuedStrike.comboStep,
       hitTargets: new Set(),
       connected: false,
+      worldHit: false,
+      attackId: queuedStrike.attackId,
       profile,
     };
     addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#ffe0a0");
@@ -494,11 +533,12 @@ export function resolveQueuedAxeStrike(queuedStrike) {
   const strikeStartY = player.y + Math.sin(queuedStrike.facing) * 12;
   const strikeEndX = player.x + Math.cos(queuedStrike.facing) * (profile.range + 12);
   const strikeEndY = player.y + Math.sin(queuedStrike.facing) * (profile.range + 12);
-  damagePylonsAlongLine(strikeStartX, strikeStartY, strikeEndX, strikeEndY, profile.damage * 0.45, "player");
+  const pylonHit = damagePylonsAlongLine(strikeStartX, strikeStartY, strikeEndX, strikeEndY, profile.damage * 0.45, "player");
 
   const hits = collectAxeTargets(profile, queuedStrike.facing);
 
   if (hits.length === 0) {
+    completePlayerWeaponAttack(queuedStrike.attackId, pylonHit);
     player.lastMissTime = 0.78;
     addShake(profile.hitMode === "arc" ? 3.2 : 2.4);
     statusLine.textContent = profile.miss;
@@ -506,6 +546,7 @@ export function resolveQueuedAxeStrike(queuedStrike) {
   }
 
   for (const hit of hits) {
+    registerPlayerWeaponHit(queuedStrike.attackId);
     damageBot(
       hit.bot,
       profile.damage,
@@ -524,18 +565,20 @@ export function resolveQueuedAxeStrike(queuedStrike) {
     }
   }
 
+  completePlayerWeaponAttack(queuedStrike.attackId, true);
   addShake(profile.shake);
   statusLine.textContent = profile.label;
 }
 
 export function attackElectricAxe() {
+  const attackId = beginPlayerWeaponAttack(1);
   player.comboStep = player.comboTimer > 0 ? (player.comboStep % 3) + 1 : 1;
   player.comboTimer = config.axeComboReset;
   const profile = { ...getAxeComboProfile(player.comboStep) };
   if (player.comboStep === 3) {
-    profile.damage *= 1 + getBuildStats().finisherBonus;
+    profile.damage *= (1 + getBuildStats().finisherBonus) * getWeaponDamageMultiplier();
   } else {
-    profile.damage *= getPerkDamageMultiplier();
+    profile.damage *= getWeaponDamageMultiplier();
   }
   player.fireCooldown = profile.cooldown;
   player.attackStartupTime = profile.startup;
@@ -548,6 +591,7 @@ export function attackElectricAxe() {
     comboStep: player.comboStep,
     profile,
     facing: player.facing,
+    attackId,
   };
   player.recoil = player.comboStep === 3 ? 0.84 : player.comboStep === 2 ? 0.52 : 0.44;
   player.flash = 0.07 + profile.startup * 0.45;
@@ -616,10 +660,16 @@ export function resetPlayer({ silent = false } = {}) {
   player.hitReactionY = 0;
   player.ghostTime = 0;
   player.failsafeReady = true;
+  player.defenseFailsafeReady = true;
+  player.lastStandTime = 0;
+  player.lastStandDecayPerSecond = 0;
+  player.precisionMomentumStacks = 0;
+  player.precisionMomentumFlash = 0;
   player.revivalPrimed = 0;
   player.decoyTime = 0;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
+  resetPlayerWeaponMomentum();
   clearStatusEffects(player);
   abilityState.dash.inputHeld = false;
   abilityState.dash.holdTime = 0;
@@ -629,15 +679,25 @@ export function resetPlayer({ silent = false } = {}) {
   abilityState.dash.rechargeTimer = 0;
   abilityState.dash.upgraded = false;
   abilityState.javelin.cooldown = 0;
-  abilityState.javelin.charging = false;
-  abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.mode = "tap";
+  abilityState.javelin.activeTime = 0;
+  abilityState.javelin.recastReady = false;
+  abilityState.javelin.targetKind = null;
+  abilityState.javelin.aimX = 0;
+  abilityState.javelin.aimY = 0;
+  abilityState.javelin.lastDirectionX = 0;
+  abilityState.javelin.lastDirectionY = 0;
+  abilityState.javelin.pendingCooldown = false;
   abilityState.field.cooldown = 0;
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
   abilityState.field.mode = "tap";
   abilityState.field.moveBoostTime = 0;
   abilityState.grapple.cooldown = 0;
+  abilityState.grapple.phase = "idle";
+  abilityState.grapple.projectile = null;
+  abilityState.grapple.targetKind = null;
+  abilityState.grapple.pullStopRequested = false;
+  abilityState.grapple.tetherPulse = 0;
   abilityState.shield.cooldown = 0;
   abilityState.booster.cooldown = 0;
   abilityState.emp.cooldown = 0;

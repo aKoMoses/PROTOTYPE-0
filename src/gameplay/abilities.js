@@ -7,20 +7,23 @@ import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getAbilityCooldown, hasRuneShard } from "../build/loadout.js";
-import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize } from "./combat.js";
+import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
-import { collectTargetsAlongLine } from "./weapons.js";
 
-export function getJavelinProfile(mode = abilityState.javelin.mode) {
-  const profile = mode === "hold" ? abilityConfig.javelin.hold : abilityConfig.javelin.tap;
-
+export function getJavelinProfile() {
   return {
-    ...profile,
+    speed: abilityConfig.javelin.speed,
+    damage: abilityConfig.javelin.damage,
+    radius: abilityConfig.javelin.radius,
+    range: abilityConfig.javelin.range,
+    slow: abilityConfig.javelin.slow,
+    slowDuration: abilityConfig.javelin.slowDuration,
+    color: abilityConfig.javelin.color,
+    glow: abilityConfig.javelin.glow,
+    trail: abilityConfig.javelin.trail,
     piercing: false,
-    speed: profile.speed,
-    stun: profile.stun ?? 0,
   };
 }
 
@@ -50,17 +53,37 @@ function triggerAbilityCastRuneEffects() {
   }
 }
 
-function getMagneticGrappleTarget() {
-  const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
-  const hits = collectTargetsAlongLine(
-    player,
-    Math.atan2(direction.y, direction.x),
-    config.grappleRange,
-    config.grappleWidth,
-    getAllBots(),
-    true,
-  );
-  return hits[0]?.target ?? null;
+function getTrackedBot(kind) {
+  return getAllBots().find((bot) => bot.alive && bot.kind === kind) ?? null;
+}
+
+function resetGrappleState() {
+  abilityState.grapple.phase = "idle";
+  abilityState.grapple.projectile = null;
+  abilityState.grapple.targetKind = null;
+  abilityState.grapple.pullStopRequested = false;
+  abilityState.grapple.tetherPulse = 0;
+}
+
+function finalizeJavelinCycle(startCooldown = true) {
+  abilityState.javelin.recastReady = false;
+  abilityState.javelin.targetKind = null;
+  abilityState.javelin.activeTime = 0;
+  abilityState.javelin.pendingCooldown = false;
+  if (startCooldown) {
+    abilityState.javelin.cooldown = Math.max(
+      abilityState.javelin.cooldown,
+      getAbilityCooldown(abilityConfig.javelin.cooldown),
+    );
+  }
+}
+
+function getGrappleAnchorPoint(target) {
+  const direction = normalize(target.x - player.x, target.y - player.y);
+  return {
+    x: player.x + direction.x * (player.radius + target.radius + 18),
+    y: player.y + direction.y * (player.radius + target.radius + 18),
+  };
 }
 
 export function startDashInput() {
@@ -201,86 +224,124 @@ export function startJavelinCharge() {
     return;
   }
 
-  if (abilityState.javelin.cooldown > 0 || abilityState.javelin.charging) {
+  if (abilityState.javelin.recastReady) {
+    recastShockJavelin();
     return;
   }
 
-  abilityState.javelin.charging = true;
-  abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.mode = "tap";
-  statusLine.textContent = "Charging Shock Javelin.";
-}
-
-export function releaseShockJavelin() {
-  if (!abilityState.javelin.charging) {
+  if (abilityState.javelin.cooldown > 0 || abilityState.javelin.pendingCooldown || abilityState.javelin.activeTime > 0) {
     return;
   }
 
-  const chargeTime = abilityState.javelin.chargeTime;
-  const isCharged = chargeTime >= abilityConfig.javelin.chargeThreshold;
-  abilityState.javelin.mode = isCharged ? "hold" : "tap";
-  const javelinProfile = { ...getJavelinProfile(abilityState.javelin.mode) };
-  if (isCharged && hasRuneShard("spells")) {
-    javelinProfile.damage += 12;
-    javelinProfile.stun += 0.18;
-    javelinProfile.radius += 2;
-  }
+  const profile = getJavelinProfile();
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
 
   shockJavelins.push({
     x: player.x + direction.x * (player.radius + 12),
     y: player.y + direction.y * (player.radius + 12),
-    vx: direction.x * javelinProfile.speed,
-    vy: direction.y * javelinProfile.speed,
-    radius: javelinProfile.radius,
-    damage: javelinProfile.damage,
-    charged: isCharged,
-    life: 1.1,
-    color: javelinProfile.color,
-    glow: javelinProfile.glow,
-    trail: javelinProfile.trail,
-    piercing: javelinProfile.piercing,
-    slow: javelinProfile.slow ?? 0,
-    slowDuration: javelinProfile.slowDuration ?? 0,
-    stun: javelinProfile.stun ?? 0,
+    vx: direction.x * profile.speed,
+    vy: direction.y * profile.speed,
+    radius: profile.radius,
+    damage: profile.damage,
+    charged: false,
+    life: profile.range / profile.speed + 0.1,
+    color: profile.color,
+    glow: profile.glow,
+    trail: profile.trail,
+    piercing: false,
+    slow: profile.slow,
+    slowDuration: profile.slowDuration,
+    stun: 0,
     hitTargets: new Set(),
   });
 
-  abilityState.javelin.charging = false;
-  abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.cooldown = getAbilityCooldown(abilityConfig.javelin.cooldown);
+  abilityState.javelin.aimX = input.mouseX;
+  abilityState.javelin.aimY = input.mouseY;
+  abilityState.javelin.lastDirectionX = direction.x;
+  abilityState.javelin.lastDirectionY = direction.y;
   triggerAbilityCastRuneEffects();
   player.recoil = Math.max(player.recoil, 0.22);
   queuePhantomAbility("shockJavelin", {
-    mode: abilityState.javelin.mode,
     facing: player.facing,
     aimX: input.mouseX,
     aimY: input.mouseY,
   });
   playAbilityCue("shockJavelin");
-  addImpact(
-    player.x + direction.x * 22,
-    player.y + direction.y * 22,
-    javelinProfile.color,
-    isCharged ? 28 : 22,
-  );
-  addImpact(
-    player.x + direction.x * 28,
-    player.y + direction.y * 28,
-    isCharged ? "#fff0bb" : "#dff7ff",
-    isCharged ? 18 : 14,
-  );
-  addShake(isCharged ? 8.2 : 6);
-  statusLine.textContent = isCharged
-    ? "Charged Shock Javelin launched."
-    : "Shock Javelin launched.";
+  addImpact(player.x + direction.x * 22, player.y + direction.y * 22, profile.color, 24);
+  addImpact(player.x + direction.x * 30, player.y + direction.y * 30, "#e6fbff", 16);
+  addShake(6.8);
+  statusLine.textContent = "Shock Javelin armed a marked engage window.";
+}
+
+export function releaseShockJavelin() {
+  return;
+}
+
+export function confirmShockJavelinImpact(target) {
+  if (!target?.alive) {
+    finalizeJavelinCycle(true);
+    return;
+  }
+
+  const direction = normalize(target.x - player.x, target.y - player.y);
+  abilityState.javelin.recastReady = true;
+  abilityState.javelin.targetKind = target.kind;
+  abilityState.javelin.activeTime = getStatusDuration(config.javelinSlowDuration);
+  abilityState.javelin.pendingCooldown = true;
+  abilityState.javelin.lastDirectionX = direction.x;
+  abilityState.javelin.lastDirectionY = direction.y;
+  applyStatusEffect(target, "slow", getStatusDuration(config.javelinSlowDuration), config.javelinSlow);
+  applyStatusEffect(target, "shock", getStatusDuration(config.javelinSlowDuration), 1);
+  addImpact(target.x, target.y, "#fff5bd", 22);
+  addShake(7.2);
+  statusLine.textContent = "Shock Javelin connected. Recast to blink behind the electrified target.";
+}
+
+export function expireShockJavelin(startCooldown = true) {
+  finalizeJavelinCycle(startCooldown);
+}
+
+export function recastShockJavelin() {
+  if (!abilityState.javelin.recastReady || abilityState.javelin.activeTime <= 0) {
+    return false;
+  }
+
+  const target = getTrackedBot(abilityState.javelin.targetKind);
+  if (!target) {
+    finalizeJavelinCycle(true);
+    return false;
+  }
+
+  const direction =
+    abilityState.javelin.lastDirectionX !== 0 || abilityState.javelin.lastDirectionY !== 0
+      ? normalize(abilityState.javelin.lastDirectionX, abilityState.javelin.lastDirectionY)
+      : normalize(target.x - player.x, target.y - player.y);
+  const previousX = player.x;
+  const previousY = player.y;
+
+  player.x = target.x - direction.x * (target.radius + player.radius + config.javelinRecastDistance);
+  player.y = target.y - direction.y * (target.radius + player.radius + config.javelinRecastDistance);
+  resolveMapCollision(player);
+  maybeTeleportEntity(player);
+  player.flash = Math.max(player.flash, 0.12);
+  player.ghostTime = Math.max(player.ghostTime, 0.16);
+  player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.55);
+  abilityState.javelin.recastReady = false;
+  addAfterimage(previousX, previousY, player.facing, player.radius + 4, "#9ce9ff");
+  addAfterimage(player.x, player.y, player.facing, player.radius + 5, "#fff0a4");
+  addBeamEffect(previousX, previousY, target.x, target.y, "#8fe8ff", 4, 0.14);
+  addImpact(player.x, player.y, "#fff0a4", 24);
+  addShake(5.8);
+  playAbilityCue("blinkStep");
+  statusLine.textContent = "Shock Javelin recast snapped you behind the target.";
+  return true;
 }
 
 export function spawnEnemyJavelin(charged = false, targetEntity = player) {
   const direction = normalize((targetEntity?.x ?? player.x) - enemy.x, (targetEntity?.y ?? player.y) - enemy.y);
-  const speed = charged ? 860 : 1020;
-  const radius = charged ? 14 : 10;
-  const damage = charged ? 14 : 10;
+  const speed = charged ? config.javelinSpeed * 0.94 : config.javelinSpeed;
+  const radius = charged ? config.javelinRadius + 1 : config.javelinRadius;
+  const damage = charged ? config.javelinDamage * 1.15 : config.javelinDamage * 0.92;
 
   enemyShockJavelins.push({
     x: enemy.x + direction.x * (enemy.radius + 12),
@@ -290,26 +351,31 @@ export function spawnEnemyJavelin(charged = false, targetEntity = player) {
     radius,
     damage,
     charged,
-    life: 1,
-    color: charged ? "#ffb497" : "#ff8a77",
-    glow: charged ? "#ffd6c8" : "#ffc1b2",
-    trail: charged ? "#ffd8b5" : "#ff9c8a",
-    stun: charged ? 0.34 : 0,
-    slow: charged ? 0 : 0.2,
-    slowDuration: charged ? 0 : 0.65,
+    life: config.javelinRange / Math.max(1, speed) + 0.08,
+    color: charged ? "#ffd07e" : "#ffb575",
+    glow: charged ? "#fff0bc" : "#ffe0b5",
+    trail: charged ? "#ffe1a8" : "#ffc28c",
+    stun: 0,
+    slow: charged ? config.javelinSlow * 1.05 : config.javelinSlow * 0.92,
+    slowDuration: config.javelinSlowDuration,
   });
 
-  enemy.javelinCooldown = charged ? 4.2 : 3.2;
-  addImpact(enemy.x + direction.x * 24, enemy.y + direction.y * 24, charged ? "#ffd1bd" : "#ff8a77", charged ? 18 : 12);
+  enemy.javelinCooldown = charged ? 4.8 : 4;
+  addImpact(enemy.x + direction.x * 24, enemy.y + direction.y * 24, charged ? "#ffe4ad" : "#ffb27e", charged ? 18 : 12);
 }
 
 export function updateJavelinAbility(dt) {
   abilityState.javelin.cooldown = Math.max(0, abilityState.javelin.cooldown - dt);
-
-  if (abilityState.javelin.charging) {
-    abilityState.javelin.chargeTime = Math.min(abilityConfig.javelin.maxCharge, abilityState.javelin.chargeTime + dt);
-    abilityState.javelin.mode =
-      abilityState.javelin.chargeTime >= abilityConfig.javelin.chargeThreshold ? "hold" : "tap";
+  if (abilityState.javelin.activeTime > 0) {
+    abilityState.javelin.activeTime = Math.max(0, abilityState.javelin.activeTime - dt);
+    const trackedTarget = abilityState.javelin.targetKind ? getTrackedBot(abilityState.javelin.targetKind) : null;
+    if (trackedTarget) {
+      abilityState.javelin.lastDirectionX = trackedTarget.x - player.x;
+      abilityState.javelin.lastDirectionY = trackedTarget.y - player.y;
+    }
+    if (abilityState.javelin.pendingCooldown && abilityState.javelin.activeTime <= 0) {
+      finalizeJavelinCycle(true);
+    }
   }
 }
 
@@ -407,42 +473,44 @@ export function updateFieldAbility(dt) {
 }
 
 export function castMagneticGrapple() {
-  if (!isCombatLive() || abilityState.grapple.cooldown > 0) {
+  if (!isCombatLive()) {
+    return;
+  }
+
+  if (abilityState.grapple.phase === "pull") {
+    abilityState.grapple.pullStopRequested = true;
+    statusLine.textContent = "Magnetic Grapple recast cut the pull early.";
+    return;
+  }
+
+  if (abilityState.grapple.cooldown > 0 || abilityState.grapple.phase !== "idle") {
     return;
   }
 
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
-  const target = getMagneticGrappleTarget();
+  const life = config.grappleRange / Math.max(1, config.grappleProjectileSpeed) + 0.12;
   abilityState.grapple.cooldown = getAbilityCooldown(config.grappleCooldown);
+  abilityState.grapple.phase = "flying";
+  abilityState.grapple.projectile = {
+    x: player.x + direction.x * (player.radius + 14),
+    y: player.y + direction.y * (player.radius + 14),
+    vx: direction.x * config.grappleProjectileSpeed,
+    vy: direction.y * config.grappleProjectileSpeed,
+    radius: config.grappleProjectileRadius,
+    life,
+    color: "#9feeff",
+    trail: "#dffbff",
+  };
+  abilityState.grapple.pullStopRequested = false;
+  abilityState.grapple.targetKind = null;
   triggerAbilityCastRuneEffects();
   player.flash = 0.08;
   queuePhantomAbility("magneticGrapple", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("magneticGrapple");
-
-  if (!target) {
-    addImpact(player.x, player.y, "#c5f6ff", 22);
-    addAfterimage(player.x, player.y, player.facing, player.radius + 3, "#9ee9ff");
-    addShake(3.8);
-    statusLine.textContent = "Magnetic Grapple missed. Commit only when the catch line is real.";
-    return;
-  }
-
-  const toPlayer = normalize(player.x - target.x, player.y - target.y);
-  const currentDistance = length(target.x - player.x, target.y - player.y);
-  const desiredDistance = Math.max(player.radius + target.radius + 18, currentDistance - config.grapplePullDistance);
-  target.x = player.x - toPlayer.x * desiredDistance;
-  target.y = player.y - toPlayer.y * desiredDistance;
-  resolveMapCollision(target);
-  maybeTeleportEntity(target);
-  target.velocityX = toPlayer.x * 320;
-  target.velocityY = toPlayer.y * 320;
-  applyStatusEffect(target, "slow", getStatusDuration(config.grappleSnareDuration), config.grappleSnare);
-  addBeamEffect(player.x, player.y, target.x, target.y, "#bdf4ff", 5, 0.18);
-  addImpact(player.x, player.y, "#c5f6ff", 30);
-  addImpact(target.x, target.y, "#dffbff", 24);
-  applyHitReaction(target, player.x, player.y, 1.1);
-  addShake(7.2);
-  statusLine.textContent = "Magnetic Grapple caught and dragged the target into punish range.";
+  addImpact(player.x, player.y, "#c5f6ff", 24);
+  addAfterimage(player.x, player.y, player.facing, player.radius + 3, "#9ee9ff");
+  addShake(4.2);
+  statusLine.textContent = "Magnetic Grapple launched. Confirm the hook before you commit in.";
 }
 
 export function castEnergyShield() {
@@ -666,7 +734,7 @@ export function castGravityWell() {
   if (!isCombatLive() || abilityState.gravityWell.cooldown > 0) {
     return;
   }
-  abilityState.gravityWell.cooldown = getAbilityCooldown(5.8);
+  abilityState.gravityWell.cooldown = getAbilityCooldown(config.gravityWellCooldown);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("gravityWell", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   supportZones.push({
@@ -674,30 +742,44 @@ export function castGravityWell() {
     team: "player",
     x: input.mouseX,
     y: input.mouseY,
-    radius: 118,
-    life: 2.1,
-    maxLife: 2.1,
+    radius: config.gravityWellRadius,
+    life: config.gravityWellDuration,
+    maxLife: config.gravityWellDuration,
     color: "#b999ff",
-    slow: 0.44,
+    slow: config.gravityWellSlow,
+    pullStrength: config.gravityWellPullStrength,
   });
   playAbilityCue("gravityWell");
-  addExplosion(input.mouseX, input.mouseY, 124, "#b999ff");
+  addExplosion(input.mouseX, input.mouseY, config.gravityWellRadius + 8, "#b999ff");
   addShake(5.8);
-  statusLine.textContent = "Gravity Well turned the space into a trap.";
+  statusLine.textContent = "Gravity Well collapsed the lane inward. Respect the singularity.";
 }
 
 export function castPhaseShift() {
-  if (!isCombatLive() || abilityState.phaseShift.cooldown > 0) {
+  if (!isCombatLive() || abilityState.phaseShift.cooldown > 0 || abilityState.phaseShift.time > 0) {
     return;
   }
-  abilityState.phaseShift.cooldown = getAbilityCooldown(5.6);
+  abilityState.phaseShift.cooldown = getAbilityCooldown(config.phaseShiftCooldown);
   triggerAbilityCastRuneEffects();
-  abilityState.phaseShift.time = 0.55;
-  player.ghostTime = Math.max(player.ghostTime, 0.55);
+  clearStatusEffects(player);
+  if (player.pendingAxeStrike?.attackId != null) {
+    completePlayerWeaponAttack(player.pendingAxeStrike.attackId, false);
+  }
+  if (player.activeAxeStrike?.attackId != null) {
+    completePlayerWeaponAttack(player.activeAxeStrike.attackId, player.activeAxeStrike.connected || player.activeAxeStrike.worldHit);
+  }
+  player.attackStartupTime = 0;
+  player.attackCommitTime = 0;
+  player.pendingAxeStrike = null;
+  player.activeAxeStrike = null;
+  player.weaponCharge = 0;
+  player.weaponChargeActive = false;
+  abilityState.phaseShift.time = config.phaseShiftDuration;
+  player.ghostTime = Math.max(player.ghostTime, config.phaseShiftDuration);
   queuePhantomAbility("phaseShift");
   playAbilityCue("phaseShift");
   addImpact(player.x, player.y, "#d2f1ff", 24);
-  statusLine.textContent = "Phase Shift made you intangible for a blink.";
+  statusLine.textContent = "Phase Shift purged the pressure. Dash only until you rematerialize.";
 }
 
 export function castHologramDecoy() {
@@ -729,7 +811,7 @@ export function castSpeedSurge() {
 }
 
 export function castUltimate() {
-  if (!isCombatLive() || abilityState.ultimate.cooldown > 0) {
+  if (!isCombatLive() || abilityState.ultimate.cooldown > 0 || abilityState.phaseShift.time > 0) {
     return;
   }
 
@@ -822,6 +904,72 @@ export function updateExtraAbilities(dt) {
   player.revivalPrimed = Math.max(0, player.revivalPrimed - dt);
   player.decoyTime = Math.max(0, player.decoyTime - dt);
 
+  if (abilityState.grapple.phase === "flying" && abilityState.grapple.projectile) {
+    const projectile = abilityState.grapple.projectile;
+    projectile.x += projectile.vx * dt;
+    projectile.y += projectile.vy * dt;
+    projectile.life -= dt;
+    abilityState.grapple.tetherPulse = Math.max(0, abilityState.grapple.tetherPulse - dt);
+
+    if (abilityState.grapple.tetherPulse <= 0) {
+      addBeamEffect(player.x, player.y, projectile.x, projectile.y, "#c9f8ff", 3.5, 0.08);
+      abilityState.grapple.tetherPulse = 0.045;
+    }
+
+    if (
+      projectile.life <= 0 ||
+      projectile.x < -20 ||
+      projectile.y < -20 ||
+      projectile.x > arena.width + 20 ||
+      projectile.y > arena.height + 20 ||
+      hitMapWithProjectile(projectile, "player")
+    ) {
+      resetGrappleState();
+      statusLine.textContent = "Magnetic Grapple missed. Commit only when the catch line is real.";
+    } else {
+      const caughtTarget = getAllBots().find(
+        (bot) => bot.alive && length(projectile.x - bot.x, projectile.y - bot.y) <= projectile.radius + bot.radius,
+      );
+
+      if (caughtTarget) {
+        abilityState.grapple.phase = "pull";
+        abilityState.grapple.projectile = null;
+        abilityState.grapple.targetKind = caughtTarget.kind;
+        abilityState.grapple.pullStopRequested = false;
+        applyStatusEffect(caughtTarget, "slow", getStatusDuration(config.grappleSnareDuration), config.grappleSnare);
+        applyStatusEffect(caughtTarget, "snare", getStatusDuration(config.grappleSnareDuration), 1);
+        addImpact(caughtTarget.x, caughtTarget.y, "#dffbff", 24);
+        applyHitReaction(caughtTarget, player.x, player.y, 1.05);
+        addShake(6.4);
+        statusLine.textContent = "Magnetic Grapple caught. Recast to cut the pull at the right spacing.";
+      }
+    }
+  }
+
+  if (abilityState.grapple.phase === "pull") {
+    const target = getTrackedBot(abilityState.grapple.targetKind);
+    if (!target) {
+      resetGrappleState();
+    } else {
+      const anchor = getGrappleAnchorPoint(target);
+      const direction = normalize(anchor.x - target.x, anchor.y - target.y);
+      const distance = length(anchor.x - target.x, anchor.y - target.y);
+      const step = Math.min(distance, config.grapplePullSpeed * dt);
+      target.x += direction.x * step;
+      target.y += direction.y * step;
+      target.velocityX = direction.x * config.grapplePullSpeed * 0.72;
+      target.velocityY = direction.y * config.grapplePullSpeed * 0.72;
+      resolveMapCollision(target);
+      maybeTeleportEntity(target);
+      addBeamEffect(player.x, player.y, target.x, target.y, "#bdf4ff", 4.6, 0.08);
+
+      if (abilityState.grapple.pullStopRequested || distance <= 10) {
+        addImpact(target.x, target.y, "#effdff", 20);
+        resetGrappleState();
+      }
+    }
+  }
+
   if (player.shieldTime <= 0) {
     player.shield = 0;
   }
@@ -829,7 +977,7 @@ export function updateExtraAbilities(dt) {
 
 export function startAbilityInput(slotIndex) {
   const ability = getAbilityBySlot(slotIndex);
-  if (!ability) {
+  if (!ability || abilityState.phaseShift.time > 0) {
     return;
   }
 

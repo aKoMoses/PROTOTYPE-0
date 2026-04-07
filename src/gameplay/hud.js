@@ -97,10 +97,10 @@ export function updateHud() {
         ? "Charge to punish space. Distance adds kill pressure."
         : player.weapon === weapons.axe.key
           ? "Heavy three-hit brawl chain with stun finisher."
-          : player.weapon === weapons.shotgun.key
-            ? "Explosive close punish with weak long trades."
+            : player.weapon === weapons.shotgun.key
+              ? "Explosive close punish with weak long trades."
             : player.weapon === weapons.cannon.key
-              ? "Siege splash and cryo control for zone fights."
+              ? "Cursor-placed artillery. Hold to overload a burn zone."
               : activeWeapon.rangeProfile ?? activeWeapon.slotLabel ?? "";
   }
   weaponStatus.textContent =
@@ -109,7 +109,7 @@ export function updateHud() {
       : player.weapon === weapons.pulse.key
         ? `Ammo ${player.ammo}/${getPulseMagazineSize()}`
       : player.weapon === weapons.axe.key && player.comboTimer > 0
-        ? `Combo ${player.comboStep}/3`
+        ? `Combo ${player.comboStep}/3 | ${player.comboTimer.toFixed(1)}s memory`
       : player.weapon === weapons.sniper.key
         ? player.weaponChargeActive
           ? `Charge ${Math.round(player.weaponCharge * 100)}%`
@@ -132,18 +132,23 @@ export function updateHud() {
           : `Recover ${player.fireCooldown.toFixed(2)}s`
       : player.weapon === weapons.cannon.key
         ? weaponReady
-          ? input.altFiring
-            ? "Cryo shell ready"
+          ? player.weaponChargeActive
+            ? `Overload ${Math.round(player.weaponCharge * 100)}%`
             : "Shell loaded"
           : `Breach ${player.fireCooldown.toFixed(2)}s`
       : weaponReady
         ? "Ready"
         : `Cooling ${player.fireCooldown.toFixed(2)}s`;
+  if (player.precisionMomentumStacks > 0) {
+    weaponStatus.textContent = `${weaponStatus.textContent} | Momentum x${player.precisionMomentumStacks}`;
+  }
   if (playerBuildTag) {
     const keystoneTree = getSelectedRuneUltimateTree();
     const keystoneName = keystoneTree ? content.runeTrees[keystoneTree]?.nodes.ultimate.name : "No keystone";
     const perkName = content.perks[loadout.perks[0]]?.name ?? "No perk";
-    playerBuildTag.textContent = `${keystoneName} | ${perkName}`;
+    playerBuildTag.textContent = player.lastStandTime > 0
+      ? `${keystoneName} | ${perkName} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
+      : `${keystoneName} | ${perkName}`;
   }
   const pulseMeterRatio = player.reloadTime > 0
     ? 1 - player.reloadTime / config.pulseReloadTime
@@ -151,6 +156,9 @@ export function updateHud() {
   const sniperMeterRatio = player.weaponChargeActive
     ? player.weaponCharge
     : 1 - player.fireCooldown / Math.max(0.001, config.sniperBaseCooldown);
+  const cannonMeterRatio = player.weaponChargeActive
+    ? player.weaponCharge
+    : 1 - player.fireCooldown / Math.max(0.001, config.cannonPrimaryCooldown);
   weaponMeter.style.width = `${
     Math.max(
       0,
@@ -161,6 +169,8 @@ export function updateHud() {
             ? pulseMeterRatio
             : player.weapon === weapons.sniper.key
               ? sniperMeterRatio
+            : player.weapon === weapons.cannon.key
+              ? cannonMeterRatio
             : 1 - player.fireCooldown / activeWeapon.cooldown
         ) * 100,
       ),
@@ -202,7 +212,9 @@ export function updateHud() {
   enemyHealthFill.style.width = primaryBot
     ? `${(Math.max(0, primaryBot.hp) / primaryBot.maxHp) * 100}%`
       : "0%";
-  playerHealthText.textContent = `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""}`;
+  playerHealthText.textContent = player.lastStandTime > 0
+    ? `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
+    : `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""}`;
   enemyHealthText.textContent = primaryBot
     ? primaryBot.alive
       ? `${Math.ceil(primaryBot.hp)} / ${primaryBot.maxHp}`
@@ -254,16 +266,20 @@ export function getAbilityHudState(abilityKey) {
     }
     case "shockJavelin":
       return {
-        ready: abilityState.javelin.cooldown <= 0,
-        charging: abilityState.javelin.charging,
+        ready: abilityState.javelin.cooldown <= 0 && !abilityState.javelin.pendingCooldown && !abilityState.javelin.recastReady,
+        charging: abilityState.javelin.recastReady,
         cooldownRatio:
-          abilityState.javelin.cooldown <= 0
+          abilityState.javelin.recastReady
+            ? 0
+            : abilityState.javelin.pendingCooldown
+              ? Math.max(0, Math.min(1, abilityState.javelin.activeTime / Math.max(0.001, config.javelinSlowDuration)))
+            : abilityState.javelin.cooldown <= 0
             ? 0
             : Math.max(0, Math.min(1, abilityState.javelin.cooldown / abilityConfig.javelin.cooldown)),
-        timer: abilityState.javelin.charging
-          ? abilityState.javelin.chargeTime >= abilityConfig.javelin.chargeThreshold
-            ? "MAX"
-            : "..."
+        timer: abilityState.javelin.recastReady
+          ? "RE"
+          : abilityState.javelin.pendingCooldown
+            ? abilityState.javelin.activeTime.toFixed(1)
           : abilityState.javelin.cooldown <= 0
             ? ""
             : abilityState.javelin.cooldown.toFixed(1),
@@ -286,10 +302,17 @@ export function getAbilityHudState(abilityKey) {
       };
     case "magneticGrapple":
       return {
-        ready: abilityState.grapple.cooldown <= 0,
-        charging: false,
+        ready: abilityState.grapple.cooldown <= 0 && abilityState.grapple.phase === "idle",
+        charging: abilityState.grapple.phase === "flying" || abilityState.grapple.phase === "pull",
         cooldownRatio: abilityState.grapple.cooldown <= 0 ? 0 : abilityState.grapple.cooldown / config.grappleCooldown,
-        timer: abilityState.grapple.cooldown <= 0 ? "" : abilityState.grapple.cooldown.toFixed(1),
+        timer:
+          abilityState.grapple.phase === "pull"
+            ? "CUT"
+            : abilityState.grapple.phase === "flying"
+              ? "HOOK"
+              : abilityState.grapple.cooldown <= 0
+                ? ""
+                : abilityState.grapple.cooldown.toFixed(1),
       };
     case "energyShield":
       return {
@@ -351,14 +374,14 @@ export function getAbilityHudState(abilityKey) {
       return {
         ready: abilityState.gravityWell.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.gravityWell.cooldown <= 0 ? 0 : abilityState.gravityWell.cooldown / 5.8,
+        cooldownRatio: abilityState.gravityWell.cooldown <= 0 ? 0 : abilityState.gravityWell.cooldown / config.gravityWellCooldown,
         timer: abilityState.gravityWell.cooldown <= 0 ? "" : abilityState.gravityWell.cooldown.toFixed(1),
       };
     case "phaseShift":
       return {
         ready: abilityState.phaseShift.cooldown <= 0,
-        charging: false,
-        cooldownRatio: abilityState.phaseShift.cooldown <= 0 ? 0 : abilityState.phaseShift.cooldown / 5.6,
+        charging: abilityState.phaseShift.time > 0,
+        cooldownRatio: abilityState.phaseShift.cooldown <= 0 ? 0 : abilityState.phaseShift.cooldown / config.phaseShiftCooldown,
         timer: abilityState.phaseShift.time > 0 ? "SHIFT" : abilityState.phaseShift.cooldown <= 0 ? "" : abilityState.phaseShift.cooldown.toFixed(1),
       };
     case "hologramDecoy":

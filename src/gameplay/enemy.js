@@ -14,7 +14,7 @@ import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, up
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
   getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy } from "./combat.js";
 import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
-import { spawnEnemyJavelin } from "./abilities.js";
+import { spawnEnemyJavelin, confirmShockJavelinImpact, expireShockJavelin } from "./abilities.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playWeaponFire, playAbilityCue } from "../audio.js";
@@ -44,11 +44,13 @@ export function updateShockJavelins(dt) {
       javelin.y > arena.height;
 
     if (hitMapWithProjectile(javelin, "player")) {
+      expireShockJavelin(true);
       shockJavelins.splice(i, 1);
       continue;
     }
 
     if (outOfBounds || javelin.life <= 0) {
+      expireShockJavelin(true);
       shockJavelins.splice(i, 1);
       continue;
     }
@@ -75,18 +77,7 @@ export function updateShockJavelins(dt) {
       );
       addImpact(bot.x, bot.y, javelin.charged ? "#fff0b4" : "#dff7ff", javelin.charged ? 26 : 18);
       addShake(javelin.charged ? 8.8 : 6.8);
-
-      if (javelin.charged) {
-        applyStatusEffect(bot, "stun", getStatusDuration(javelin.stun), 1);
-        addImpact(bot.x, bot.y, "#fff7d0", 30);
-        statusLine.textContent = bot.role === "training"
-          ? "Charged javelin stunned the training bot."
-          : "Charged javelin stunned the bot.";
-      } else {
-        applyStatusEffect(bot, "slow", getStatusDuration(javelin.slowDuration), javelin.slow);
-        addImpact(bot.x, bot.y, "#bff6ff", 20);
-        statusLine.textContent = "Shock Javelin slowed the target.";
-      }
+      confirmShockJavelinImpact(bot);
 
       if (!javelin.piercing) {
         consumed = true;
@@ -385,13 +376,17 @@ export function applyProjectileEffectToPlayer(projectile) {
 }
 
 export function fireEnemySniper(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", 1760, 18, {
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", config.sniperProjectileSpeed * 0.94, 22, {
     radius: 6,
     life: 0.78,
-    piercing: true,
+    piercing: false,
     trailColor: "#ffeab3",
     source: "enemy-sniper",
-    effect: { kind: "rail", bonusSlow: 0.16, bonusSlowDuration: 0.6 },
+    chargeRatio: 0.2,
+    minDamage: 22,
+    maxDamage: 42,
+    travelBonusRange: config.sniperTravelBonusRange,
+    effect: { kind: "rail", bonusSlow: 0.12, bonusSlowDuration: 0.48, maxSlow: 0.2, maxSlowDuration: 0.7, snareDuration: 0.24, snareMagnitude: 0.72 },
   });
   playWeaponFire(weapons.sniper.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd27a", 18);
@@ -457,32 +452,43 @@ export function fireEnemyLance(target = player, altFire = false) {
   return true;
 }
 
-export function fireEnemyCannon(targetX, targetY, altFire = false) {
+export function fireEnemyCannon(targetX, targetY, charged = false) {
+  const direction = normalize(targetX - enemy.x, targetY - enemy.y);
+  const rawDistance = length(targetX - enemy.x, targetY - enemy.y);
+  const clampedDistance = Math.min(config.cannonMaxRange, rawDistance);
+  const detonateX = enemy.x + direction.x * clampedDistance;
+  const detonateY = enemy.y + direction.y * clampedDistance;
   spawnBullet(
     enemy,
-    targetX,
-    targetY,
+    detonateX,
+    detonateY,
     enemyBullets,
-    altFire ? "#d6f1ff" : "#ffb483",
-    altFire ? config.cannonAltSpeed : config.cannonPrimarySpeed,
-    altFire ? config.cannonAltDamage * 0.78 : config.cannonPrimaryDamage * 0.8,
+    charged ? "#ffdca8" : "#ffb483",
+    charged ? config.cannonAltSpeed : config.cannonPrimarySpeed,
+    charged ? config.cannonAltDamage * 0.78 : config.cannonPrimaryDamage * 0.82,
     {
-      radius: altFire ? config.cannonAltRadius : config.cannonPrimaryRadius,
+      radius: charged ? config.cannonAltRadius : config.cannonPrimaryRadius,
       life: 1.08,
-      trailColor: altFire ? "#effcff" : "#ffd8ba",
-      source: altFire ? "enemy-cannon-cryo" : "enemy-cannon-shell",
+      trailColor: charged ? "#fff0cc" : "#ffd8ba",
+      source: charged ? "enemy-cannon-charged" : "enemy-cannon-shell",
+      detonateX,
+      detonateY,
+      explodeOnDestination: true,
       effect: {
         kind: "cannon",
-        splashRadius: altFire ? Math.max(58, config.cannonSplashRadius * 0.76) : config.cannonSplashRadius,
-        splashDamage: altFire ? config.cannonSplashDamage * 0.55 : config.cannonSplashDamage * 0.72,
-        statusType: altFire ? "stun" : "slow",
-        statusDuration: altFire ? config.cannonFreezeDuration : config.cannonBurnDuration,
-        statusMagnitude: altFire ? 1 : config.cannonBurnMagnitude,
+        splashRadius: charged ? Math.max(110, config.cannonSplashRadius * 1.28) : config.cannonSplashRadius,
+        splashDamage: charged ? config.cannonSplashDamage * 1.18 : config.cannonSplashDamage * 0.76,
+        statusType: "slow",
+        statusDuration: charged ? config.cannonFreezeDuration : config.cannonBurnDuration,
+        statusMagnitude: charged ? config.cannonFreezeMagnitude : config.cannonBurnMagnitude,
+        directDamageScale: charged ? 0.82 : 0.66,
+        impactColor: charged ? "#fff0c8" : "#fff0d8",
+        detonateOnDestination: true,
       },
     },
   );
   playWeaponFire(weapons.cannon.key, "enemy");
-  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, altFire ? "#def5ff" : "#ffcca4", altFire ? 18 : 22);
+  addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, charged ? "#ffe3af" : "#ffcca4", charged ? 20 : 22);
   return true;
 }
 
@@ -509,7 +515,7 @@ export function fireTrainingPulse(bot, targetX, targetY) {
 
 export function queueEnemyAxeStrike() {
   enemy.comboStep = enemy.comboTimer > 0 ? (enemy.comboStep % 3) + 1 : 1;
-  enemy.comboTimer = 0.92;
+  enemy.comboTimer = config.axeComboReset;
   const profile = { ...getAxeComboProfile(enemy.comboStep) };
   profile.damage *= 0.74;
   profile.stun *= 0.78;
@@ -601,7 +607,7 @@ export function castEnemyGrapple(forward, target = player) {
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
   addImpact(enemy.x, enemy.y, "#bfeeff", 18);
 
-  if (target === player && abilityState.dash.invulnerabilityTime > 0) {
+  if (target === player && (abilityState.dash.invulnerabilityTime > 0 || abilityState.phaseShift.time > 0)) {
     addImpact(player.x, player.y, "#b8f9c9", 20);
     statusLine.textContent = "You slipped the enemy grapple with clean timing.";
     return;
@@ -617,6 +623,7 @@ export function castEnemyGrapple(forward, target = player) {
   resolveMapCollision(target);
   maybeTeleportEntity(target);
   applyStatusEffect(target, "slow", getStatusDuration(config.grappleSnareDuration * 0.85), config.grappleSnare);
+  applyStatusEffect(target, "snare", getStatusDuration(config.grappleSnareDuration * 0.85), 1);
   addImpact(target.x, target.y, "#ffe5dd", 22);
   statusLine.textContent = target === playerClone
     ? "Enemy grapple dragged the phantom copy out of position."
@@ -728,20 +735,21 @@ export function castEnemyRailShot(target = player) {
 }
 
 export function castEnemyGravityWell(target = player) {
-  enemy.abilityCooldowns.gravityWell = 6.1;
+  enemy.abilityCooldowns.gravityWell = config.gravityWellCooldown + 0.2;
   supportZones.push({
     type: "gravity",
     team: "enemy",
     x: target.x,
     y: target.y,
-    radius: 112,
-    life: 1.9,
-    maxLife: 1.9,
+    radius: config.gravityWellRadius * 0.92,
+    life: config.gravityWellDuration * 0.9,
+    maxLife: config.gravityWellDuration * 0.9,
     color: "#d1a2ff",
-    slow: 0.4,
+    slow: config.gravityWellSlow * 0.9,
+    pullStrength: config.gravityWellPullStrength * 0.92,
   });
   playAbilityCue("gravityWell", "enemy");
-  addExplosion(target.x, target.y, 118, "#d1a2ff");
+  addExplosion(target.x, target.y, config.gravityWellRadius, "#d1a2ff");
 }
 
 export function castEnemyPhaseShift() {
@@ -823,33 +831,21 @@ export function updateEnemyShockJavelins(dt) {
 
     if (hitTarget === playerClone) {
       applyPhantomDamage(javelin.damage, "javelin");
-      if (javelin.stun > 0) {
-        applyStatusEffect(hitTarget, "stun", getStatusDuration(javelin.stun * 0.8), 1);
-        statusLine.textContent = "Enemy javelin stunned the phantom copy.";
-      } else {
-        applyStatusEffect(hitTarget, "slow", getStatusDuration(javelin.slowDuration * 0.8), javelin.slow);
-        statusLine.textContent = "Enemy javelin clipped the phantom copy.";
-      }
+      applyStatusEffect(hitTarget, "slow", getStatusDuration(javelin.slowDuration * 0.8), javelin.slow);
+      applyStatusEffect(hitTarget, "shock", getStatusDuration(javelin.slowDuration * 0.8), 1);
+      statusLine.textContent = "Enemy javelin clipped the phantom copy.";
       addShake(javelin.charged ? 6.6 : 4.8);
       continue;
     }
 
     const defeatedByJavelin = applyPlayerDamage(javelin.damage, "javelin");
-    if (javelin.stun > 0) {
-      applyStatusEffect(player, "stun", getStatusDuration(javelin.stun * (1 - getBuildStats().ccReduction)), 1);
-      statusLine.textContent = "Enemy javelin stunned you.";
-    } else {
-      applyStatusEffect(player, "slow", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), javelin.slow);
-      statusLine.textContent = "Enemy javelin slowed you.";
-    }
+    applyStatusEffect(player, "slow", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), javelin.slow);
+    applyStatusEffect(player, "shock", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), 1);
+    statusLine.textContent = "Enemy javelin electrified and slowed you.";
     addShake(javelin.charged ? 8 : 5.8);
 
-    if (defeatedByJavelin) {
-      if (sandbox.mode === sandboxModes.duel.key) {
-        finishDuelRound("enemy");
-      } else {
-        resetPlayer();
-      }
+    if (defeatedByJavelin && !player.alive) {
+      break;
     }
   }
 }

@@ -58,10 +58,15 @@ export function updateTrainingBuildButton() {
 
 export function openPrematch(step = "mode") {
   uiState.prematchOpen = true;
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   input.keys.clear();
   input.firing = false;
   _releaseDashInput();
-  abilityState.javelin.charging = false;
+  abilityState.javelin.recastReady = false;
+  abilityState.javelin.activeTime = 0;
+  abilityState.javelin.pendingCooldown = false;
   abilityState.field.charging = false;
   setPrematchStep(step);
   dom.prematchOverlay.classList.remove("is-hidden");
@@ -72,6 +77,9 @@ export function openPrematch(step = "mode") {
 export function closePrematch() {
   uiState.prematchOpen = false;
   dom.prematchOverlay.classList.add("is-hidden");
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   syncPrematchState();
 }
 
@@ -387,6 +395,7 @@ function getWeaponValueLines(item) {
       `Hit 1: ${formatNumber(hit1.damage)} damage, ${formatNumber(hit1.range)} range, ${formatSeconds(hit1.startup)} startup.`,
       `Hit 2: ${formatNumber(hit2.damage)} damage, ${formatNumber(hit2.range)} reach, wide cleave.`,
       `Hit 3: ${formatNumber(hit3.damage)} damage, dash engage, ${formatSeconds(hit3.stun)} stun on hit.`,
+      `Combo memory: ${formatSeconds(config.axeComboReset)} to continue the chain before it resets.`,
       "Role: slow brutal melee with strong punish if you commit cleanly.",
     ];
   }
@@ -403,9 +412,9 @@ function getWeaponValueLines(item) {
   if (item.key === weapons.sniper.key) {
     return [
       `Hold to charge up to ${formatSeconds(config.sniperChargeTime)}.`,
-      `Damage scales from ${config.sniperMinDamage} up to ${config.sniperMaxDamage} with charge plus travel distance.`,
-      `Charged shot: ${formatPercent(config.sniperChargedSnare)} snare for ${formatSeconds(config.sniperChargedSnareDuration)}.`,
-      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}. Role: long lane punish and spacing denial.`,
+      `Damage scales from ${config.sniperMinDamage} up to ${config.sniperMaxDamage} from charge plus travel distance.`,
+      `Charged shot: faster rail, ${formatPercent(config.sniperChargedSnare)} snare for ${formatSeconds(config.sniperChargedSnareDuration)}.`,
+      `Recovery: ${formatSeconds(getWeaponCooldown(item.key))}. Role: patience, spacing and hard punish.`,
     ];
   }
 
@@ -438,10 +447,11 @@ function getWeaponValueLines(item) {
 
   if (item.key === weapons.cannon.key) {
     return [
-      `Primary: ${config.cannonPrimaryDamage} direct, ${config.cannonSplashDamage} splash in ${formatNumber(config.cannonSplashRadius)} radius.`,
-      `Primary burn: ${formatPercent(config.cannonBurnMagnitude)} slow for ${formatSeconds(config.cannonBurnDuration)}.`,
-      `Alt fire: ${config.cannonAltDamage} direct, ${formatSeconds(config.cannonFreezeDuration)} freeze.`,
-      `Cadence: ${formatSeconds(config.cannonPrimaryCooldown)} primary, ${formatSeconds(config.cannonAltCooldown)} cryo.`,
+      `Tap fire: shell detonates at your cursor up to ${formatNumber(config.cannonMaxRange)} range.`,
+      `Base blast: ${config.cannonSplashDamage} explosion damage in ${formatNumber(config.cannonSplashRadius)} radius.`,
+      `Hold fire: overloaded blast, ${formatNumber(Math.max(110, config.cannonSplashRadius * 1.3))} radius, burn plus ${formatPercent(config.cannonFreezeMagnitude)} slow for ${formatSeconds(config.cannonFreezeDuration)}.`,
+      `Charged impact: pushes targets ${formatNumber(config.cannonChargedPushMin)} to ${formatNumber(config.cannonChargedPushMax)} units away based on proximity to center.`,
+      `Cadence: ${formatSeconds(config.cannonPrimaryCooldown)} tap, ${formatSeconds(config.cannonAltCooldown)} charged. Role: artillery zoning and area denial.`,
     ];
   }
 
@@ -455,9 +465,9 @@ function getAbilityValueLines(item) {
     case "shockJavelin":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.javelinCooldown))}.`,
-        `Tap cast: ${config.javelinTapDamage} damage and ${formatPercent(config.javelinTapSlow)} slow for ${formatSeconds(getStatusDuration(config.javelinTapSlowDuration))}.`,
-        `Charged cast: ${config.javelinHoldDamage + (spellsShardActive ? 12 : 0)} damage and ${formatSeconds(getStatusDuration(config.javelinHoldStun + (spellsShardActive ? 0.18 : 0)))} stun.`,
-        "Role: punish tool that turns charge timing into a clean confirm.",
+        `Initial hit: ${config.javelinDamage} damage and ${formatPercent(config.javelinSlow)} electrified slow for ${formatSeconds(getStatusDuration(config.javelinSlowDuration))}.`,
+        `Recast window: while the target is electrified, blink ${formatNumber(config.javelinRecastDistance)} units behind them once.`,
+        "Role: two-step engage tool for outplay, chase correction and burst setup.",
       ];
     case "magneticField":
       return [
@@ -469,9 +479,10 @@ function getAbilityValueLines(item) {
     case "magneticGrapple":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.grappleCooldown))}.`,
-        `Reach: ${formatNumber(config.grappleRange)} with a ${formatNumber(config.grappleWidth)} width catch line.`,
-        `On hit: pulls the target ${formatNumber(config.grapplePullDistance)} units and applies ${formatPercent(config.grappleSnare)} snare for ${formatSeconds(getStatusDuration(config.grappleSnareDuration))}.`,
-        "Role: engage confirm for shotgun, axe and lance punish windows.",
+        `Hook shot: ${formatNumber(config.grappleRange)} range at ${formatNumber(config.grappleProjectileSpeed)} speed.`,
+        `On hit: drags the target toward you and applies ${formatPercent(config.grappleSnare)} snare for ${formatSeconds(getStatusDuration(config.grappleSnareDuration))}.`,
+        "Recast during pull: cut the drag early to place the target exactly where you want.",
+        "Role: signature catch tool for shotgun, axe and lance punish windows.",
       ];
     case "energyShield":
       return [
@@ -524,17 +535,17 @@ function getAbilityValueLines(item) {
       ];
     case "gravityWell":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.8))}.`,
-        `Creates a ${formatNumber(118)} radius trap for ${formatSeconds(2.1)}.`,
-        `Inside the zone: ${formatPercent(0.44)} slow.`,
-        "Role: deny exits and force predictable movement.",
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.gravityWellCooldown))}.`,
+        `Creates a live singularity with ${formatNumber(config.gravityWellRadius)} radius for ${formatSeconds(config.gravityWellDuration)}.`,
+        `Inside the zone: ${formatPercent(config.gravityWellSlow)} slow and steady pull toward the core.`,
+        "Role: trap movement, stack follow-up skillshots and punish late exits.",
       ];
     case "phaseShift":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.6))}.`,
-        `Intangible for ${formatSeconds(0.55)}.`,
-        "No displacement, pure timing answer to burst.",
-        "Role: defensive clutch button.",
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.phaseShiftCooldown))}.`,
+        `Intangible for ${formatSeconds(config.phaseShiftDuration)} and purges active debuffs on cast.`,
+        "While phased: no damage taken, no control taken, no attacks, no spells. Dash only.",
+        "Role: pure defensive outplay and reset timing, not an engage tool.",
       ];
     case "hologramDecoy":
       return [
@@ -581,8 +592,20 @@ function getPerkValueLines(item) {
       return ["-16% dash cooldown.", "Role: more access to core mobility."];
     case "executionRelay":
       return ["+18% damage to slowed targets.", "+4% more per Attack Core point.", "Role: turns control into real punish."];
-    case "comboDriver":
-      return ["+22% Electro Axe finisher damage.", "Role: all-in melee payoff."];
+    case "omnivampCore":
+      return ["Heal for 7% of confirmed damage dealt.", "Works on both weapon and ability damage.", "Role: broad sustain for clean traders and brawlers."];
+    case "lastStandBuffer":
+      return [
+        `Once per round, lethal damage triggers ${formatSeconds(config.lastStandDuration)} of overloaded survival.`,
+        "Immediately refills to full HP, then that HP decays continuously during the window.",
+        `During overload: +${formatPercent(config.lastStandMoveBonus)} move speed and +${formatPercent(config.lastStandHasteBonus)} attack speed.`,
+      ];
+    case "precisionMomentum":
+      return [
+        `Confirmed auto attacks grant up to ${config.precisionMomentumMaxStacks} stacks.`,
+        `Each stack adds +${formatPercent(config.precisionMomentumDamagePerStack)} damage to the next auto attack.`,
+        "If an auto attack misses everything, the chain fully breaks.",
+      ];
     case "shockBuffer":
       return ["-28% crowd-control duration taken.", "Role: anti-pick defensive stability."];
     default:
@@ -1513,16 +1536,16 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
 
   if (treeKey === "attack" && nodeKey === "secondary") {
     return [
-      `Current: +${formatPercent(points * 0.02)} damage.`,
-      "Per point: +2% weapon and ability damage.",
+      `Current: +${formatPercent(points * 0.015)} damage.`,
+      "Per point: +1.5% weapon and ability damage.",
       "Use it for cleaner punish thresholds and faster round closes.",
     ];
   }
   if (treeKey === "attack" && nodeKey === "primary") {
     return [
-      `Current: +${formatPercent(points * 0.04)} damage to slowed or stunned targets.`,
-      `Current: +${formatPercent(points * 0.05)} Electro Axe finisher damage.`,
-      "Per point: +4% controlled-target damage and +5% axe finisher damage.",
+      `Current: +${formatPercent(points * 0.03)} damage to slowed or stunned targets.`,
+      `Current: +${formatPercent(points * 0.04)} Electro Axe finisher damage.`,
+      "Per point: +3% controlled-target damage and +4% axe finisher damage.",
     ];
   }
   if (treeKey === "attack" && nodeKey === "ultimate") {
@@ -1536,8 +1559,8 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
   if (treeKey === "defense" && nodeKey === "secondary") {
     return [
       `Current: +${points * 5} max HP.`,
-      `Current: -${formatPercent(points * 0.01)} incoming damage.`,
-      `Current: -${formatPercent(points * 0.02)} crowd-control duration taken.`,
+      `Current: -${formatPercent(points * 0.008)} incoming damage.`,
+      `Current: -${formatPercent(points * 0.018)} crowd-control duration taken.`,
     ];
   }
   if (treeKey === "defense" && nodeKey === "primary") {
@@ -1556,11 +1579,11 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
   }
 
   if (treeKey === "spells" && nodeKey === "secondary") {
-    const reduction = Math.min(0.24, points * 0.04);
+    const reduction = Math.min(0.18, points * 0.03);
     return [
       `Current: -${formatPercent(reduction)} ability cooldowns.`,
       `Current: +${formatPercent(points * 0.03)} status duration.`,
-      "Per point: -4% cooldowns and +3% status duration.",
+      "Per point: -3% cooldowns and +3% status duration.",
     ];
   }
   if (treeKey === "spells" && nodeKey === "primary") {
@@ -1573,15 +1596,15 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
   if (treeKey === "spells" && nodeKey === "ultimate") {
     return [
       "Main Rune Shard: Arc Script.",
-      "Charged Javelin and charged Magnetic Field gain a stronger payoff.",
-      "Gameplay change: charge-based abilities become real threat multipliers.",
+      "Empowers ability confirms and post-cast tempo instead of generic stat padding.",
+      "Gameplay change: spell-driven builds get cleaner punish windows and chaining payoff.",
     ];
   }
 
   if (treeKey === "support" && nodeKey === "secondary") {
     return [
-      `Current: +${formatPercent(points * 0.015, 1)} move speed.`,
-      `Current: +${formatPercent(points * 0.01)} haste multiplier.`,
+      `Current: +${formatPercent(points * 0.012, 1)} move speed.`,
+      `Current: +${formatPercent(points * 0.008)} haste multiplier.`,
       "Per point: stronger spacing, chase and disengage.",
     ];
   }
@@ -1643,11 +1666,13 @@ export function renderRuneTrees() {
     nodes.forEach((node, i) => {
       const points = treeState[node.key];
       const isUltimate = node.key === "ultimate";
-      const disabledAdd =
-        points >= node.max ||
-        (!isUltimate && getRemainingRunePoints() <= 0) ||
-        (isUltimate && selectedUltimateTree && selectedUltimateTree !== tree.key) ||
-        (isUltimate && getRemainingRunePoints() <= 0 && points === 0);
+      const canAdd = isUltimate
+        ? canSelectRuneUltimate(tree.key)
+        : canAddRuneNode(tree.key, node.key);
+      const canRemove = canRemoveRuneNode(tree.key, node.key);
+      const lockReason = isUltimate
+        ? getRuneUltimateLockReason(tree.key, selectedUltimateTree)
+        : getRuneNodeLockReason(tree.key, node.key);
 
       if (i > 0) {
         const prevNode = nodes[i - 1];
@@ -1656,15 +1681,15 @@ export function renderRuneTrees() {
       }
 
       nodesMarkup += `
-        <div class="rune-node-v2 ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""}">
+        <div class="rune-node-v2 ${isUltimate ? "rune-node-v2--ultimate" : ""} ${isUltimate && points > 0 ? "is-selected" : ""} ${!canAdd && points <= 0 ? "is-locked" : ""}">
           <div class="rune-node-v2__dot ${points > 0 ? "has-points" : ""}">${points}</div>
           <div class="rune-node-v2__info" data-rune-detail="${tree.key}:${node.key}">
             <span class="rune-node-v2__name">${node.name}</span>
-            <span class="rune-node-v2__tier">${isUltimate ? "Main Shard" : node.key === "primary" ? "Core Node" : "Minor Node"} · ${points}/${node.max}</span>
+            <span class="rune-node-v2__tier">${isUltimate ? "Main Shard" : node.key === "primary" ? "Core Node" : "Minor Node"} · ${points}/${node.max}${!canAdd && points <= 0 && lockReason ? ` · ${lockReason}` : ""}</span>
           </div>
           <div class="rune-node-v2__controls">
-            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="remove" ${points <= 0 ? "disabled" : ""}>−</button>
-            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="${isUltimate ? "toggle" : "add"}" ${disabledAdd ? "disabled" : ""}>${isUltimate ? (points > 0 ? "✓" : "◆") : "+"}</button>
+            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="remove" ${!canRemove ? "disabled" : ""}>−</button>
+            <button type="button" data-rune-tree="${tree.key}" data-rune-node="${node.key}" data-rune-action="${isUltimate ? "toggle" : "add"}" ${!canAdd && points <= 0 ? "disabled" : ""}>${isUltimate ? (points > 0 ? "✓" : "◆") : "+"}</button>
           </div>
         </div>
       `;
@@ -1721,12 +1746,12 @@ export function adjustRuneNode(treeKey, nodeKey, delta) {
   }
 
   if (delta > 0) {
-    if (getRemainingRunePoints() <= 0 || treeState[nodeKey] >= node.max) {
+    if (!canAddRuneNode(treeKey, nodeKey)) {
       return;
     }
     treeState[nodeKey] += 1;
   } else if (delta < 0) {
-    if (treeState[nodeKey] <= 0) {
+    if (!canRemoveRuneNode(treeKey, nodeKey)) {
       return;
     }
     treeState[nodeKey] -= 1;
@@ -1750,16 +1775,101 @@ export function toggleRuneUltimate(treeKey) {
     return;
   }
 
-  if (selectedUltimateTree && selectedUltimateTree !== treeKey) {
-    return;
-  }
-
-  if (getRemainingRunePoints() <= 0) {
+  if (!canSelectRuneUltimate(treeKey)) {
     return;
   }
 
   treeState.ultimate = 1;
   renderPrematch();
+}
+
+function canAddRuneNode(treeKey, nodeKey) {
+  const tree = content.runeTrees[treeKey];
+  const treeState = loadout.runes[treeKey];
+  const node = tree?.nodes?.[nodeKey];
+  if (!tree || !treeState || !node || nodeKey === "ultimate") {
+    return false;
+  }
+  if (getRemainingRunePoints() <= 0 || treeState[nodeKey] >= node.max) {
+    return false;
+  }
+  if (nodeKey === "primary" && treeState.secondary < tree.nodes.secondary.max) {
+    return false;
+  }
+  return true;
+}
+
+function canRemoveRuneNode(treeKey, nodeKey) {
+  const tree = content.runeTrees[treeKey];
+  const treeState = loadout.runes[treeKey];
+  if (!tree || !treeState || nodeKey === "ultimate" || treeState[nodeKey] <= 0) {
+    return false;
+  }
+  if (nodeKey === "secondary" && (treeState.primary > 0 || treeState.ultimate > 0)) {
+    return false;
+  }
+  if (nodeKey === "primary" && treeState.ultimate > 0) {
+    return false;
+  }
+  return true;
+}
+
+function canSelectRuneUltimate(treeKey) {
+  const tree = content.runeTrees[treeKey];
+  const treeState = loadout.runes[treeKey];
+  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  if (!tree || !treeState) {
+    return false;
+  }
+  if (treeState.ultimate > 0) {
+    return true;
+  }
+  if (selectedUltimateTree && selectedUltimateTree !== treeKey) {
+    return false;
+  }
+  if (getRemainingRunePoints() <= 0) {
+    return false;
+  }
+  return (
+    treeState.secondary >= tree.nodes.secondary.max &&
+    treeState.primary >= tree.nodes.primary.max
+  );
+}
+
+function getRuneNodeLockReason(treeKey, nodeKey) {
+  const tree = content.runeTrees[treeKey];
+  const treeState = loadout.runes[treeKey];
+  if (!tree || !treeState) {
+    return "";
+  }
+  if (nodeKey === "primary" && treeState.secondary < tree.nodes.secondary.max) {
+    return "Fill minor first";
+  }
+  if (getRemainingRunePoints() <= 0) {
+    return "No points";
+  }
+  return "";
+}
+
+function getRuneUltimateLockReason(treeKey, selectedUltimateTree) {
+  const tree = content.runeTrees[treeKey];
+  const treeState = loadout.runes[treeKey];
+  if (!tree || !treeState) {
+    return "";
+  }
+  if (selectedUltimateTree && selectedUltimateTree !== treeKey) {
+    return "Keystone used";
+  }
+  if (treeState.secondary < tree.nodes.secondary.max) {
+    return "Finish minor";
+  }
+  if (treeState.primary < tree.nodes.primary.max) {
+    return "Finish core";
+  }
+  if (getRemainingRunePoints() <= 0 && treeState.ultimate <= 0) {
+    return "No points";
+  }
+  return "";
 }
 
 export function resetRuneAllocation() {

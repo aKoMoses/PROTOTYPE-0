@@ -358,12 +358,18 @@ export function bindPrematchButton(button, actionId) {
   button.dataset.codexBound = "true";
   if (!button.getAttribute("onclick")) {
     button.addEventListener("click", (event) => {
+      if (!uiState.prematchOpen) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       handlePrematchAction(actionId);
     });
   }
   button.addEventListener("keydown", (event) => {
+    if (!uiState.prematchOpen) {
+      return;
+    }
     if (event.code === "Enter" || event.code === "Space") {
       event.preventDefault();
       event.stopPropagation();

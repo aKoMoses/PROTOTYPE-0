@@ -3096,6 +3096,15 @@ body {
   box-shadow: 0 0 16px rgba(255, 211, 117, 0.1);
 }
 
+.rune-node-v2.is-locked {
+  border-color: rgba(255, 146, 118, 0.16);
+  background: rgba(255, 104, 80, 0.035);
+}
+
+.rune-node-v2.is-locked .rune-node-v2__tier {
+  color: rgba(255, 182, 166, 0.82);
+}
+
 .rune-node-v2__dot {
   width: 28px;
   height: 28px;

@@ -6,7 +6,7 @@ import { clamp, length, normalize, approach } from "../utils.js";
 import { addImpact, addShake, addAfterimage, addHealingText } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getActiveDashCooldown, getAbilityBySlot, getPulseMagazineSize } from "../build/loadout.js";
-import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerSpawn, clearStatusEffects, updateStatusEffects, tickEntityMarks, clearCombatArtifacts, getStatusState, getZoneEffectsForEntity, finalizePulseReload } from "./combat.js";
+import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerSpawn, clearStatusEffects, updateStatusEffects, tickEntityMarks, clearCombatArtifacts, getStatusState, getZoneEffectsForEntity, finalizePulseReload, defeatPlayer, resetPlayerWeaponMomentum, completePlayerWeaponAttack } from "./combat.js";
 import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackChargeLance, fireHeavyCannon, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
 import { updateDashAbility, updateJavelinAbility, updateFieldAbility, updateExtraAbilities } from "./abilities.js";
 import { resetPhantomClone } from "./phantom.js";
@@ -45,7 +45,7 @@ export function setWeapon(nextWeapon) {
       : nextWeapon === weapons.lance.key
         ? "Charge Lance equipped. Use left click for a lane puncture and C or right click for the drive."
       : nextWeapon === weapons.cannon.key
-        ? "Heavy Cannon equipped. Siege with shell fire and cryo-control on alt fire."
+        ? "Heavy Cannon equipped. Tap for artillery pressure or hold to overload a zone."
       : "Pulse Rifle equipped. Keep the bot under ranged pressure.";
 }
 
@@ -85,12 +85,18 @@ export function resetPlayer({ silent = false } = {}) {
   player.hitReactionY = 0;
   player.ghostTime = 0;
   player.failsafeReady = true;
+  player.defenseFailsafeReady = true;
+  player.lastStandTime = 0;
+  player.lastStandDecayPerSecond = 0;
+  player.precisionMomentumStacks = 0;
+  player.precisionMomentumFlash = 0;
   player.revivalPrimed = 0;
   player.decoyTime = 0;
   player.injectorMarks = 0;
   player.injectorMarkTime = 0;
   player.mainRuneCooldown = 0;
   player.defenseRuneShieldCooldown = 0;
+  resetPlayerWeaponMomentum();
   input.altFiring = false;
   clearStatusEffects(player);
   resetPhantomClone({ silent: true });
@@ -102,15 +108,25 @@ export function resetPlayer({ silent = false } = {}) {
   abilityState.dash.rechargeTimer = 0;
   abilityState.dash.upgraded = false;
   abilityState.javelin.cooldown = 0;
-  abilityState.javelin.charging = false;
-  abilityState.javelin.chargeTime = 0;
-  abilityState.javelin.mode = "tap";
+  abilityState.javelin.activeTime = 0;
+  abilityState.javelin.recastReady = false;
+  abilityState.javelin.targetKind = null;
+  abilityState.javelin.aimX = 0;
+  abilityState.javelin.aimY = 0;
+  abilityState.javelin.lastDirectionX = 0;
+  abilityState.javelin.lastDirectionY = 0;
+  abilityState.javelin.pendingCooldown = false;
   abilityState.field.cooldown = 0;
   abilityState.field.charging = false;
   abilityState.field.chargeTime = 0;
   abilityState.field.mode = "tap";
   abilityState.field.moveBoostTime = 0;
   abilityState.grapple.cooldown = 0;
+  abilityState.grapple.phase = "idle";
+  abilityState.grapple.projectile = null;
+  abilityState.grapple.targetKind = null;
+  abilityState.grapple.pullStopRequested = false;
+  abilityState.grapple.tetherPulse = 0;
   abilityState.shield.cooldown = 0;
   abilityState.booster.cooldown = 0;
   abilityState.emp.cooldown = 0;
@@ -152,11 +168,22 @@ export function updatePlayer(dt) {
   player.hitReactionTime = Math.max(0, player.hitReactionTime - dt);
   player.mainRuneCooldown = Math.max(0, player.mainRuneCooldown - dt);
   player.defenseRuneShieldCooldown = Math.max(0, player.defenseRuneShieldCooldown - dt);
+  player.precisionMomentumFlash = Math.max(0, player.precisionMomentumFlash - dt);
   updateStatusEffects(player, dt);
   tickEntityMarks(player, dt);
   const playerStatus = getStatusState(player);
   const playerZoneEffects = getZoneEffectsForEntity(player, dt);
   const buildStats = getBuildStats();
+
+  if (player.lastStandTime > 0) {
+    player.lastStandTime = Math.max(0, player.lastStandTime - dt);
+    player.hp = Math.max(0, player.hp - player.lastStandDecayPerSecond * dt);
+    player.flash = Math.max(player.flash, 0.06);
+    if (player.hp <= 0) {
+      defeatPlayer("decay");
+      return;
+    }
+  }
 
   updateDashAbility(dt);
   updateJavelinAbility(dt);
@@ -227,6 +254,7 @@ export function updatePlayer(dt) {
         dom.statusLine.textContent = profile.miss;
       }
 
+      completePlayerWeaponAttack(player.activeAxeStrike.attackId, player.activeAxeStrike.connected || player.activeAxeStrike.worldHit);
       player.activeAxeStrike = null;
     }
   }
@@ -235,12 +263,12 @@ export function updatePlayer(dt) {
     finalizePulseReload(player);
   }
 
-  const wantsAltFire =
-    input.altFiring &&
-    (player.weapon === weapons.lance.key || player.weapon === weapons.cannon.key);
+  const wantsLanceAlt = input.altFiring && player.weapon === weapons.lance.key;
+  const wantsCannonCharge = player.weapon === weapons.cannon.key && (input.firing || input.altFiring);
+  const phaseLocked = abilityState.phaseShift.time > 0;
 
-  const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0;
-  if (player.weapon === weapons.sniper.key && !wantsAltFire) {
+  const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && !phaseLocked;
+  if (player.weapon === weapons.sniper.key) {
     if (canUseWeapon && input.firing) {
       player.weaponChargeActive = true;
       player.weaponCharge = clamp(player.weaponCharge + dt / config.sniperChargeTime, 0, 1);
@@ -248,8 +276,24 @@ export function updatePlayer(dt) {
       if (player.weaponCharge >= 1) {
         player.weaponChargeFlash = Math.max(player.weaponChargeFlash, 0.12);
       }
+      return;
     } else if (player.weaponChargeActive) {
       attackRailSniper(player.weaponCharge);
+      player.weaponChargeActive = false;
+      player.weaponCharge = 0;
+      return;
+    }
+    return;
+  } else if (player.weapon === weapons.cannon.key) {
+    if (canUseWeapon && wantsCannonCharge) {
+      player.weaponChargeActive = true;
+      player.weaponCharge = clamp(player.weaponCharge + dt / config.cannonChargeTime, 0, 1);
+      player.flash = Math.max(player.flash, 0.03 + player.weaponCharge * 0.06);
+      if (player.weaponCharge >= 1) {
+        player.weaponChargeFlash = Math.max(player.weaponChargeFlash, 0.16);
+      }
+    } else if (player.weaponChargeActive) {
+      fireHeavyCannon(player.weaponCharge);
       player.weaponChargeActive = false;
       player.weaponCharge = 0;
       return;
@@ -259,11 +303,15 @@ export function updatePlayer(dt) {
     player.weaponCharge = 0;
   }
 
-  if (combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && (input.firing || wantsAltFire)) {
-    if (wantsAltFire && player.weapon === weapons.lance.key) {
+  if (phaseLocked) {
+    player.weaponChargeActive = false;
+    player.weaponCharge = 0;
+    return;
+  }
+
+  if (combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && (input.firing || wantsLanceAlt)) {
+    if (wantsLanceAlt && player.weapon === weapons.lance.key) {
       attackChargeLance(true);
-    } else if (wantsAltFire && player.weapon === weapons.cannon.key) {
-      fireHeavyCannon(true);
     } else if (player.weapon === weapons.axe.key) {
       attackElectricAxe();
     } else if (player.weapon === weapons.shotgun.key) {
@@ -275,7 +323,7 @@ export function updatePlayer(dt) {
     } else if (player.weapon === weapons.lance.key) {
       attackChargeLance(false);
     } else if (player.weapon === weapons.cannon.key) {
-      fireHeavyCannon(false);
+      return;
     } else {
       attackPulseRifle();
     }

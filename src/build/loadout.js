@@ -48,10 +48,9 @@ const playerStarterPresets = [
       perks: ["reactiveArmor"],
       ultimate: "revivalProtocol",
       runes: createPresetRunes({
-        attack: { secondary: 3, primary: 1, ultimate: 0 },
-        defense: { secondary: 3, primary: 1, ultimate: 1 },
-        spells: { secondary: 3, primary: 1, ultimate: 0 },
-        support: { secondary: 2, primary: 0, ultimate: 0 },
+        attack: { secondary: 2, primary: 0, ultimate: 0 },
+        defense: { secondary: 5, primary: 3, ultimate: 1 },
+        spells: { secondary: 5, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -66,10 +65,9 @@ const playerStarterPresets = [
       perks: ["executionRelay"],
       ultimate: "phantomSplit",
       runes: createPresetRunes({
-        attack: { secondary: 4, primary: 2, ultimate: 1 },
+        attack: { secondary: 5, primary: 3, ultimate: 1 },
         defense: { secondary: 2, primary: 0, ultimate: 0 },
-        spells: { secondary: 2, primary: 0, ultimate: 0 },
-        support: { secondary: 2, primary: 2, ultimate: 0 },
+        support: { secondary: 5, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -84,9 +82,8 @@ const playerStarterPresets = [
       perks: ["dashCooling"],
       ultimate: "phantomSplit",
       runes: createPresetRunes({
-        attack: { secondary: 3, primary: 2, ultimate: 1 },
-        defense: { secondary: 1, primary: 0, ultimate: 0 },
-        spells: { secondary: 4, primary: 1, ultimate: 1 },
+        attack: { secondary: 5, primary: 0, ultimate: 0 },
+        spells: { secondary: 5, primary: 3, ultimate: 1 },
         support: { secondary: 2, primary: 0, ultimate: 0 },
       }),
     },
@@ -105,9 +102,9 @@ const botPresetLibrary = [
       perk: "dashCooling",
       ultimate: "phantomSplit",
       runes: createPresetRunes({
-        attack: { secondary: 3, primary: 1, ultimate: 1 },
-        spells: { secondary: 3, primary: 1, ultimate: 1 },
-        support: { secondary: 2, primary: 0, ultimate: 0 },
+        attack: { secondary: 2, primary: 0, ultimate: 0 },
+        spells: { secondary: 5, primary: 3, ultimate: 1 },
+        support: { secondary: 5, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -119,12 +116,12 @@ const botPresetLibrary = [
     loadout: {
       weapon: weapons.axe.key,
       abilities: ["magneticGrapple", "energyShield", "phaseDash"],
-      perk: "comboDriver",
+      perk: "omnivampCore",
       ultimate: "berserkCore",
       runes: createPresetRunes({
-        attack: { secondary: 4, primary: 2, ultimate: 1 },
-        defense: { secondary: 3, primary: 1, ultimate: 0 },
-        support: { secondary: 2, primary: 1, ultimate: 0 },
+        attack: { secondary: 5, primary: 3, ultimate: 1 },
+        defense: { secondary: 5, primary: 0, ultimate: 0 },
+        support: { secondary: 2, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -139,9 +136,9 @@ const botPresetLibrary = [
       perk: "shockBuffer",
       ultimate: "empCataclysm",
       runes: createPresetRunes({
-        defense: { secondary: 2, primary: 1, ultimate: 0 },
-        spells: { secondary: 4, primary: 2, ultimate: 1 },
-        support: { secondary: 3, primary: 1, ultimate: 0 },
+        defense: { secondary: 2, primary: 0, ultimate: 0 },
+        spells: { secondary: 5, primary: 3, ultimate: 1 },
+        support: { secondary: 5, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -386,7 +383,7 @@ export function hasRuneShard(treeKey) {
 }
 
 export function getAbilityCooldown(baseCooldown) {
-  const reduction = Math.min(0.24, getRuneValue("spells", "secondary") * 0.04);
+  const reduction = Math.min(0.18, getRuneValue("spells", "secondary") * 0.03);
   return baseCooldown * (1 - reduction);
 }
 
@@ -397,20 +394,30 @@ export function getIconMarkup(item, type) {
 }
 
 export function getPerkDamageMultiplier(target = null) {
-  let multiplier = 1 + getRuneValue("attack", "secondary") * 0.02;
+  let multiplier = 1 + getRuneValue("attack", "secondary") * 0.015;
 
   if (hasPerk("executionRelay") && target) {
     const targetStatus = getStatusState(target);
     if (targetStatus.slow > 0) {
-      multiplier *= 1.18;
+      multiplier *= 1.12;
     }
     if ((targetStatus.slow > 0 || targetStatus.stunned) && getRuneValue("attack", "primary") > 0) {
-      multiplier *= 1 + getRuneValue("attack", "primary") * 0.04;
+      multiplier *= 1 + getRuneValue("attack", "primary") * 0.03;
     }
   }
 
   if (hasPerk("predatorInstinct") && target && target.hp / target.maxHp <= 0.35) {
-    multiplier *= 1.14;
+    multiplier *= 1.1;
+  }
+
+  return multiplier;
+}
+
+export function getWeaponDamageMultiplier(target = null) {
+  let multiplier = getPerkDamageMultiplier(target);
+
+  if (hasPerk("precisionMomentum") && player.precisionMomentumStacks > 0) {
+    multiplier *= 1 + player.precisionMomentumStacks * config.precisionMomentumDamagePerStack;
   }
 
   return multiplier;
@@ -419,22 +426,24 @@ export function getPerkDamageMultiplier(target = null) {
 export function getBuildStats() {
   return {
     maxHp: config.playerMaxHp + (hasPerk("scavengerPlates") ? 30 : 0) + getRuneValue("defense", "secondary") * 5,
-    damageReduction: (hasPerk("reactiveArmor") ? 0.12 : 0) + getRuneValue("defense", "secondary") * 0.01,
-    ccReduction: (hasPerk("shockBuffer") ? 0.28 : 0) + getRuneValue("defense", "secondary") * 0.02,
+    damageReduction: (hasPerk("reactiveArmor") ? 0.1 : 0) + getRuneValue("defense", "secondary") * 0.008,
+    ccReduction: (hasPerk("shockBuffer") ? 0.22 : 0) + getRuneValue("defense", "secondary") * 0.018,
     dashCooldownMultiplier: hasPerk("dashCooling") ? 0.84 : 1,
     hasteMultiplier:
       1 +
-      (player.hasteTime > 0 ? 0.12 : 0) +
-      (player.afterDashHasteTime > 0 ? 0.2 : 0) +
-      getRuneValue("support", "secondary") * 0.01,
+      (player.hasteTime > 0 ? 0.1 : 0) +
+      (player.afterDashHasteTime > 0 ? 0.16 : 0) +
+      (player.lastStandTime > 0 ? config.lastStandHasteBonus : 0) +
+      getRuneValue("support", "secondary") * 0.008,
     moveMultiplier:
       1 +
-      (hasPerk("staticMomentum") && player.hasteTime > 0 ? 0.08 : 0) +
-      getRuneValue("support", "secondary") * 0.015,
-    omnivamp: hasPerk("omnivampCore") ? 0.08 : 0,
+      (hasPerk("staticMomentum") && player.hasteTime > 0 ? 0.06 : 0) +
+      (player.lastStandTime > 0 ? config.lastStandMoveBonus : 0) +
+      getRuneValue("support", "secondary") * 0.012,
+    omnivamp: hasPerk("omnivampCore") ? 0.07 : 0,
     abilityLeech: hasPerk("abilityLeech") ? 4 : 0,
-    finisherBonus: (hasPerk("comboDriver") ? 0.22 : 0) + getRuneValue("attack", "primary") * 0.05,
-    controlledBonus: getRuneValue("attack", "primary") * 0.04,
+    finisherBonus: getRuneValue("attack", "primary") * 0.04,
+    controlledBonus: getRuneValue("attack", "primary") * 0.03,
     outOfCombatRegen: hasPerk("combatRecovery") ? 4 : 0,
     shieldOnBurst: hasPerk("arcFeedback") ? 16 : 0,
   };

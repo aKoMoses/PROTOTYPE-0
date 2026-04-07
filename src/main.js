@@ -23,6 +23,10 @@ import { setBotBuildMode } from "./build/loadout.js";
 import { bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
 import { initializeAudio, updateAudio } from "./audio.js";
+import { installSessionPersistence, restoreSessionSnapshot } from "./session.js";
+
+let sessionPersistAccumulator = 0;
+const persistSession = installSessionPersistence();
 
 // Wire up cross-module dependencies
 bindMatchDeps({ resetPlayer, openPrematch, closePrematch, renderPrematch });
@@ -56,6 +60,12 @@ function frame(time) {
   updateHud();
   drawWorld();
 
+  sessionPersistAccumulator += dt;
+  if (sessionPersistAccumulator >= 0.8) {
+    sessionPersistAccumulator = 0;
+    persistSession();
+  }
+
   requestAnimationFrame(frame);
 }
 
@@ -75,7 +85,20 @@ resetBotsForMode(sandbox.mode);
 showRoundBanner("", "", false);
 toggleHelpPanel(false);
 initRobotWizardZoneClicks();
-openPrematch("mode");
-renderPrematch();
-dom.statusLine.textContent = "Prototype 0 online. Set the mode, build, and drop into the arena.";
+const restoredSnapshot = restoreSessionSnapshot();
+if (restoredSnapshot) {
+  if (restoredSnapshot.resumeGameplay) {
+    launchSelectedSession();
+    dom.statusLine.textContent = `${dom.statusLine.textContent} Session restaurée automatiquement.`;
+  } else {
+    openPrematch(restoredSnapshot.ui?.prematchStep ?? "mode");
+    renderPrematch();
+    dom.statusLine.textContent = "Session prematch restaurée. Reprends la sélection sans repartir de zéro.";
+  }
+} else {
+  openPrematch("mode");
+  renderPrematch();
+  dom.statusLine.textContent = "Prototype 0 online. Set the mode, build, and drop into the arena.";
+}
+persistSession();
 requestAnimationFrame(frame);

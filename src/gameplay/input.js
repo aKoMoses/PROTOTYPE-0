@@ -16,12 +16,31 @@ import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
 import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetBuildWizard, resetRuneAllocation, lockActivePreviewSelection, cancelPreviewSelection, unlockLoadoutSlot } from "../build/ui.js";
 import { setBotBuildMode } from "../build/loadout.js";
-import { resize, updateCameraState } from "./renderer.js";
+import { resize, getCameraState } from "./renderer.js";
 import { playUiCue, unlockAudio } from "../audio.js";
+import { isCombatLive } from "./combat.js";
+
+let menuConfirmExpiresAt = 0;
+
+function tryOpenPrematchMenu() {
+  const now = performance.now();
+  if (isCombatLive()) {
+    if (now >= menuConfirmExpiresAt) {
+      menuConfirmExpiresAt = now + 1200;
+      playUiCue("cancel");
+      statusLine.textContent = "Menu armé. Clique encore une fois rapidement pour revenir à l'accueil.";
+      return;
+    }
+  }
+
+  menuConfirmExpiresAt = 0;
+  playUiCue("click");
+  openPrematch("mode");
+}
 
 export function screenToArena(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const camera = updateCameraState(rect.width, rect.height);
+  const camera = getCameraState(rect.width, rect.height);
 
   return {
     x: clamp((clientX - rect.left - camera.offsetX) / camera.scale + camera.x, 0, arena.width),
@@ -189,8 +208,7 @@ helpToggle.addEventListener("click", () => {
 [menuButton, hudMenuButton].forEach((button) => {
   button?.addEventListener("click", () => {
     unlockAudio();
-    playUiCue("click");
-    openPrematch("mode");
+    tryOpenPrematchMenu();
   });
 });
 
