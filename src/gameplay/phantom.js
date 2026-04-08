@@ -4,7 +4,6 @@ import { weapons } from "../content.js";
 import {
   player,
   playerClone,
-  loadout,
   abilityState,
   input,
   bullets,
@@ -13,6 +12,7 @@ import {
   magneticFields,
   supportZones,
 } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addAfterimage, addBeamEffect, addExplosion, addShake } from "./effects.js";

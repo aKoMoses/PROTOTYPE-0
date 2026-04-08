@@ -1,7 +1,8 @@
 // Player update loop, reset, weapon switching
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { weapons, content } from "../content.js";
-import { player, abilityState, loadout, sandbox, matchState, input, enemy, mapState, enemyBullets, magneticFields } from "../state.js";
+import { player, abilityState, sandbox, matchState, input, enemy, mapState, enemyBullets, magneticFields } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import { clamp, length, normalize, approach } from "../utils.js";
 import { addImpact, addShake, addAfterimage, addHealingText } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";

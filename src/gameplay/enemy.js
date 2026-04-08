@@ -1,9 +1,10 @@
 // Enemy AI, training bots, enemy actions
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, abilityState, sandbox, matchState, input,
   bullets, enemyBullets, shockJavelins, enemyShockJavelins, magneticFields, supportZones, mapState,
-  tracers, trainingToolState } from "../state.js";
+  tracers } from "../state.js";
+import { loadout, trainingToolState } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";

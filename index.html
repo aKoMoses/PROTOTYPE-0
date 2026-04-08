@@ -34,8 +34,8 @@
         </div>
       </aside>
 
-      <main class="app-workspace">
-        <section class="shell-view shell-view--landing is-active" id="shell-view-landing">
+      <main class="app-workspace" data-shell-default-view="game">
+        <section class="shell-view shell-view--landing is-active" id="shell-view-landing" data-shell-panel="landing">
           <div class="landing-view">
             <section class="landing-hero">
               <div class="landing-hero__copy">
@@ -64,7 +64,7 @@
           </div>
         </section>
 
-        <section class="shell-view shell-view--game" id="shell-view-game">
+        <section class="shell-view shell-view--game" id="shell-view-game" data-shell-panel="game" data-shell-resize="true">
           <div class="game-shell">
       <canvas id="game" aria-label="Prototype 0 arena"></canvas>
 
@@ -598,7 +598,7 @@
           </div>
         </section>
 
-        <section class="shell-view shell-view--dev" id="shell-view-dev">
+        <section class="shell-view shell-view--dev" id="shell-view-dev" data-shell-panel="dev">
           <main class="dev-shell dev-shell--embedded">
             <section class="hero-panel">
               <div class="hero-panel__copy">

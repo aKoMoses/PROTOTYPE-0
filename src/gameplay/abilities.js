@@ -1,7 +1,8 @@
 // All player ability functions (dash, javelin, field, etc.)
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, matchState, shockJavelins, enemyShockJavelins, magneticFields, supportZones, input } from "../state.js";
+import { player, enemy, abilityState, sandbox, matchState, shockJavelins, enemyShockJavelins, magneticFields, supportZones, input } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";

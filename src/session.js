@@ -1,5 +1,6 @@
 import { sandboxModes } from "./config.js";
-import { loadout, uiState, sandbox, botBuildState, trainingToolState, createInitialRuneAllocation } from "./state.js";
+import { sandbox } from "./state.js";
+import { loadout, uiState, botBuildState, trainingToolState, createInitialRuneAllocation } from "./state/app-state.js";
 import { normalizeSelectedMap, resolveMapKey } from "./maps.js";
 import { normalizeLoadoutSelections, ensureBotLoadoutFilled, createRandomBotLoadout } from "./build/loadout.js";
 

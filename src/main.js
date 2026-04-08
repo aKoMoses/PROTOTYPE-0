@@ -1,6 +1,7 @@
 // Game entry point and main loop
 import "../styles.css";
 import { sandbox, matchState, globals, player, input, mapState } from "./state.js";
+import { uiState } from "./state/app-state.js";
 import { sandboxModes } from "./config.js";
 import { canvas } from "./dom.js";
 import * as dom from "./dom.js";
@@ -38,24 +39,29 @@ function frame(time) {
   const dt = Math.min(0.033, (time - globals.lastTime) / 1000);
   globals.lastTime = time;
 
-  updatePortalCooldowns(dt);
-  updatePlayer(dt);
-  updatePhantomClone(dt);
-  updateEnemy(dt);
-  updateSurvivalEnemies(dt);
-  updateTrainingBots(dt);
-  resolveCharacterBodyBlocking();
-  updateBullets(bullets, dt);
-  updateBullets(enemyBullets, dt);
-  updateShockJavelins(dt);
-  updateEnemyShockJavelins(dt);
-  updateSupportZones(dt);
-  absorbPlayerProjectiles();
-  absorbEnemyProjectiles();
-  resolveCombat();
-  updateDuelMatch(dt);
-  updateSurvivalMode(dt);
-  updateImpacts(dt);
+  const gameplayPaused = uiState.prematchOpen;
+
+  if (!gameplayPaused) {
+    updatePortalCooldowns(dt);
+    updatePlayer(dt);
+    updatePhantomClone(dt);
+    updateEnemy(dt);
+    updateSurvivalEnemies(dt);
+    updateTrainingBots(dt);
+    resolveCharacterBodyBlocking();
+    updateBullets(bullets, dt);
+    updateBullets(enemyBullets, dt);
+    updateShockJavelins(dt);
+    updateEnemyShockJavelins(dt);
+    updateSupportZones(dt);
+    absorbPlayerProjectiles();
+    absorbEnemyProjectiles();
+    resolveCombat();
+    updateDuelMatch(dt);
+    updateSurvivalMode(dt);
+    updateImpacts(dt);
+  }
+
   updateAudio(dt);
   updateHud();
   drawWorld();

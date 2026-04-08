@@ -1,10 +1,11 @@
 // Canvas rendering (all draw functions)
 import { arena, config } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, abilityState, loadout, sandbox, input,
+import { player, playerClone, enemy, abilityState, sandbox, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   supportZones, beamEffects, mapState, globals } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import { canvas, ctx } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { getMapLayout, canSeeTarget } from "../maps.js";

@@ -1,4 +1,5 @@
-import { sandbox, uiState, matchState, player, enemy, bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones, magneticFields } from "./state.js";
+import { sandbox, matchState, player, enemy, bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones, magneticFields } from "./state.js";
+import { uiState } from "./state/app-state.js";
 
 const STORAGE_KEY = "prototype0-audio-settings-v1";
 

@@ -2,11 +2,12 @@
 import { arena, config, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
 import { statusLine } from "../dom.js";
-import { player, playerClone, enemy, trainingBots, bots, abilityState, loadout, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, bots, abilityState, sandbox, matchState, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
-  mapEffects, mapState, globals, botBuildState, trainingToolState, survivalEnemies, survivalState } from "../state.js";
+  mapEffects, mapState, globals, survivalEnemies, survivalState } from "../state.js";
+import { loadout, botBuildState, trainingToolState } from "../state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";

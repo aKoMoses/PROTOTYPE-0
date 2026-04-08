@@ -1,7 +1,8 @@
 // HUD updates
 import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, matchState, survivalState, input } from "../state.js";
+import { player, enemy, abilityState, sandbox, matchState, survivalState, input } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { clamp } from "../utils.js";
 import { sanitizeIconClass } from "../utils.js";

@@ -1,7 +1,8 @@
 // Loadout, build stats, rune calculations, bot loadout management
 import { config, arena, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { loadout, player, enemy, botBuildState, uiState, abilityState, createInitialRuneAllocation } from "../state.js";
+import { player, enemy, abilityState } from "../state.js";
+import { loadout, botBuildState, uiState, createInitialRuneAllocation } from "../state/app-state.js";
 import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getStatusState } from "../gameplay/combat.js";

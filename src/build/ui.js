@@ -1,7 +1,8 @@
 // Prematch / Build Lab UI rendering
 import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { abilityState, loadout, uiState, sandbox, matchState, input, botBuildState, trainingBots, trainingToolState } from "../state.js";
+import { abilityState, sandbox, matchState, input, trainingBots } from "../state.js";
+import { loadout, uiState, botBuildState, trainingToolState } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { sanitizeIconClass } from "../utils.js";
 import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsForMode, normalizeSelectedMap, getSelectedMapMeta, getMapLayout } from "../maps.js";

@@ -1,7 +1,8 @@
 // Input event listeners (keyboard, mouse, touch)
 import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
-import { player, input, uiState, sandbox, abilityState, loadout, botBuildState, trainingBots, trainingToolState } from "../state.js";
+import { player, input, sandbox, abilityState, trainingBots } from "../state.js";
+import { uiState, loadout, botBuildState, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
   modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,

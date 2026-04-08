@@ -1,6 +1,7 @@
 // Duel match flow, round management, session launch
 import { config, sandboxModes } from "../config.js";
-import { player, enemy, trainingBots, abilityState, loadout, sandbox, matchState, uiState, mapState, botBuildState, trainingToolState } from "../state.js";
+import { player, enemy, trainingBots, abilityState, sandbox, matchState, mapState } from "../state.js";
+import { loadout, uiState, botBuildState, trainingToolState } from "../state/app-state.js";
 import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelectedMap, resolveMapKey } from "../maps.js";
 import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBotsForMode, refreshHunterLoadout } from "./combat.js";
 import { addImpact, addShake } from "./effects.js";

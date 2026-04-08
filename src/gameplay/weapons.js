@@ -1,7 +1,8 @@
 // Weapon attack functions (all 6 weapons)
 import { config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, loadout, sandbox, bullets, input, magneticFields } from "../state.js";
+import { player, enemy, abilityState, sandbox, bullets, input, magneticFields } from "../state.js";
+import { loadout } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addSlashEffect, applyHitReaction, addBeamEffect } from "./effects.js";
