@@ -2,12 +2,15 @@
 import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
 import { player, input, sandbox, abilityState, trainingBots } from "../state.js";
-import { uiState, loadout, botBuildState, trainingToolState } from "../state/app-state.js";
+import { uiState, loadout, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
   modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
   backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
   libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
   botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
+  botDifficultyEasy, botDifficultyNormal, botDifficultyHard, botDifficultyNightmare,
+  ruleFormatBo3, ruleFormatBo5, ruleTimerOff, ruleTimer60, ruleTimer75,
+  ruleSuddendeathOff, ruleSuddendeathOn, ruleMirrorOff, ruleMirrorOn,
   buildStepPrev, buildStepNext, botConfigToggle, botConfigCard,
   detailLockButton, detailSecondaryButton,
   continueRunes, backBuild, runeResetButton, trainingBuildButton } from "../dom.js";
@@ -379,6 +382,75 @@ botModeCustom?.addEventListener("click", () => {
   playUiCue("click");
   setBotBuildMode("custom");
   statusLine.textContent = "Hunter bot locked to a custom build.";
+});
+
+// --- Difficulty buttons ---
+function setDifficulty(level) {
+  matchSettings.difficulty = level;
+  renderPrematch();
+}
+
+botDifficultyEasy?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click"); setDifficulty("easy");
+});
+botDifficultyNormal?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click"); setDifficulty("normal");
+});
+botDifficultyHard?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click"); setDifficulty("hard");
+});
+botDifficultyNightmare?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click"); setDifficulty("nightmare");
+});
+
+// --- Rule buttons ---
+ruleFormatBo3?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.format = "bo3";
+  renderPrematch();
+});
+ruleFormatBo5?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.format = "bo5";
+  renderPrematch();
+});
+
+ruleTimerOff?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.timer = 0;
+  renderPrematch();
+});
+ruleTimer60?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.timer = 60;
+  renderPrematch();
+});
+ruleTimer75?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.timer = 75;
+  renderPrematch();
+});
+
+ruleSuddendeathOff?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.suddenDeath = false;
+  renderPrematch();
+});
+ruleSuddendeathOn?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.suddenDeath = true;
+  renderPrematch();
+});
+
+ruleMirrorOff?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.mirror = false;
+  renderPrematch();
+});
+ruleMirrorOn?.addEventListener("click", () => {
+  unlockAudio(); playUiCue("click");
+  matchSettings.mirror = true;
+  renderPrematch();
 });
 
 trainingFireOff?.addEventListener("click", () => {

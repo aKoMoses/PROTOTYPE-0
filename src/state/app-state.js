@@ -52,6 +52,14 @@ export const botBuildState = {
   },
 };
 
+export const matchSettings = {
+  difficulty: "normal",
+  format: "bo3",
+  timer: 60,
+  suddenDeath: true,
+  mirror: false,
+};
+
 export const trainingToolState = {
   botsFire: false,
   editingBuild: false,

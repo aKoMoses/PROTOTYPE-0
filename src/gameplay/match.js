@@ -1,7 +1,7 @@
 // Duel match flow, round management, session launch
 import { config, sandboxModes } from "../config.js";
 import { player, enemy, trainingBots, abilityState, sandbox, matchState, mapState } from "../state.js";
-import { loadout, uiState, botBuildState, trainingToolState } from "../state/app-state.js";
+import { loadout, uiState, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelectedMap, resolveMapKey } from "../maps.js";
 import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBotsForMode, refreshHunterLoadout } from "./combat.js";
 import { addImpact, addShake } from "./effects.js";
@@ -47,6 +47,7 @@ export function startDuelRound({ resetScore = false } = {}) {
     matchState.playerRounds = 0;
     matchState.enemyRounds = 0;
     matchState.roundNumber = 1;
+    matchState.formatWins = matchSettings.format === "bo5" ? 3 : 2;
   }
 
   clearCombatArtifacts();
@@ -198,6 +199,9 @@ export function launchSelectedSession() {
   botBuildState.current = botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
     : createRandomBotLoadout();
+  if (matchSettings.mirror) {
+    botBuildState.current.weapon = loadout.weapon;
+  }
   player.weapon = loadout.weapon;
   const previousMode = sandbox.mode;
   const previousMapKey = sandbox.mapKey;

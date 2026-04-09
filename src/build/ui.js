@@ -2,7 +2,7 @@
 import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
 import { abilityState, sandbox, matchState, input, trainingBots } from "../state.js";
-import { loadout, uiState, botBuildState, trainingToolState } from "../state/app-state.js";
+import { loadout, uiState, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { sanitizeIconClass } from "../utils.js";
 import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsForMode, normalizeSelectedMap, getSelectedMapMeta, getMapLayout } from "../maps.js";
@@ -1431,6 +1431,26 @@ export function renderCosmetics() {
 export function renderTrainingBotPanel() {
   if (!dom.botConfigCard || !dom.botConfigCopy) {
     return;
+  }
+
+  // Match rules card — visible only in duel mode
+  const isDuel = uiState.selectedMode === sandboxModes.duel.key;
+  dom.matchRulesCard?.classList.toggle("is-hidden", !isDuel);
+
+  if (isDuel) {
+    dom.botDifficultyEasy?.classList.toggle("is-active", matchSettings.difficulty === "easy");
+    dom.botDifficultyNormal?.classList.toggle("is-active", matchSettings.difficulty === "normal");
+    dom.botDifficultyHard?.classList.toggle("is-active", matchSettings.difficulty === "hard");
+    dom.botDifficultyNightmare?.classList.toggle("is-active", matchSettings.difficulty === "nightmare");
+    dom.ruleFormatBo3?.classList.toggle("is-active", matchSettings.format === "bo3");
+    dom.ruleFormatBo5?.classList.toggle("is-active", matchSettings.format === "bo5");
+    dom.ruleTimerOff?.classList.toggle("is-active", matchSettings.timer === 0);
+    dom.ruleTimer60?.classList.toggle("is-active", matchSettings.timer === 60);
+    dom.ruleTimer75?.classList.toggle("is-active", matchSettings.timer === 75);
+    dom.ruleSuddendeathOff?.classList.toggle("is-active", !matchSettings.suddenDeath);
+    dom.ruleSuddendeathOn?.classList.toggle("is-active", matchSettings.suddenDeath);
+    dom.ruleMirrorOff?.classList.toggle("is-active", !matchSettings.mirror);
+    dom.ruleMirrorOn?.classList.toggle("is-active", matchSettings.mirror);
   }
 
   if (uiState.selectedMode === sandboxModes.training.key) {

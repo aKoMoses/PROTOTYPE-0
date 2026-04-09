@@ -144,7 +144,7 @@ Priorité : très haute
 
 ---
 
-## 2. IA — niveaux de difficulté et personnalités
+## 2. IA — niveaux de difficulté et personnalités           
 
 Constat : les bots ont un comportement par arme (`getEnemyBehaviorProfile`) mais pas de vraie graduation de difficulté. Tous les bots jouent pareil quel que soit le contexte.
 

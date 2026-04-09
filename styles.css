@@ -1454,6 +1454,17 @@ body {
   gap: 10px;
 }
 
+.build-card--match-rules {
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.build-card--match-rules .toggle-chip {
+  padding: 6px 10px;
+  font-size: 0.82em;
+}
+
 #bot-config-card.is-randomized .selection-grid {
   opacity: 0.78;
 }

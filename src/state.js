@@ -8,6 +8,7 @@ export {
   loadout,
   uiState,
   botBuildState,
+  matchSettings,
   trainingToolState,
 } from "./state/app-state.js";
 

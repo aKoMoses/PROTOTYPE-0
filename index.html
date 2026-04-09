@@ -244,6 +244,34 @@
                 <button class="lab-tab" id="lab-tab-style" type="button" data-lab="style">COSMETICS</button>
               </div>
 
+              <section class="build-card build-card--match-rules is-hidden" id="match-rules-card">
+                <div class="bot-config-group">
+                  <span class="label">Difficulty</span>
+                  <div class="toggle-strip">
+                    <button class="toggle-chip" id="bot-difficulty-easy" type="button">Easy</button>
+                    <button class="toggle-chip is-active" id="bot-difficulty-normal" type="button">Normal</button>
+                    <button class="toggle-chip" id="bot-difficulty-hard" type="button">Hard</button>
+                    <button class="toggle-chip" id="bot-difficulty-nightmare" type="button">Nightmare</button>
+                  </div>
+                </div>
+                <div class="bot-config-group">
+                  <span class="label">Rules</span>
+                  <div class="toggle-strip">
+                    <button class="toggle-chip is-active" id="rule-format-bo3" type="button">BO3</button>
+                    <button class="toggle-chip" id="rule-format-bo5" type="button">BO5</button>
+                    <button class="toggle-chip" id="rule-timer-off" type="button">No Timer</button>
+                    <button class="toggle-chip is-active" id="rule-timer-60" type="button">60s</button>
+                    <button class="toggle-chip" id="rule-timer-75" type="button">75s</button>
+                  </div>
+                  <div class="toggle-strip">
+                    <button class="toggle-chip" id="rule-suddendeath-off" type="button">No Sudden Death</button>
+                    <button class="toggle-chip is-active" id="rule-suddendeath-on" type="button">Sudden Death</button>
+                    <button class="toggle-chip" id="rule-mirror-off" type="button">Open Matchups</button>
+                    <button class="toggle-chip" id="rule-mirror-on" type="button">Mirror Match</button>
+                  </div>
+                </div>
+              </section>
+
               <div class="lab-panel lab-panel--active" id="lab-loadout">
 
                 <!-- ═══ WIZARD FOCUS LAYOUT ═══ -->
@@ -444,7 +472,6 @@
                   <div class="power-mini__stat"><span>CTR</span><div class="power-mini__track"><div id="power-control"></div></div></div>
                 </div>
 
-                <!-- Bot config (hidden by CSS during wizard) -->
                 <section class="build-card" id="bot-config-card">
                   <div class="build-card__header">
                     <span class="label" id="bot-config-label">Duel Tool</span>
@@ -452,33 +479,6 @@
                   </div>
                   <span class="builder-copy" id="bot-config-copy">Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different.</span>
                   <div id="bot-config-duel">
-                    <div class="bot-config-group">
-                      <span class="label">Difficulty</span>
-                      <div class="toggle-strip">
-                        <button class="toggle-chip" id="bot-difficulty-easy" type="button">Easy</button>
-                        <button class="toggle-chip is-active" id="bot-difficulty-normal" type="button">Normal</button>
-                        <button class="toggle-chip" id="bot-difficulty-hard" type="button">Hard</button>
-                        <button class="toggle-chip" id="bot-difficulty-nightmare" type="button">Nightmare</button>
-                      </div>
-                    </div>
-                    <div class="bot-config-group">
-                      <span class="label">Rules</span>
-                      <div class="toggle-strip">
-                        <button class="toggle-chip is-active" id="rule-format-bo3" type="button">BO3</button>
-                        <button class="toggle-chip" id="rule-format-bo5" type="button">BO5</button>
-                      </div>
-                      <div class="toggle-strip">
-                        <button class="toggle-chip" id="rule-timer-off" type="button">Timer Off</button>
-                        <button class="toggle-chip is-active" id="rule-timer-60" type="button">60s</button>
-                        <button class="toggle-chip" id="rule-timer-75" type="button">75s</button>
-                      </div>
-                      <div class="toggle-strip">
-                        <button class="toggle-chip" id="rule-suddendeath-off" type="button">No Sudden Death</button>
-                        <button class="toggle-chip is-active" id="rule-suddendeath-on" type="button">Sudden Death</button>
-                        <button class="toggle-chip" id="rule-mirror-off" type="button">Open Matchups</button>
-                        <button class="toggle-chip" id="rule-mirror-on" type="button">Mirror Match</button>
-                      </div>
-                    </div>
                     <div class="toggle-strip">
                       <button class="toggle-chip is-active" id="bot-mode-random" type="button">Randomized</button>
                       <button class="toggle-chip" id="bot-mode-custom" type="button">Custom</button>

@@ -20,6 +20,21 @@ import { resetPlayer } from "./player.js";
 import { playWeaponFire, playAbilityCue } from "../audio.js";
 import { updateCasting, startCast, startVisualCast, startWeaponTelegraph } from "./casting.js";
 import { applyPhantomDamage } from "./phantom.js";
+import { matchSettings } from "../state/app-state.js";
+
+// --- Difficulty modifiers ---
+// Returns multipliers that scale the enemy AI behavior per difficulty level.
+// "normal" is the baseline (all 1.0). Easy nerfs the bot, hard/nightmare buff it.
+const difficultyTable = {
+  easy:      { spreadMult: 1.5, damageMult: 0.72, cooldownMult: 1.35, dodgeChance: 0.45, reactionDelay: 0.18, abilityCooldownAdd: 1.2 },
+  normal:    { spreadMult: 1.0, damageMult: 1.0,  cooldownMult: 1.0,  dodgeChance: 1.0,  reactionDelay: 0,    abilityCooldownAdd: 0 },
+  hard:      { spreadMult: 0.72, damageMult: 1.12, cooldownMult: 0.82, dodgeChance: 1.2,  reactionDelay: 0,    abilityCooldownAdd: -0.4 },
+  nightmare: { spreadMult: 0.5, damageMult: 1.25, cooldownMult: 0.68, dodgeChance: 1.45, reactionDelay: 0,    abilityCooldownAdd: -0.8 },
+};
+
+export function getDifficultyModifiers() {
+  return difficultyTable[matchSettings.difficulty] ?? difficultyTable.normal;
+}
 
 export function updateShockJavelins(dt) {
   for (let i = shockJavelins.length - 1; i >= 0; i -= 1) {
@@ -128,12 +143,15 @@ export function getEnemyTargetRange() {
 
 export function getEnemyBehaviorProfile(distance, shouldPunish) {
   const weaponKey = getEnemyWeaponKey();
+  const diff = getDifficultyModifiers();
   const hasGrapple = enemyHasAbility("magneticGrapple");
   const hasShield = enemyHasAbility("energyShield");
   const hasEmp = enemyHasAbility("empBurst");
 
+  let base;
+
   if (weaponKey === weapons.axe.key) {
-    return {
+    base = {
       strafeScale: shouldPunish ? 1.08 : 0.92,
       engageBias: hasGrapple ? 1.34 : 1.22,
       retreatBias: enemy.hp <= 72 ? 0.92 : 0.48,
@@ -143,10 +161,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.96,
       shootBurstSize: 0,
     };
-  }
-
-  if (weaponKey === weapons.shotgun.key) {
-    return {
+  } else if (weaponKey === weapons.shotgun.key) {
+    base = {
       strafeScale: shouldPunish ? 1.24 : 1.14,
       engageBias: hasGrapple ? 1.28 : 1.18,
       retreatBias: enemy.hp <= 72 ? 1.04 : 0.66,
@@ -156,10 +172,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.9,
       shootBurstSize: 1,
     };
-  }
-
-  if (weaponKey === weapons.sniper.key) {
-    return {
+  } else if (weaponKey === weapons.sniper.key) {
+    base = {
       strafeScale: shouldPunish ? 1.06 : 0.88,
       engageBias: 0.76,
       retreatBias: enemy.hp <= 72 ? 1.22 : 1.08,
@@ -169,10 +183,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 1,
       shootBurstSize: 0,
     };
-  }
-
-  if (weaponKey === weapons.staff.key) {
-    return {
+  } else if (weaponKey === weapons.staff.key) {
+    base = {
       strafeScale: shouldPunish ? 1.08 : 1.02,
       engageBias: 1.02,
       retreatBias: enemy.hp <= 72 ? 0.94 : 0.72,
@@ -182,10 +194,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.9,
       shootBurstSize: 0,
     };
-  }
-
-  if (weaponKey === weapons.injector.key) {
-    return {
+  } else if (weaponKey === weapons.injector.key) {
+    base = {
       strafeScale: shouldPunish ? 1.16 : 1.04,
       engageBias: 1.04,
       retreatBias: enemy.hp <= 72 ? 1.06 : 0.78,
@@ -195,10 +205,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.94,
       shootBurstSize: 0,
     };
-  }
-
-  if (weaponKey === weapons.lance.key) {
-    return {
+  } else if (weaponKey === weapons.lance.key) {
+    base = {
       strafeScale: shouldPunish ? 1.18 : 1.02,
       engageBias: hasGrapple ? 1.3 : 1.18,
       retreatBias: enemy.hp <= 72 ? 0.88 : 0.54,
@@ -208,10 +216,8 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.9,
       shootBurstSize: 0,
     };
-  }
-
-  if (weaponKey === weapons.cannon.key) {
-    return {
+  } else if (weaponKey === weapons.cannon.key) {
+    base = {
       strafeScale: shouldPunish ? 1.02 : 0.9,
       engageBias: 0.88,
       retreatBias: enemy.hp <= 72 ? 1.18 : 0.98,
@@ -221,18 +227,22 @@ export function getEnemyBehaviorProfile(distance, shouldPunish) {
       dodgeAggression: 0.96,
       shootBurstSize: 0,
     };
+  } else {
+    base = {
+      strafeScale: shouldPunish ? 1.18 : 1,
+      engageBias: 1.08,
+      retreatBias: enemy.hp <= 72 ? 1.18 : 0.88,
+      abilityPressureDistance: hasShield ? 280 : 340,
+      fieldResponseDistance: 250,
+      punishWindowDistance: distance < 446,
+      dodgeAggression: 0.92,
+      shootBurstSize: shouldPunish ? 3 : 2,
+    };
   }
 
-  return {
-    strafeScale: shouldPunish ? 1.18 : 1,
-    engageBias: 1.08,
-    retreatBias: enemy.hp <= 72 ? 1.18 : 0.88,
-    abilityPressureDistance: hasShield ? 280 : 340,
-    fieldResponseDistance: 250,
-    punishWindowDistance: distance < 446,
-    dodgeAggression: 0.92,
-    shootBurstSize: shouldPunish ? 3 : 2,
-  };
+  // Apply difficulty scaling
+  base.dodgeAggression = Math.min(1, base.dodgeAggression * diff.dodgeChance);
+  return base;
 }
 
 function getEnemyFocusTarget() {
@@ -276,11 +286,12 @@ export function fireEnemyPulse(targetX, targetY, punishShot = false) {
     return false;
   }
 
+  const diff = getDifficultyModifiers();
   enemy.ammo = Math.max(0, enemy.ammo - 1);
-  const spread = punishShot ? 18 : 30;
+  const spread = (punishShot ? 18 : 30) * diff.spreadMult;
   const spreadX = (Math.random() - 0.5) * spread;
   const spreadY = (Math.random() - 0.5) * spread;
-  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 6, {
+  spawnBullet(enemy, targetX + spreadX, targetY + spreadY, enemyBullets, "#ff8a77", 660, 6 * diff.damageMult, {
     radius: 4,
     source: "enemy-pulse",
     trailColor: "#ffc0b4",
@@ -295,9 +306,10 @@ export function fireEnemyPulse(targetX, targetY, punishShot = false) {
 }
 
 export function fireEnemyShotgun(targetX, targetY) {
+  const diff = getDifficultyModifiers();
   const baseAngle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
   for (let pellet = 0; pellet < 5; pellet += 1) {
-    const spread = -0.2 + pellet * 0.1;
+    const spread = (-0.2 + pellet * 0.1) * diff.spreadMult;
     const angle = baseAngle + spread;
     spawnBullet(
       enemy,
@@ -306,7 +318,7 @@ export function fireEnemyShotgun(targetX, targetY) {
       enemyBullets,
       "#ff9d62",
       config.bulletSpeed * 0.82,
-      5,
+      5 * diff.damageMult,
       {
         radius: 4,
         source: "enemy-shotgun",
@@ -379,7 +391,8 @@ export function applyProjectileEffectToPlayer(projectile) {
 }
 
 export function fireEnemySniper(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", config.sniperProjectileSpeed * 0.94, 22, {
+  const diff = getDifficultyModifiers();
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#ffd27a", config.sniperProjectileSpeed * 0.94, 22 * diff.damageMult, {
     radius: 6,
     life: 0.78,
     piercing: false,
@@ -398,7 +411,8 @@ export function fireEnemySniper(targetX, targetY) {
 }
 
 export function fireEnemyStaff(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#9cffc4", 920, 7, {
+  const diff = getDifficultyModifiers();
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#9cffc4", 920, 7 * diff.damageMult, {
     radius: 5,
     life: 0.92,
     trailColor: "#d2ffe3",
@@ -412,7 +426,8 @@ export function fireEnemyStaff(targetX, targetY) {
 }
 
 export function fireEnemyInjector(targetX, targetY) {
-  spawnBullet(enemy, targetX, targetY, enemyBullets, "#d894ff", 1180, 6, {
+  const diff = getDifficultyModifiers();
+  spawnBullet(enemy, targetX, targetY, enemyBullets, "#d894ff", 1180, 6 * diff.damageMult, {
     radius: 4,
     life: 0.86,
     trailColor: "#f0beff",
@@ -426,9 +441,10 @@ export function fireEnemyInjector(targetX, targetY) {
 }
 
 export function fireEnemyLance(target = player, altFire = false) {
+  const diff = getDifficultyModifiers();
   const range = altFire ? config.lanceAltRange : config.lancePrimaryRange;
   const width = altFire ? config.lanceAltWidth : config.lancePrimaryWidth;
-  const damage = altFire ? config.lanceAltDamage * 0.78 : config.lancePrimaryDamage * 0.78;
+  const damage = (altFire ? config.lanceAltDamage * 0.78 : config.lancePrimaryDamage * 0.78) * diff.damageMult;
   const hits = collectTargetsAlongLine(enemy, enemy.facing, range, width, [target], true);
   const endX = enemy.x + Math.cos(enemy.facing) * range;
   const endY = enemy.y + Math.sin(enemy.facing) * range;
@@ -464,6 +480,7 @@ export function fireEnemyLance(target = player, altFire = false) {
 }
 
 export function fireEnemyCannon(targetX, targetY, charged = false) {
+  const diff = getDifficultyModifiers();
   const direction = normalize(targetX - enemy.x, targetY - enemy.y);
   const rawDistance = length(targetX - enemy.x, targetY - enemy.y);
   const clampedDistance = Math.min(config.cannonMaxRange, rawDistance);
@@ -476,7 +493,7 @@ export function fireEnemyCannon(targetX, targetY, charged = false) {
     enemyBullets,
     charged ? "#ffdca8" : "#ffb483",
     charged ? config.cannonAltSpeed : config.cannonPrimarySpeed,
-    charged ? config.cannonAltDamage * 0.78 : config.cannonPrimaryDamage * 0.82,
+    (charged ? config.cannonAltDamage * 0.78 : config.cannonPrimaryDamage * 0.82) * diff.damageMult,
     {
       radius: charged ? config.cannonAltRadius : config.cannonPrimaryRadius,
       life: 1.08,
@@ -955,6 +972,7 @@ export function updateEnemy(dt) {
     return;
   }
 
+  const diff = getDifficultyModifiers();
   const enemyStatus = getStatusState(enemy);
   const previousX = enemy.x;
   const previousY = enemy.y;
@@ -1191,51 +1209,51 @@ export function updateEnemy(dt) {
 
   if (!enemyStatus.stunned && enemyOnPulse && enemy.burstShots > 0 && enemy.shootCooldown <= 0) {
     enemy.burstShots -= 1;
-    enemy.shootCooldown = enemy.burstShots > 0 ? 0.16 : 0.84;
+    enemy.shootCooldown = (enemy.burstShots > 0 ? 0.16 : 0.84) * diff.cooldownMult + diff.reactionDelay;
     const leadX = targetX + targetVelocityX * (playerExposed ? 0.22 : 0.16);
     const leadY = targetY + targetVelocityY * (playerExposed ? 0.22 : 0.16);
     fireEnemyPulse(leadX, leadY, shouldPunish);
   } else if (!enemyStatus.stunned && enemyOnPulse && enemy.shootCooldown <= 0 && distance < 660) {
     enemy.burstShots = behaviorProfile.shootBurstSize;
-    enemy.shootCooldown = 0.08;
+    enemy.shootCooldown = 0.08 * diff.cooldownMult + diff.reactionDelay;
     enemy.postAttackMoveTime = 0.46;
   } else if (!enemyStatus.stunned && enemyOnShotgun && enemy.shootCooldown <= 0 && distance < 340) {
     if (fireEnemyShotgun(targetX, targetY)) {
-      enemy.shootCooldown = shouldPunish ? 0.78 : 0.96;
+      enemy.shootCooldown = (shouldPunish ? 0.78 : 0.96) * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.4;
     }
   } else if (!enemyStatus.stunned && enemyHasAbility("pulseBurst") && enemy.abilityCooldowns.pulseBurst <= 0 && distance < 320 && shouldPunish) {
     castEnemyPulseBurst(focusTargetEntity);
-    enemy.shootCooldown = 0.42;
+    enemy.shootCooldown = 0.42 * diff.cooldownMult;
   } else if (!enemyStatus.stunned && enemyHasAbility("chainLightning") && enemy.abilityCooldowns.chainLightning <= 0 && distance < 380 && (shouldPunish || playerExposed)) {
     castEnemyChainLightning(focusTargetEntity);
-    enemy.shootCooldown = 0.46;
+    enemy.shootCooldown = 0.46 * diff.cooldownMult;
   } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && distance > 280 && distance < 920) {
     if (fireEnemySniper(targetX + targetVelocityX * 0.2, targetY + targetVelocityY * 0.2)) {
-      enemy.shootCooldown = shouldPunish ? 1.08 : 1.26;
+      enemy.shootCooldown = (shouldPunish ? 1.08 : 1.26) * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.54;
     }
   } else if (!enemyStatus.stunned && enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 340 && shouldPunish) {
     castEnemyRailShot(focusTargetEntity);
-    enemy.shootCooldown = 0.62;
+    enemy.shootCooldown = 0.62 * diff.cooldownMult;
   } else if (!enemyStatus.stunned && enemyOnStaff && enemy.shootCooldown <= 0 && distance < 480) {
     if (fireEnemyStaff(targetX, targetY)) {
-      enemy.shootCooldown = 0.52;
+      enemy.shootCooldown = 0.52 * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.32;
     }
   } else if (!enemyStatus.stunned && enemyOnInjector && enemy.shootCooldown <= 0 && distance < 560) {
     if (fireEnemyInjector(targetX + targetVelocityX * 0.12, targetY + targetVelocityY * 0.12)) {
-      enemy.shootCooldown = shouldPunish ? 0.34 : 0.42;
+      enemy.shootCooldown = (shouldPunish ? 0.34 : 0.42) * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.28;
     }
   } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance < 820) {
     if (fireEnemyCannon(targetX + targetVelocityX * 0.18, targetY + targetVelocityY * 0.18, shouldPunish && distance < 260)) {
-      enemy.shootCooldown = shouldPunish ? 1.18 : 1.34;
+      enemy.shootCooldown = (shouldPunish ? 1.18 : 1.34) * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.58;
     }
   } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 320) {
     if (fireEnemyLance(focusTargetEntity, shouldPunish && distance < 210)) {
-      enemy.shootCooldown = shouldPunish ? 0.92 : 1.08;
+      enemy.shootCooldown = (shouldPunish ? 0.92 : 1.08) * diff.cooldownMult + diff.reactionDelay;
       enemy.postAttackMoveTime = 0.24;
     }
   } else if (!enemyStatus.stunned && enemyOnAxe && enemy.shootCooldown <= 0 && enemy.meleeWindupTime <= 0 && enemy.attackCommitTime <= 0) {
