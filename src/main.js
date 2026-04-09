@@ -43,7 +43,7 @@ function frame(time) {
   const gameplayPaused = uiState.prematchOpen;
 
   if (!gameplayPaused) {
-    updatePortalCooldowns(dt);
+    updateMapObjects(dt);
     updatePlayer(dt);
     updatePhantomClone(dt);
     updateEnemy(dt);
