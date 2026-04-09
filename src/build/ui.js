@@ -947,20 +947,20 @@ const BUILD_WIZARD_STEPS = [
   },
   {
     slotKey: "ability-0", category: "ability",
-    title: "Slot 1 \u2014 Active Ability",
-    hint: "Your first active ability. Pick a tool that shapes your opening pattern.",
+    title: "Ability Slot 1 [Q]",
+    hint: "Choose the tool locked to your [Q] key. This defines your primary utility.",
     colorClass: "c-ability",
   },
   {
     slotKey: "ability-1", category: "ability",
-    title: "Slot 2 \u2014 Active Ability",
-    hint: "Second ability slot. Add depth \u2014 mobility, denial, or extra threat.",
+    title: "Ability Slot 2 [F]",
+    hint: "Assign a second tool to your [F] key. Great for mobility or denial.",
     colorClass: "c-ability",
   },
   {
     slotKey: "ability-2", category: "ability",
-    title: "Slot 3 \u2014 Active Ability",
-    hint: "Third slot. Round out your toolkit or double down on a strategy.",
+    title: "Ability Slot 3 [E]",
+    hint: "Your third and final active tool on [E]. Round out your strategy.",
     colorClass: "c-ability",
   },
   {
@@ -978,9 +978,9 @@ const BUILD_WIZARD_STEPS = [
 ];
 const STEP_LABELS = {
   weapon:      "Weapon",
-  "ability-0": "Ability 1",
-  "ability-1": "Ability 2",
-  "ability-2": "Ability 3",
+  "ability-0": "Ability 1 [Q]",
+  "ability-1": "Ability 2 [F]",
+  "ability-2": "Ability 3 [E]",
   "perk-0":    "Passive Perk",
   ultimate:    "Ultimate",
 };
@@ -1191,7 +1191,10 @@ export function updateLoadoutSlots() {
     }
 
     const previewPending = Boolean(preview && lockedItem?.key !== preview.key);
-    buttonNode.classList.toggle("is-active", uiState.selectedLoadoutSlot === key);
+    const isActive = uiState.selectedLoadoutSlot === key;
+
+    buttonNode.classList.remove("is-hidden-by-wizard");
+    buttonNode.classList.toggle("is-active", isActive);
     buttonNode.classList.toggle("is-compatible", compatibleSlots.includes(key));
     buttonNode.classList.toggle("is-previewing", previewPending);
     buttonNode.classList.toggle("is-filled", Boolean(lockedItem));
@@ -1349,15 +1352,20 @@ export function renderBuildLibrary() {
   const targetSlot = getCategoryTargetSlot(uiState.buildCategory);
   const previewKey = getPreviewSelectionForSlot(targetSlot)?.key ?? null;
 
+  // Crucial fix: only highlight the key assigned to the CURRENT active slot
+  // to avoid seeing multiple blue highlights when choosing for a specific key.
+  const currentSlotItem = getLoadoutItemForSlot(targetSlot);
+  const filteredSelectedKeys = currentSlotItem ? [currentSlotItem.key] : [];
+
   renderSelectionGrid(
     dom.buildLibraryGrid,
     items,
-    config.selectedKeys,
+    filteredSelectedKeys,
     (itemKey) => {
       assignLoadoutItem(uiState.buildCategory, targetSlot, itemKey);
     },
     {
-      activeKeys: config.selectedKeys,
+      activeKeys: filteredSelectedKeys,
       iconType: config.iconType,
       previewKey,
     },
