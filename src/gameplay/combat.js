@@ -553,24 +553,37 @@ export function getPlayerSpawn(mode = sandbox.mode) {
 }
 
 export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
-  if (!pylon.alive) {
+  if (!pylon.alive || pylon.falling) {
+    return;
+  }
+  pylon.falling = true;
+  pylon.fallProgress = 0;
+  pylon.fallSourceTeam = team;
+  const fallDirection = normalize(pylon.x - sourceX, pylon.y - sourceY);
+  pylon.fallAngle = Math.atan2(fallDirection.y, fallDirection.x);
+  
+  addImpact(pylon.x, pylon.y, "#fff0d2", 24);
+  playMapCue("pylon-collapse");
+}
+
+export function resolvePylonImpact(pylon) {
+  if (!pylon.falling) {
     return;
   }
   pylon.alive = false;
   pylon.falling = false;
-  const fallDirection = normalize(pylon.x - sourceX, pylon.y - sourceY);
-  pylon.fallAngle = Math.atan2(fallDirection.y, fallDirection.x);
   pylon.fallen = true;
   pylon.fallenRect = getPylonFallRect(pylon);
   addExplosion(pylon.x, pylon.y, 96, pylon.color);
   addImpact(pylon.x, pylon.y, "#fff0d2", 32);
-  addShake(10.4);
-  playMapCue("pylon-collapse");
+  addShake(12.6);
 
   const endX = pylon.x + Math.cos(pylon.fallAngle) * pylon.fallLength;
   const endY = pylon.y + Math.sin(pylon.fallAngle) * pylon.fallLength;
   const fallVector = normalize(Math.cos(pylon.fallAngle), Math.sin(pylon.fallAngle));
+  const team = pylon.fallSourceTeam ?? "player";
   const targets = team === "player" ? getAllBots() : getFriendlyCombatTargets();
+  
   for (const target of targets) {
     if (!target.alive) {
       continue;
@@ -580,22 +593,22 @@ export function collapsePylon(pylon, sourceX, sourceY, team = "player") {
       continue;
     }
     if (target.team === "enemy") {
-      damageBot(target, 34, pylon.color, target.x, target.y, 0);
-      applyStatusEffect(target, "stun", getStatusDuration(0.8), 1);
+      damageBot(target, 42, pylon.color, target.x, target.y, 0);
+      applyStatusEffect(target, "stun", getStatusDuration(1.2), 1);
     } else if (target === playerClone) {
-      applyPhantomDamage(22, "pylon");
-      applyStatusEffect(target, "stun", getStatusDuration(0.4), 1);
+      applyPhantomDamage(28, "pylon");
+      applyStatusEffect(target, "stun", getStatusDuration(0.6), 1);
     } else {
-      const defeatedByPylon = applyPlayerDamage(22, "pylon");
-      applyStatusEffect(target, "stun", getStatusDuration(0.55), 1);
+      const defeatedByPylon = applyPlayerDamage(28, "pylon");
+      applyStatusEffect(target, "stun", getStatusDuration(0.8), 1);
       if (defeatedByPylon && !player.alive) {
         break;
       }
     }
-    target.x += fallVector.x * 42;
-    target.y += fallVector.y * 42;
+    target.x += fallVector.x * 64;
+    target.y += fallVector.y * 64;
     resolveMapCollision(target);
-    addImpact(target.x, target.y, "#fff0d2", 28);
+    addImpact(target.x, target.y, "#fff0d2", 32);
   }
 }
 

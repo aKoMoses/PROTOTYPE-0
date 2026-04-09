@@ -1583,56 +1583,78 @@ export function drawPortals() {
 
 export function drawPylons() {
   for (const pylon of mapState.pylons) {
-    if (pylon.alive) {
+    if (pylon.alive || (pylon.falling && !pylon.fallen)) {
       const damageRatio = 1 - pylon.hp / pylon.maxHp;
       const wobble = (pylon.wobbleTime ?? 0) > 0
         ? Math.sin(performance.now() * 0.03 + pylon.x * 0.01) * (4 + damageRatio * 5) * Math.min(1, pylon.wobbleTime * 3)
         : 0;
+      
       ctx.save();
-      ctx.translate(wobble, 0);
+      ctx.translate(pylon.x, pylon.y);
+      
+      if (pylon.falling) {
+        // Apply fall angle and tilt
+        const tilt = (pylon.fallProgress * pylon.fallProgress) * (Math.PI / 2);
+        ctx.rotate(pylon.fallAngle);
+        ctx.rotate(Math.PI / 2); // Start vertical relative to fall angle
+        ctx.rotate(-tilt);
+      } else {
+        ctx.translate(wobble, 0);
+      }
+
       ctx.strokeStyle = damageRatio > 0.55 ? "rgba(255, 210, 164, 0.32)" : "rgba(255, 224, 184, 0.16)";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(pylon.x, pylon.y);
-      ctx.lineTo(pylon.x, pylon.y - pylon.height);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -pylon.height);
       ctx.stroke();
+      
       ctx.shadowBlur = 18 + damageRatio * 10;
       ctx.shadowColor = pylon.color;
       ctx.fillStyle = pylon.color;
       ctx.beginPath();
-      ctx.arc(pylon.x, pylon.y - pylon.height, 10 + damageRatio * 2, 0, Math.PI * 2);
+      ctx.arc(0, -pylon.height, 10 + damageRatio * 2, 0, Math.PI * 2);
       ctx.fill();
+      
       ctx.shadowBlur = 0;
       ctx.fillStyle = damageRatio > 0.5 ? "rgba(76, 48, 34, 0.96)" : "rgba(44, 38, 34, 0.96)";
       ctx.beginPath();
-      ctx.arc(pylon.x, pylon.y, pylon.radius + damageRatio * 1.5, 0, Math.PI * 2);
+      ctx.arc(0, 0, pylon.radius + damageRatio * 1.5, 0, Math.PI * 2);
       ctx.fill();
+      
       ctx.strokeStyle = damageRatio > 0.55 ? "rgba(255, 145, 90, 0.52)" : "rgba(255, 180, 110, 0.22)";
       ctx.lineWidth = 2.5;
       ctx.stroke();
+      
+      // Damage scratches
       ctx.strokeStyle = "rgba(255, 232, 205, 0.26)";
       ctx.beginPath();
-      ctx.moveTo(pylon.x - 8, pylon.y - 6);
-      ctx.lineTo(pylon.x + 10, pylon.y + 4);
+      ctx.moveTo(-8, -6);
+      ctx.lineTo(10, 4);
       if (damageRatio > 0.34) {
-        ctx.moveTo(pylon.x - 2, pylon.y - 14);
-        ctx.lineTo(pylon.x + 12, pylon.y - 1);
+        ctx.moveTo(-2, -14);
+        ctx.lineTo(12, -1);
       }
       if (damageRatio > 0.66) {
-        ctx.moveTo(pylon.x - 12, pylon.y + 2);
-        ctx.lineTo(pylon.x + 6, pylon.y + 14);
+        ctx.moveTo(-12, 2);
+        ctx.lineTo(6, 14);
       }
       ctx.stroke();
-      ctx.fillStyle = "rgba(12, 18, 24, 0.88)";
-      ctx.fillRect(pylon.x - 22, pylon.y + 26, 44, 6);
-      ctx.fillStyle = pylon.color;
-      ctx.fillRect(pylon.x - 22, pylon.y + 26, 44 * (pylon.hp / pylon.maxHp), 6);
+
+      if (!pylon.falling) {
+        ctx.fillStyle = "rgba(12, 18, 24, 0.88)";
+        ctx.fillRect(-22, 26, 44, 6);
+        ctx.fillStyle = pylon.color;
+        ctx.fillRect(-22, 26, 44 * (pylon.hp / pylon.maxHp), 6);
+      }
+
       if ((pylon.damageFlash ?? 0) > 0) {
         ctx.fillStyle = `rgba(255, 244, 226, ${pylon.damageFlash * 0.55})`;
         ctx.beginPath();
-        ctx.arc(pylon.x, pylon.y - pylon.height, 22 + damageRatio * 12, 0, Math.PI * 2);
+        ctx.arc(0, -pylon.height, 22 + damageRatio * 12, 0, Math.PI * 2);
         ctx.fill();
       }
+      
       ctx.restore();
       continue;
     }

@@ -6,7 +6,7 @@ import { sandboxModes } from "./config.js";
 import { canvas } from "./dom.js";
 import * as dom from "./dom.js";
 import { resetMapState } from "./maps.js";
-import { updatePortalCooldowns, resolveCharacterBodyBlocking } from "./maps.js";
+import { updateMapObjects, resolveCharacterBodyBlocking } from "./maps.js";
 import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, getAllBots, resetBotsForMode, clearCombatArtifacts, updateMapInteractables } from "./gameplay/combat.js";
 import { updateDuelMatch, showRoundBanner, startDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton } from "./gameplay/match.js";
 import { updateImpacts } from "./gameplay/combat.js";

@@ -1,6 +1,7 @@
 // Map layouts, portals, collision, and spatial helpers
 import { arena, config, sandboxModes } from "./config.js";
 import { mapState, player, abilityState, bots, sandbox, survivalEnemies } from "./state.js";
+import { getStatusState, resolvePylonImpact } from "./gameplay/combat.js";
 import { uiState } from "./state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
 import { playMapCue } from "./audio.js";
@@ -181,10 +182,10 @@ const mapLayouts = {
     ],
     portals: [],
     pylons: [
-      { key: "bb-pyl-1", x: 1600, y: 600, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ffbf80" },
-      { key: "bb-pyl-2", x: 1600, y: 1400, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ffd39f" },
-      { key: "bb-pyl-3", x: 1300, y: 1000, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ff9d63" },
-      { key: "bb-pyl-4", x: 1900, y: 1000, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ff9d63" },
+      { key: "bb-pyl-1", x: 1600, y: 600, radius: 32, hp: 80, height: 180, fallLength: 200, color: "#ffbf80" },
+      { key: "bb-pyl-2", x: 1600, y: 1400, radius: 32, hp: 80, height: 180, fallLength: 200, color: "#ffd39f" },
+      { key: "bb-pyl-3", x: 1300, y: 1000, radius: 32, hp: 80, height: 180, fallLength: 200, color: "#ff9d63" },
+      { key: "bb-pyl-4", x: 1900, y: 1000, radius: 32, hp: 80, height: 180, fallLength: 200, color: "#ff9d63" },
     ],
     trainingBots: [],
   },
@@ -284,6 +285,8 @@ export function buildMapState(mode = sandbox.mode, mapKey = sandbox.mapKey) {
     alive: true,
     falling: false,
     fallen: false,
+    fallProgress: 0,
+    fallDuration: 0.85,
     fallAngle: -Math.PI * 0.5,
     fallenRect: null,
     damageFlash: 0,
@@ -303,7 +306,7 @@ export function getEntityPortalKey(entity) {
   return entity.kind ?? entity.role ?? "player";
 }
 
-export function updatePortalCooldowns(dt) {
+export function updateMapObjects(dt) {
   for (const portal of mapState.portals) {
     for (const [key, value] of portal.cooldowns.entries()) {
       const nextValue = value - dt;
@@ -318,6 +321,13 @@ export function updatePortalCooldowns(dt) {
   for (const pylon of mapState.pylons) {
     pylon.damageFlash = Math.max(0, (pylon.damageFlash ?? 0) - dt);
     pylon.wobbleTime = Math.max(0, (pylon.wobbleTime ?? 0) - dt);
+
+    if (pylon.falling && !pylon.fallen) {
+      pylon.fallProgress = Math.min(1, pylon.fallProgress + dt / (pylon.fallDuration ?? 0.8));
+      if (pylon.fallProgress >= 1) {
+        resolvePylonImpact(pylon);
+      }
+    }
   }
 }
 
