@@ -1,0 +1,985 @@
+/* ================================================================
+   PROTOTYPE-0  ·  LOADOUT BUILDER — Mech Assembly Experience
+   Full-screen step-by-step build ritual
+   ================================================================ */
+
+/* ── OVERLAY ───────────────────────────────────────────────────── */
+.builder-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  background: #050a14;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  overflow: hidden;
+}
+.builder-overlay.is-active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Ambient background — premium layered */
+.builder-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 45%, rgba(198, 40, 40, 0.10) 0%, transparent 65%),
+    radial-gradient(circle at 15% 85%, rgba(200, 155, 60, 0.06) 0%, transparent 35%),
+    radial-gradient(circle at 85% 15%, rgba(77, 216, 255, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 50% 100%, rgba(198, 40, 40, 0.05) 0%, transparent 50%),
+    conic-gradient(from 180deg at 50% 50%, rgba(198, 40, 40, 0.02), transparent 30%, rgba(200, 155, 60, 0.02), transparent 60%, rgba(77, 216, 255, 0.02), transparent);
+  pointer-events: none;
+}
+
+/* Hex grid background — premium */
+.builder-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0px, transparent 59px, rgba(198, 40, 40, 0.025) 59px, rgba(198, 40, 40, 0.025) 60px),
+    repeating-linear-gradient(90deg, transparent 0px, transparent 59px, rgba(198, 40, 40, 0.025) 59px, rgba(198, 40, 40, 0.025) 60px),
+    repeating-linear-gradient(60deg, transparent 0px, transparent 79px, rgba(200, 155, 60, 0.012) 79px, rgba(200, 155, 60, 0.012) 80px),
+    repeating-linear-gradient(-60deg, transparent 0px, transparent 79px, rgba(200, 155, 60, 0.012) 79px, rgba(200, 155, 60, 0.012) 80px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Scan beam — premium ambient effect */
+.builder-scan-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(198, 40, 40, 0.0) 20%, rgba(198, 40, 40, 0.35) 50%, rgba(198, 40, 40, 0.0) 80%, transparent 100%);
+  box-shadow: 0 0 30px 10px rgba(198, 40, 40, 0.08), 0 0 60px 20px rgba(198, 40, 40, 0.04);
+  z-index: 2;
+  pointer-events: none;
+  animation: scan-sweep 6s ease-in-out infinite;
+  opacity: 0;
+}
+.builder-overlay.is-active .builder-scan-beam {
+  opacity: 1;
+  animation-delay: 1s;
+}
+@keyframes scan-sweep {
+  0%, 100% { top: -2px; opacity: 0; }
+  5% { opacity: 0.8; }
+  50% { top: 100%; opacity: 0.6; }
+  95% { opacity: 0.8; }
+  96% { opacity: 0; }
+}
+
+/* Corner frames — premium HUD feel */
+.builder-corner-frame {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 1s ease 0.5s;
+}
+.builder-overlay.is-active .builder-corner-frame { opacity: 1; }
+.builder-corner-frame--tl { top: 12px; left: 12px; border-top: 1px solid rgba(198, 40, 40, 0.35); border-left: 1px solid rgba(198, 40, 40, 0.35); }
+.builder-corner-frame--tr { top: 12px; right: 12px; border-top: 1px solid rgba(198, 40, 40, 0.35); border-right: 1px solid rgba(198, 40, 40, 0.35); }
+.builder-corner-frame--bl { bottom: 12px; left: 12px; border-bottom: 1px solid rgba(200, 155, 60, 0.25); border-left: 1px solid rgba(200, 155, 60, 0.25); }
+.builder-corner-frame--br { bottom: 12px; right: 12px; border-bottom: 1px solid rgba(200, 155, 60, 0.25); border-right: 1px solid rgba(200, 155, 60, 0.25); }
+
+/* ── LAYOUT ────────────────────────────────────────────────────── */
+.builder-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* ── TOP BAR ───────────────────────────────────────────────────── */
+.builder-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  z-index: 10;
+}
+
+.builder-back {
+  background: none;
+  border: 1px solid rgba(198, 40, 40, 0.3);
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.builder-back:hover {
+  border-color: rgba(198, 40, 40, 0.7);
+  color: #fff;
+  background: rgba(198, 40, 40, 0.1);
+}
+
+.builder-step-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.builder-step-label span {
+  color: #c62828;
+}
+
+/* ── PROGRESS INDICATORS ───────────────────────────────────────── */
+.builder-progress {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.builder-pip {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+.builder-pip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+.builder-pip.is-filled::after {
+  transform: translateX(100%);
+  transition: transform 0.8s ease-out;
+}
+.builder-pip.is-filled {
+  background: linear-gradient(90deg, #c62828, #e53935);
+  box-shadow: 0 0 16px rgba(198, 40, 40, 0.6), 0 0 4px rgba(198, 40, 40, 0.8);
+}
+.builder-pip.is-current {
+  background: rgba(198, 40, 40, 0.4);
+  animation: pip-pulse 1.5s ease-in-out infinite;
+}
+@keyframes pip-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(198, 40, 40, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(198, 40, 40, 0.6); }
+}
+
+/* ── MECH CONTAINER ────────────────────────────────────────────── */
+.builder-mech-wrap {
+  position: relative;
+  width: 340px;
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Radial aura behind mech — premium multi-layer */
+.builder-mech-aura {
+  position: absolute;
+  inset: -60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(198, 40, 40, 0.0) 30%, transparent 70%);
+  transition: background 1s ease;
+  pointer-events: none;
+}
+.builder-mech-wrap.has-pieces .builder-mech-aura {
+  background:
+    radial-gradient(circle, rgba(198, 40, 40, 0.10) 15%, transparent 65%),
+    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(200, 155, 60, 0.04) 0%, transparent 50%);
+}
+
+/* Reactor ring — spins behind mech */
+.builder-reactor-ring {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px dashed rgba(198, 40, 40, 0.0);
+  pointer-events: none;
+  transition: border-color 1s ease, box-shadow 1s ease;
+  animation: reactor-spin 20s linear infinite;
+}
+.builder-mech-wrap.has-pieces .builder-reactor-ring {
+  border-color: rgba(198, 40, 40, 0.12);
+  box-shadow: 0 0 40px rgba(198, 40, 40, 0.04), inset 0 0 40px rgba(198, 40, 40, 0.02);
+}
+.builder-reactor-ring::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c62828;
+  box-shadow: 0 0 10px #c62828;
+  opacity: 0;
+  transition: opacity 1s;
+}
+.builder-mech-wrap.has-pieces .builder-reactor-ring::before {
+  opacity: 0.8;
+}
+@keyframes reactor-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Inner reactor ring — counter-spin */
+.builder-reactor-ring-inner {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px dotted rgba(200, 155, 60, 0.0);
+  pointer-events: none;
+  transition: border-color 1.2s ease;
+  animation: reactor-spin-reverse 15s linear infinite;
+}
+.builder-mech-wrap.has-pieces .builder-reactor-ring-inner {
+  border-color: rgba(200, 155, 60, 0.08);
+}
+@keyframes reactor-spin-reverse {
+  from { transform: translate(-50%, -50%) rotate(360deg); }
+  to { transform: translate(-50%, -50%) rotate(0deg); }
+}
+
+/* ── MECH SVG ──────────────────────────────────────────────────── */
+.builder-mech {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.builder-mech svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Mech body zones */
+.mech-zone {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+  transition: all 0.6s ease;
+  cursor: pointer;
+  filter: none;
+}
+
+.mech-zone:hover {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.15);
+}
+
+.mech-zone.is-active {
+  fill: rgba(198, 40, 40, 0.08);
+  stroke: rgba(198, 40, 40, 0.5);
+  stroke-width: 1.5;
+  animation: zone-breathe 2s ease-in-out infinite;
+}
+
+.mech-zone.is-filled {
+  stroke-width: 1.5;
+  animation: none;
+}
+
+/* Dynamic accent color applied via JS */
+.mech-zone.is-filled[data-accent] {
+  transition: all 0.8s ease;
+}
+
+@keyframes zone-breathe {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(198, 40, 40, 0.2)); }
+  50% { filter: drop-shadow(0 0 18px rgba(198, 40, 40, 0.5)); }
+}
+
+/* Zone labels */
+.mech-zone-label {
+  fill: rgba(255, 255, 255, 0.25);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-anchor: middle;
+  pointer-events: none;
+  transition: fill 0.4s;
+}
+.mech-zone.is-active + .mech-zone-label,
+.mech-zone.is-active ~ .mech-zone-label {
+  fill: rgba(255, 255, 255, 0.6);
+}
+.mech-zone.is-filled + .mech-zone-label,
+.mech-zone.is-filled ~ .mech-zone-label {
+  fill: rgba(255, 255, 255, 0.5);
+}
+
+/* Connection lines from zone to slot info */
+.mech-connector {
+  stroke: rgba(255, 255, 255, 0.05);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  fill: none;
+  transition: all 0.5s;
+}
+.mech-connector.is-active {
+  stroke: rgba(198, 40, 40, 0.4);
+}
+.mech-connector.is-filled {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-dasharray: none;
+}
+
+/* ── SLOT PROMPT ───────────────────────────────────────────────── */
+.builder-slot-prompt {
+  margin-top: 24px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.4s ease;
+}
+.builder-slot-prompt.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.builder-slot-prompt__title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #fff;
+  margin: 0 0 4px;
+  text-shadow: 0 0 30px rgba(198, 40, 40, 0.5), 0 0 60px rgba(198, 40, 40, 0.2);
+  animation: prompt-glitch-in 0.5s ease-out;
+}
+@keyframes prompt-glitch-in {
+  0% { opacity: 0; transform: translateY(8px) skewX(-2deg); letter-spacing: 0.3em; }
+  40% { opacity: 1; transform: translateY(-2px) skewX(1deg); }
+  60% { transform: translateY(1px) skewX(-0.5deg); }
+  100% { transform: translateY(0) skewX(0deg); letter-spacing: 0.12em; }
+}
+
+.builder-slot-prompt__sub {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* ── SIDE PANEL (PIECE SELECTION) ──────────────────────────────── */
+.builder-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100%;
+  background: linear-gradient(270deg, rgba(8, 12, 24, 0.98) 0%, rgba(8, 12, 24, 0.92) 100%);
+  border-left: 1px solid rgba(198, 40, 40, 0.15);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+.builder-panel.is-open {
+  transform: translateX(0);
+}
+
+.builder-panel__header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.builder-panel__title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.builder-panel__subtitle {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+.builder-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Scrollbar */
+.builder-panel__list::-webkit-scrollbar { width: 4px; }
+.builder-panel__list::-webkit-scrollbar-track { background: transparent; }
+.builder-panel__list::-webkit-scrollbar-thumb { background: rgba(198, 40, 40, 0.3); border-radius: 2px; }
+
+/* ── PIECE CARD ────────────────────────────────────────────────── */
+.builder-piece {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+.builder-piece::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--piece-accent, #c62828);
+  opacity: 0;
+  transition: opacity 0.3s, box-shadow 0.3s;
+}
+/* Holographic top-edge shimmer */
+.builder-piece::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--piece-accent, #c62828) 30%, rgba(200, 155, 60, 0.6) 50%, var(--piece-accent, #c62828) 70%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.builder-piece:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  transform: translateX(-6px) scale(1.01);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3), 0 0 30px var(--piece-accent-shadow, rgba(198, 40, 40, 0.08));
+}
+.builder-piece:hover::before {
+  opacity: 1;
+  box-shadow: 0 0 12px var(--piece-accent, #c62828);
+}
+.builder-piece:hover::after {
+  opacity: 0.6;
+}
+
+.builder-piece.is-locked {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.builder-piece__name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.builder-piece__role {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--piece-accent, #c62828);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 6px;
+}
+
+.builder-piece__desc {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.builder-piece__stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.builder-piece__stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.builder-piece__stat-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--piece-accent, #c62828);
+  opacity: 0.6;
+}
+
+/* ── ENERGY PARTICLE FX ────────────────────────────────────────── */
+.builder-particle-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.builder-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--particle-color, #c62828);
+  box-shadow: 0 0 8px var(--particle-color, #c62828);
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Fly-in animation */
+@keyframes particle-fly {
+  0% { opacity: 1; transform: scale(1.5); }
+  80% { opacity: 0.8; }
+  100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* Connect pulse on zone */
+@keyframes zone-connect-pulse {
+  0% { filter: drop-shadow(0 0 4px var(--zone-glow, #c62828)) brightness(1.2); }
+  50% { filter: drop-shadow(0 0 30px var(--zone-glow, #c62828)) brightness(1.6); }
+  100% { filter: drop-shadow(0 0 8px var(--zone-glow, #c62828)) brightness(1.1); }
+}
+.mech-zone.is-connecting {
+  animation: zone-connect-pulse 0.6s ease-out;
+}
+
+/* ── FORGE BUTTON ──────────────────────────────────────────────── */
+.builder-forge-wrap {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease 0.3s;
+}
+.builder-forge-wrap.is-ready {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.builder-forge-btn {
+  background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 40%, #8e0000 100%);
+  border: 2px solid rgba(255, 200, 200, 0.25);
+  color: #fff;
+  padding: 16px 56px;
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  transition: all 0.3s;
+  text-shadow: 0 0 10px rgba(255, 200, 200, 0.4);
+}
+.builder-forge-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 50px rgba(198, 40, 40, 0.6), 0 0 100px rgba(198, 40, 40, 0.25), inset 0 0 20px rgba(255, 200, 200, 0.1);
+  text-shadow: 0 0 20px rgba(255, 200, 200, 0.6);
+}
+.builder-forge-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: forge-shine 2.5s linear infinite;
+}
+/* Orbital ring around forge button */
+.builder-forge-orbital {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 60px;
+  pointer-events: none;
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.6s ease 0.4s;
+}
+.builder-forge-wrap.is-ready .builder-forge-orbital {
+  opacity: 1;
+}
+.builder-forge-orbital::before,
+.builder-forge-orbital::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(198, 40, 40, 0.2);
+  border-radius: 50%;
+  animation: forge-orbit 3s linear infinite;
+}
+.builder-forge-orbital::after {
+  inset: -8px;
+  border-color: rgba(200, 155, 60, 0.12);
+  animation-duration: 4.5s;
+  animation-direction: reverse;
+}
+@keyframes forge-orbit {
+  from { transform: rotateX(65deg) rotateZ(0deg); }
+  to { transform: rotateX(65deg) rotateZ(360deg); }
+}
+@keyframes forge-shine {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(200%); }
+}
+
+/* ── COMPLETION CINEMATIC ──────────────────────────────────────── */
+.builder-cinematic {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+}
+.builder-cinematic.is-playing {
+  opacity: 1;
+}
+
+.builder-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(198, 40, 40, 0.6) 0%, transparent 70%);
+  opacity: 0;
+}
+@keyframes cinematic-flash {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.builder-shockwave {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(198, 40, 40, 0.6);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+@keyframes cinematic-shockwave {
+  0% { width: 0; height: 0; opacity: 0.9; border-width: 4px; }
+  40% { opacity: 0.6; }
+  100% { width: 1200px; height: 1200px; opacity: 0; border-width: 1px; }
+}
+
+/* Second shockwave — gold, delayed */
+.builder-shockwave-2 {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(200, 155, 60, 0.5);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+@keyframes cinematic-shockwave-2 {
+  0% { width: 0; height: 0; opacity: 0.7; border-width: 3px; }
+  100% { width: 900px; height: 900px; opacity: 0; border-width: 0.5px; }
+}
+
+/* Hex burst fragments */
+.builder-hex-fragment {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(198, 40, 40, 0.6);
+  pointer-events: none;
+  opacity: 0;
+}
+@keyframes hex-burst {
+  0% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--hx), var(--hy)) scale(0.3) rotate(180deg); }
+}
+
+/* Glitch effect on completion */
+@keyframes completion-glitch {
+  0% { clip-path: inset(0 0 0 0); }
+  5% { clip-path: inset(40% 0 20% 0); transform: translateX(3px); }
+  10% { clip-path: inset(10% 0 60% 0); transform: translateX(-2px); }
+  15% { clip-path: inset(80% 0 5% 0); transform: translateX(4px); }
+  20% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+.builder-overlay.is-glitching .builder-mech {
+  animation: completion-glitch 0.6s ease-out;
+}
+
+@keyframes cinematic-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, 2px); }
+  20% { transform: translate(3px, -3px); }
+  30% { transform: translate(-2px, 4px); }
+  40% { transform: translate(4px, -1px); }
+  50% { transform: translate(-3px, -2px); }
+  60% { transform: translate(2px, 3px); }
+  70% { transform: translate(-4px, 1px); }
+  80% { transform: translate(3px, -4px); }
+  90% { transform: translate(-1px, 2px); }
+}
+
+.builder-overlay.is-shaking .builder-mech-wrap {
+  animation: cinematic-shake 0.5s ease-out;
+}
+
+/* Power-up glow on full mech — premium multi-phase */
+@keyframes mech-powerup {
+  0% { filter: brightness(1) drop-shadow(0 0 0px transparent); }
+  15% { filter: brightness(1.8) drop-shadow(0 0 30px rgba(198, 40, 40, 0.7)); }
+  30% { filter: brightness(2.5) drop-shadow(0 0 50px rgba(198, 40, 40, 0.9)); }
+  50% { filter: brightness(1.4) drop-shadow(0 0 70px rgba(255, 200, 100, 0.5)); }
+  70% { filter: brightness(2.0) drop-shadow(0 0 60px rgba(198, 40, 40, 0.6)); }
+  85% { filter: brightness(1.2) drop-shadow(0 0 40px rgba(200, 155, 60, 0.3)); }
+  100% { filter: brightness(1.15) drop-shadow(0 0 25px rgba(198, 40, 40, 0.35)); }
+}
+.builder-mech-wrap.is-powering-up .builder-mech {
+  animation: mech-powerup 1.6s ease-out forwards;
+}
+.builder-mech-wrap.is-powering-up .builder-reactor-ring {
+  border-color: rgba(198, 40, 40, 0.5) !important;
+  box-shadow: 0 0 60px rgba(198, 40, 40, 0.15), inset 0 0 30px rgba(198, 40, 40, 0.08) !important;
+  animation-duration: 3s !important;
+}
+.builder-mech-wrap.is-powering-up .builder-reactor-ring-inner {
+  border-color: rgba(200, 155, 60, 0.3) !important;
+  animation-duration: 2s !important;
+}
+
+/* ── NAME INPUT ────────────────────────────────────────────────── */
+.builder-name-input {
+  position: absolute;
+  top: 85px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.builder-name-input.is-visible {
+  opacity: 1;
+}
+
+.builder-name-field {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(198, 40, 40, 0.3);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 4px 16px 6px;
+  width: 260px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+.builder-name-field::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+.builder-name-field:focus {
+  border-color: rgba(198, 40, 40, 0.7);
+}
+
+/* ── BOOT SEQUENCE ─────────────────────────────────────────────── */
+.builder-overlay.is-booting .builder-mech {
+  opacity: 0;
+  animation: boot-flicker 1.2s steps(6) forwards;
+}
+@keyframes boot-flicker {
+  0% { opacity: 0; filter: brightness(0.5); }
+  20% { opacity: 0.6; filter: brightness(2); }
+  30% { opacity: 0.2; filter: brightness(0.8); }
+  50% { opacity: 0.8; filter: brightness(1.5); }
+  60% { opacity: 0.4; }
+  80% { opacity: 0.9; filter: brightness(1.2); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+
+.builder-boot-text {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(198, 40, 40, 0.6);
+  font-family: monospace;
+  white-space: nowrap;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.builder-overlay.is-booting .builder-boot-text {
+  opacity: 1;
+  animation: boot-text-blink 0.4s steps(2) 3;
+}
+@keyframes boot-text-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Idle ambient particles */
+.builder-ambient-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(198, 40, 40, 0.4);
+  box-shadow: 0 0 4px rgba(198, 40, 40, 0.3);
+  pointer-events: none;
+  opacity: 0;
+}
+@keyframes ambient-float {
+  0% { opacity: 0; transform: translateY(0) scale(0.5); }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(var(--float-dist, -80px)) scale(1.2); }
+}
+
+/* Energy thread connecting filled zones */
+.builder-energy-thread {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.builder-energy-thread line {
+  stroke: rgba(198, 40, 40, 0.15);
+  stroke-width: 0.5;
+  stroke-dasharray: 4 8;
+  animation: thread-dash 2s linear infinite;
+}
+@keyframes thread-dash {
+  to { stroke-dashoffset: -24; }
+}
+
+/* Zone selection impact flash */
+.builder-impact-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--impact-color, #c62828);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 60;
+}
+@keyframes impact-expand {
+  0% { width: 0; height: 0; opacity: 0.9; border-width: 3px; }
+  100% { width: 120px; height: 120px; opacity: 0; border-width: 0.5px; }
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .builder-panel {
+    width: 320px;
+  }
+  .builder-mech-wrap {
+    width: 260px;
+    height: 380px;
+  }
+}
+
+@media (max-width: 640px) {
+  .builder-panel {
+    width: 100%;
+    height: 50%;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: translateY(100%);
+    border-left: none;
+    border-top: 1px solid rgba(198, 40, 40, 0.15);
+  }
+  .builder-panel.is-open {
+    transform: translateY(0);
+  }
+  .builder-mech-wrap {
+    width: 200px;
+    height: 300px;
+  }
+}
+
+/* ── ENERGY LINES (ambient) ────────────────────────────────────── */
+.builder-energy-line {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(198, 40, 40, 0.15), transparent);
+  pointer-events: none;
+  opacity: 0;
+  animation: energy-drift 4s ease-in-out infinite;
+}
+@keyframes energy-drift {
+  0%, 100% { opacity: 0; transform: translateX(-20px); }
+  50% { opacity: 1; transform: translateX(20px); }
+}
+
+/* Stagger energy lines */
+.builder-energy-line:nth-child(1) { top: 20%; left: 5%; width: 15%; animation-delay: 0s; }
+.builder-energy-line:nth-child(2) { top: 40%; right: 8%; width: 12%; animation-delay: 1.2s; }
+.builder-energy-line:nth-child(3) { top: 65%; left: 3%; width: 18%; animation-delay: 2.4s; }
+.builder-energy-line:nth-child(4) { top: 80%; right: 5%; width: 10%; animation-delay: 0.8s; }

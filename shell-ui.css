@@ -304,6 +304,10 @@
   overflow: auto;
 }
 
+.shell-view--profile {
+  overflow: auto;
+}
+
 /* ── LANDING ────────────────────────────────────────────────────── */
 .landing-view {
   min-height: 100%;

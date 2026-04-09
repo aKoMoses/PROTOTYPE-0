@@ -10,10 +10,11 @@ import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoad
   hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
   setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration,
-  getPlayerStarterPresets, applyPlayerStarterPreset, getBotPresets, applyBotPreset } from "./loadout.js";
+  getPlayerStarterPresets, applyPlayerStarterPreset, applySavedPlayerLoadout, getBotPresets, applyBotPreset } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
 import { getAxeComboProfile } from "../gameplay/weapons.js";
 import { playUiCue, unlockAudio } from "../audio.js";
+import { normalizeStoredBuild, readStoredLoadouts } from "../loadouts/storage.js";
 
 // Forward declarations
 let _resetPlayer = null;
@@ -1481,10 +1482,20 @@ export function renderTrainingBotPanel() {
   );
 }
 
-function renderPresetButtons(container, presets, activeKey, onApply) {
+function renderPresetButtons(container, presets, activeKey, onApply, options = {}) {
   if (!container) {
     return;
   }
+
+  if (!presets.length) {
+    container.innerHTML = options.emptyMessage
+      ? `<div class="preset-empty">${options.emptyMessage}</div>`
+      : "";
+    return;
+  }
+
+  const eyebrowFor = options.getEyebrow ?? ((preset) => preset.role);
+  const copyFor = options.getCopy ?? ((preset) => preset.description);
 
   container.textContent = "";
   presets.forEach((preset) => {
@@ -1495,9 +1506,9 @@ function renderPresetButtons(container, presets, activeKey, onApply) {
       button.classList.add("is-active");
     }
     button.innerHTML = `
-      <span class="preset-chip__eyebrow">${preset.role}</span>
+      <span class="preset-chip__eyebrow">${eyebrowFor(preset)}</span>
       <strong>${preset.name}</strong>
-      <span class="preset-chip__copy">${preset.description}</span>
+      <span class="preset-chip__copy">${copyFor(preset)}</span>
     `;
     button.addEventListener("click", () => {
       unlockAudio();
@@ -1508,13 +1519,45 @@ function renderPresetButtons(container, presets, activeKey, onApply) {
   });
 }
 
+function getSavedLoadoutSummary(entry) {
+  const build = normalizeStoredBuild(entry.build);
+  const weaponName = content.weapons[build.weapon]?.name ?? "Unknown weapon";
+  const perkName = content.perks[build.perks[0]]?.name ?? "No perk";
+  const abilityNames = build.abilities
+    .map((abilityKey) => content.abilities[abilityKey]?.name ?? null)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" / ");
+
+  if (abilityNames) {
+    return `${weaponName} · ${abilityNames} · ${perkName}`;
+  }
+
+  return `${weaponName} · ${perkName}`;
+}
+
+function findActiveSavedLoadoutKey(savedLoadouts) {
+  return savedLoadouts.find((entry) => {
+    const build = normalizeStoredBuild(entry.build);
+    return loadout.weapon === build.weapon
+      && loadout.ultimate === build.ultimate
+      && (loadout.perks[0] ?? null) === (build.perks[0] ?? null)
+      && loadout.abilities.every((abilityKey, index) => abilityKey === build.abilities[index]);
+  })?.key ?? null;
+}
+
 function renderBuildPresets() {
+  const savedLoadouts = readStoredLoadouts().map((entry) => ({
+    ...entry,
+    key: entry.id,
+  }));
   renderPresetButtons(
     dom.playerPresetGrid,
-    getPlayerStarterPresets(),
-    null,
-    (presetKey) => {
-      if (!applyPlayerStarterPreset(presetKey)) {
+    savedLoadouts,
+    findActiveSavedLoadoutKey(savedLoadouts),
+    (loadoutId) => {
+      const selectedLoadout = savedLoadouts.find((entry) => entry.id === loadoutId);
+      if (!selectedLoadout || !applySavedPlayerLoadout(selectedLoadout)) {
         return;
       }
 
@@ -1524,8 +1567,12 @@ function renderBuildPresets() {
       uiState.selectedDetail = { type: step.category, key: getLoadoutItemForSlot(step.slotKey)?.key ?? getFallbackDetailKey(step.category) };
       clearPreviewSelection();
       renderPrematch();
-      const preset = getPlayerStarterPresets().find((entry) => entry.key === presetKey);
-      dom.statusLine.textContent = `${preset?.name ?? "Starter preset"} loaded. Fine-tune, lock your slots, then deploy.`;
+      dom.statusLine.textContent = `${selectedLoadout.name} loaded from saved loadouts.`;
+    },
+    {
+      emptyMessage: "No loadouts yet. Forge one from the Loadouts page.",
+      getEyebrow: (entry) => entry.tags.length ? entry.tags.join(" / ") : (entry.role || "Loadout"),
+      getCopy: (entry) => getSavedLoadoutSummary(entry),
     },
   );
 
