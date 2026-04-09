@@ -26,6 +26,7 @@ import { updateSupportZones } from "./gameplay/combat.js";
 import { initializeAudio, updateAudio } from "./audio.js";
 import { installSessionPersistence, restoreSessionSnapshot } from "./session.js";
 import { content } from "./content.js";
+import { PROGRESSION_CHANGED_EVENT } from "./progression.js";
 
 // Expose content for non-module scripts (loadout builder)
 window.__P0_CONTENT = content;
@@ -127,7 +128,9 @@ ttPanelToggle?.addEventListener("click", () => {
 
 window.addEventListener("loadout-equip", (event) => {
   const selectedLoadout = event.detail?.loadout;
-  if (!applySavedPlayerLoadout(selectedLoadout)) {
+  const result = applySavedPlayerLoadout(selectedLoadout);
+  if (!result.ok) {
+    dom.statusLine.textContent = `Loadout locked. ${event.detail?.message ?? "Unlock the missing items first."}`;
     return;
   }
 
@@ -135,6 +138,11 @@ window.addEventListener("loadout-equip", (event) => {
   openPrematch("build");
   renderPrematch();
   dom.statusLine.textContent = `${selectedLoadout?.name ?? "Loadout"} loaded into combat launch.`;
+  persistSession();
+});
+
+window.addEventListener(PROGRESSION_CHANGED_EVENT, () => {
+  renderPrematch();
   persistSession();
 });
 

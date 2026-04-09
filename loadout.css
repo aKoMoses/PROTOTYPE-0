@@ -501,6 +501,24 @@
   cursor: default;
 }
 
+.loadout-card.is-locked {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.loadout-card__equip.is-locked {
+  color: var(--pf-text-muted);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(130, 130, 130, 0.12), rgba(50, 50, 50, 0.08));
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.loadout-card__equip.is-locked:hover {
+  background: linear-gradient(135deg, rgba(130, 130, 130, 0.12), rgba(50, 50, 50, 0.08));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    EMPTY STATE
    ═══════════════════════════════════════════════════════════════════ */

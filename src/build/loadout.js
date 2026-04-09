@@ -9,6 +9,7 @@ import { getStatusState } from "../gameplay/combat.js";
 import { renderPrematch } from "./ui.js";
 import { createPresetRunes, playerStarterPresets } from "../loadouts/catalog.js";
 import { normalizeStoredBuild } from "../loadouts/storage.js";
+import { canEquipStoredLoadout, getMissingUnlocksForBuild, getVisibleUnlockedKeys, isContentUnlocked } from "../progression.js";
 
 function cloneRuneAllocation(source = null) {
   const next = createInitialRuneAllocation();
@@ -80,24 +81,37 @@ const botPresetLibrary = [
   },
 ];
 
-export function getVisibleContentItems(group) {
-  const pool = buildLabVisiblePools[group] ?? [];
+function getSelectablePoolKeys(group, { ignoreProgression = false } = {}) {
+  if (ignoreProgression) {
+    return [...(buildLabVisiblePools[group] ?? [])];
+  }
+
+  return getVisibleUnlockedKeys(group);
+}
+
+export function getVisibleContentItems(group, { ignoreProgression = false } = {}) {
+  const pool = getSelectablePoolKeys(group, { ignoreProgression });
   return pool
     .map((key) => getContentItem(group, key))
     .filter((item) => item && item.state === "playable");
 }
 
 export function normalizeLoadoutSelections({ preserveEmptySlots = false } = {}) {
-  loadout.weapon = buildLabVisiblePools.weapons.includes(loadout.weapon)
+  const unlockedWeapons = getSelectablePoolKeys("weapons");
+  const unlockedAbilities = getSelectablePoolKeys("abilities");
+  const unlockedPerks = getSelectablePoolKeys("perks");
+  const unlockedUltimates = getSelectablePoolKeys("ultimates");
+
+  loadout.weapon = unlockedWeapons.includes(loadout.weapon)
     ? loadout.weapon
     : preserveEmptySlots
       ? null
-      : buildLabVisiblePools.weapons[0];
+      : unlockedWeapons[0] ?? null;
 
   const seenAbilities = new Set();
   const normalizedAbilities = Array.from({ length: 3 }, (_, index) => {
     const abilityKey = loadout.abilities[index] ?? null;
-    if (!buildLabVisiblePools.abilities.includes(abilityKey) || seenAbilities.has(abilityKey)) {
+    if (!unlockedAbilities.includes(abilityKey) || seenAbilities.has(abilityKey)) {
       return null;
     }
     seenAbilities.add(abilityKey);
@@ -106,7 +120,7 @@ export function normalizeLoadoutSelections({ preserveEmptySlots = false } = {}) 
 
   if (!preserveEmptySlots) {
     for (const fallback of ["shockJavelin", "magneticField", "energyShield", "magneticGrapple", "empBurst"]) {
-      if (!buildLabVisiblePools.abilities.includes(fallback) || normalizedAbilities.includes(fallback)) {
+      if (!unlockedAbilities.includes(fallback) || normalizedAbilities.includes(fallback)) {
         continue;
       }
 
@@ -119,11 +133,11 @@ export function normalizeLoadoutSelections({ preserveEmptySlots = false } = {}) 
   }
   loadout.abilities = normalizedAbilities;
 
-  const perkKey = buildLabVisiblePools.perks.includes(loadout.perks[0]) ? loadout.perks[0] : null;
-  loadout.perks = [preserveEmptySlots ? perkKey : perkKey ?? buildLabVisiblePools.perks[0]];
+  const perkKey = unlockedPerks.includes(loadout.perks[0]) ? loadout.perks[0] : null;
+  loadout.perks = [preserveEmptySlots ? perkKey : perkKey ?? unlockedPerks[0] ?? null];
 
-  const ultimateKey = buildLabVisiblePools.ultimates.includes(loadout.ultimate) ? loadout.ultimate : null;
-  loadout.ultimate = preserveEmptySlots ? ultimateKey : ultimateKey ?? buildLabVisiblePools.ultimates[0];
+  const ultimateKey = unlockedUltimates.includes(loadout.ultimate) ? loadout.ultimate : null;
+  loadout.ultimate = preserveEmptySlots ? ultimateKey : ultimateKey ?? unlockedUltimates[0] ?? null;
 }
 
 export function getContentItem(group, key) {
@@ -268,7 +282,12 @@ export function getPlayerStarterPresets() {
 export function applyPlayerStarterPreset(presetKey) {
   const preset = playerStarterPresets.find((entry) => entry.key === presetKey);
   if (!preset) {
-    return false;
+    return { ok: false, missing: [] };
+  }
+
+  const missing = getMissingUnlocksForBuild(preset.loadout);
+  if (missing.length > 0) {
+    return { ok: false, missing };
   }
 
   loadout.weapon = preset.loadout.weapon;
@@ -276,13 +295,20 @@ export function applyPlayerStarterPreset(presetKey) {
   loadout.perks = [...preset.loadout.perks];
   loadout.ultimate = preset.loadout.ultimate;
   loadout.runes = cloneRuneAllocation(preset.loadout.runes);
-  return true;
+  return { ok: true, missing: [] };
 }
 
 export function applySavedPlayerLoadout(savedLoadout) {
   const normalizedBuild = normalizeStoredBuild(savedLoadout?.build ?? savedLoadout);
   if (!normalizedBuild.weapon) {
-    return false;
+    return { ok: false, missing: [] };
+  }
+
+  if (!canEquipStoredLoadout(normalizedBuild)) {
+    return {
+      ok: false,
+      missing: getMissingUnlocksForBuild(normalizedBuild),
+    };
   }
 
   loadout.weapon = normalizedBuild.weapon;
@@ -291,7 +317,7 @@ export function applySavedPlayerLoadout(savedLoadout) {
   loadout.ultimate = normalizedBuild.ultimate;
   loadout.runes = cloneRuneAllocation(normalizedBuild.runes);
   normalizeLoadoutSelections({ preserveEmptySlots: false });
-  return true;
+  return { ok: true, missing: [] };
 }
 
 export function getBotPresets() {

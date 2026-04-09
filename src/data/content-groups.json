@@ -1,0 +1,42 @@
+[
+  {
+    "key": "weapons",
+    "label": "Armes",
+    "eyebrow": "Armement",
+    "copy": "Pression principale, profil d'engagement et identité de portée.",
+    "accent": "#ff8f5a",
+    "iconType": "weapon",
+    "metaFields": ["slotLabel", "category"],
+    "metaFallback": "Arme"
+  },
+  {
+    "key": "abilities",
+    "label": "Capacités",
+    "eyebrow": "Système tactique",
+    "copy": "Modules assignés à Q, E et F pour le contrôle du tempo.",
+    "accent": "#0bc4e3",
+    "iconType": "ability",
+    "metaFields": ["role", "category"],
+    "metaFallback": "Capacité"
+  },
+  {
+    "key": "perks",
+    "label": "Bonus passifs",
+    "eyebrow": "Matrice passive",
+    "copy": "Modificateurs permanents qui orientent le duel en votre faveur.",
+    "accent": "#c89b3c",
+    "iconType": "perk",
+    "metaFields": ["category"],
+    "metaFallback": "Passif"
+  },
+  {
+    "key": "ultimates",
+    "label": "Ultimates",
+    "eyebrow": "Protocoles terminaux",
+    "copy": "Failsafes rares et outils d'escalade décisive en fin de round.",
+    "accent": "#f06aff",
+    "iconType": "ultimate",
+    "metaFields": ["category"],
+    "metaFallback": "Ultimate"
+  }
+]

@@ -3399,6 +3399,19 @@ body {
   box-shadow: 0 0 18px rgba(119, 216, 255, 0.12);
 }
 
+.preset-chip.is-disabled {
+  opacity: 0.58;
+  cursor: default;
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
+.preset-chip.is-disabled:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
 .preset-chip__eyebrow {
   color: var(--accent-2);
   font-size: 0.6rem;

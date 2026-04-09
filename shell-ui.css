@@ -308,6 +308,10 @@
   overflow: auto;
 }
 
+.shell-view--collection {
+  overflow: auto;
+}
+
 /* ── LANDING ────────────────────────────────────────────────────── */
 .landing-view {
   min-height: 100%;

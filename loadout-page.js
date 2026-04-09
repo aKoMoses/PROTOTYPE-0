@@ -5,6 +5,7 @@
 
 import { content } from "./src/content.js";
 import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "./src/loadouts/storage.js";
+import { PROGRESSION_CHANGED_EVENT, formatMissingUnlocks, getMissingUnlocksForBuild, getRequiredLevelForBuild } from "./src/progression.js";
 
 const GAMEPLAY_TAGS = ["aggro", "control", "poke", "burst", "tank", "support", "hybrid", "cheese"];
 
@@ -25,7 +26,15 @@ if (root) {
   grid?.addEventListener("keydown", handleNameKey);
   window.addEventListener("builder-forge", handleBuilderForge);
   window.addEventListener("p0-loadouts-changed", syncStoredLoadouts);
+  window.addEventListener(PROGRESSION_CHANGED_EVENT, render);
   render();
+}
+
+function setStatusMessage(message) {
+  const statusLine = document.getElementById("status-line");
+  if (statusLine) {
+    statusLine.textContent = message;
+  }
 }
 
 function handleBuilderForge(event) {
@@ -131,7 +140,13 @@ function handleEquip(id) {
     return;
   }
 
-  dispatchEquip(entry);
+  const missing = getMissingUnlocksForBuild(entry.build);
+  if (missing.length > 0) {
+    setStatusMessage(`Loadout locked. ${formatMissingUnlocks(missing)}`);
+    return;
+  }
+
+  dispatchEquip(entry, `Loadout locked. ${formatMissingUnlocks(missing)}`);
 
   const card = grid?.querySelector(`[data-loadout-id="${id}"]`);
   const button = card?.querySelector(".loadout-card__equip");
@@ -147,10 +162,11 @@ function handleEquip(id) {
   }, 1500);
 }
 
-function dispatchEquip(entry) {
+function dispatchEquip(entry, message = "") {
   window.dispatchEvent(new CustomEvent("loadout-equip", {
     detail: {
       loadout: entry,
+      message,
     },
   }));
 }
@@ -263,9 +279,18 @@ function renderCard(entry) {
   const isConfirming = confirmingDeleteId === entry.id;
   const build = normalizeStoredBuild(entry.build);
   const age = formatAge(entry.updatedAt || entry.createdAt);
+  const missing = getMissingUnlocksForBuild(build);
+  const isLocked = missing.length > 0;
+  const requiredLevel = getRequiredLevelForBuild(build);
+  const footerMeta = isLocked
+    ? `Requires level ${requiredLevel}`
+    : entry.role ? `${escapeHtml(entry.role)} · ${age}` : age;
+  const copy = isLocked
+    ? formatMissingUnlocks(missing)
+    : entry.description;
 
   return `
-    <article class="loadout-card${isFavorite ? " is-favorite" : ""}" data-loadout-id="${entry.id}">
+    <article class="loadout-card${isFavorite ? " is-favorite" : ""}${isLocked ? " is-locked" : ""}" data-loadout-id="${entry.id}">
       ${isConfirming ? renderDeleteConfirm() : ""}
 
       <div class="loadout-card__header">
@@ -282,7 +307,7 @@ function renderCard(entry) {
         ${entry.tags.map((tag) => `<span class="loadout-card__tag">${tag}</span>`).join("")}
       </div>
 
-      ${entry.description ? `<p class="loadout-card__copy">${escapeHtml(entry.description)}</p>` : ""}
+      ${copy ? `<p class="loadout-card__copy">${escapeHtml(copy)}</p>` : ""}
 
       <div class="loadout-tag-picker">
         ${GAMEPLAY_TAGS.map((tag) => `<button class="loadout-tag-option${entry.tags.includes(tag) ? " is-selected" : ""}" data-tag="${tag}">${tag}</button>`).join("")}
@@ -298,8 +323,8 @@ function renderCard(entry) {
       </div>
 
       <div class="loadout-card__footer">
-        <span class="loadout-card__meta">${entry.role ? `${escapeHtml(entry.role)} · ${age}` : age}</span>
-        <button class="loadout-card__equip">EQUIP</button>
+        <span class="loadout-card__meta">${escapeHtml(footerMeta)}</span>
+        <button class="loadout-card__equip${isLocked ? " is-locked" : ""}">${isLocked ? `LOCKED LV ${requiredLevel}` : "EQUIP"}</button>
       </div>
     </article>`;
 }

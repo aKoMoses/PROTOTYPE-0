@@ -21,6 +21,7 @@ const audioState = {
   lastScore: "0-0",
   combatImpulse: 0,
   cooldowns: new Map(),
+  sfxBuffers: new Map(),
   noiseBuffer: null,
   music: {
     current: null,
@@ -34,6 +35,82 @@ const audioState = {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+// ── Premium SFX ─────────────────────────────────────────────────────────────
+
+const SFX_MANIFEST = [
+  ['laser-s-0', '/sfx/laser-s-0.ogg'],
+  ['laser-s-1', '/sfx/laser-s-1.ogg'],
+  ['laser-s-2', '/sfx/laser-s-2.ogg'],
+  ['laser-s-3', '/sfx/laser-s-3.ogg'],
+  ['laser-l-0', '/sfx/laser-l-0.ogg'],
+  ['laser-l-1', '/sfx/laser-l-1.ogg'],
+  ['laser-l-2', '/sfx/laser-l-2.ogg'],
+  ['laser-r-0', '/sfx/laser-r-0.ogg'],
+  ['laser-r-1', '/sfx/laser-r-1.ogg'],
+  ['laser-r-2', '/sfx/laser-r-2.ogg'],
+  ['explosion-0', '/sfx/explosion-0.ogg'],
+  ['explosion-1', '/sfx/explosion-1.ogg'],
+  ['explosion-2', '/sfx/explosion-2.ogg'],
+  ['explosion-heavy-0', '/sfx/explosion-heavy-0.ogg'],
+  ['explosion-heavy-1', '/sfx/explosion-heavy-1.ogg'],
+  ['impact-0', '/sfx/impact-0.ogg'],
+  ['impact-1', '/sfx/impact-1.ogg'],
+  ['impact-2', '/sfx/impact-2.ogg'],
+  ['impact-3', '/sfx/impact-3.ogg'],
+  ['impact-4', '/sfx/impact-4.ogg'],
+  ['shield-0', '/sfx/shield-0.ogg'],
+  ['shield-1', '/sfx/shield-1.ogg'],
+  ['shield-2', '/sfx/shield-2.ogg'],
+  ['shield-3', '/sfx/shield-3.ogg'],
+  ['dash-0', '/sfx/dash-0.ogg'],
+  ['dash-1', '/sfx/dash-1.ogg'],
+  ['dash-2', '/sfx/dash-2.ogg'],
+  ['ui-click', '/sfx/ui-click.ogg'],
+  ['ui-hover', '/sfx/ui-hover.ogg'],
+  ['ui-confirm', '/sfx/ui-confirm.ogg'],
+  ['ui-cancel', '/sfx/ui-cancel.ogg'],
+];
+
+function pickSfx(...keys) {
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
+function jitter(base, pct = 0.07) {
+  return base * (1 + (Math.random() * 2 - 1) * pct);
+}
+
+function playSfxBuffer(key, { pan = 0, gain = 0.7, rate = 1.0 } = {}) {
+  const buffer = audioState.sfxBuffers.get(key);
+  if (!buffer || !audioState.ctx || !audioState.sfxGain || !audioState.unlocked) return false;
+  const source = audioState.ctx.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = rate;
+  const amp = audioState.ctx.createGain();
+  amp.gain.value = clamp(gain, 0, 1);
+  const panner = createPanner();
+  source.connect(amp);
+  if (panner) {
+    panner.pan.value = clamp(pan, -1, 1);
+    amp.connect(panner);
+    panner.connect(audioState.sfxGain);
+  } else {
+    amp.connect(audioState.sfxGain);
+  }
+  source.start();
+  return true;
+}
+
+function loadSfxBuffers() {
+  if (!audioState.ctx) return;
+  for (const [key, url] of SFX_MANIFEST) {
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => audioState.ctx.decodeAudioData(ab))
+      .then((buf) => audioState.sfxBuffers.set(key, buf))
+      .catch(() => {});
+  }
 }
 
 function nowMs() {
@@ -421,6 +498,7 @@ function ensureAudioGraph() {
   audioState.ambienceGain.connect(audioState.masterGain);
   audioState.masterGain.connect(audioState.ctx.destination);
   loadMusicTracks();
+  loadSfxBuffers();
   audioState.ambience = buildAmbienceGraph();
   applyMixTargets(true);
 }
@@ -625,37 +703,45 @@ export function playWeaponFire(weaponKey, owner = "player") {
   addCombatImpulse(owner === "enemy" ? 0.014 : 0.02);
 
   if (weaponKey === "pulse") {
+    if (playSfxBuffer(pickSfx('laser-s-0', 'laser-s-1', 'laser-s-2', 'laser-s-3'), { pan, gain: 0.62, rate: jitter(1.0) })) return;
     playTone({ type: "sawtooth", frequency: owner === "enemy" ? 320 : 360, sweepTo: 220, duration: 0.08, gain: 0.045, filterType: "lowpass", filterFrequency: 1800, pan });
     return;
   }
   if (weaponKey === "shotgun") {
+    if (playSfxBuffer(pickSfx('laser-r-0', 'laser-r-1', 'laser-r-2'), { pan, gain: 0.74, rate: jitter(0.9, 0.1) })) return;
     playNoise({ duration: 0.1, gain: 0.075, filterType: "bandpass", filterFrequency: 720, q: 0.7, pan });
     playTone({ type: "triangle", frequency: 108, sweepTo: 74, duration: 0.12, gain: 0.06, pan });
     return;
   }
   if (weaponKey === "sniper") {
+    if (playSfxBuffer(pickSfx('laser-l-0', 'laser-l-1', 'laser-l-2'), { pan, gain: 0.76, rate: jitter(1.0, 0.05) })) return;
     playTone({ type: "square", frequency: 620, sweepTo: 180, duration: 0.18, gain: 0.06, filterType: "bandpass", filterFrequency: 1300, q: 1.3, pan });
     return;
   }
   if (weaponKey === "staff") {
+    if (playSfxBuffer(pickSfx('laser-r-0', 'laser-r-1'), { pan, gain: 0.55, rate: jitter(1.1) })) return;
     playTone({ type: "triangle", frequency: 280, sweepTo: 220, duration: 0.18, gain: 0.048, filterType: "lowpass", filterFrequency: 1200, pan });
     return;
   }
   if (weaponKey === "injector") {
+    if (playSfxBuffer(pickSfx('laser-s-0', 'laser-s-1', 'laser-s-2'), { pan, gain: 0.55, rate: jitter(1.2) })) return;
     playTone({ type: "sine", frequency: 460, sweepTo: 170, duration: 0.12, gain: 0.05, filterType: "bandpass", filterFrequency: 980, pan });
     return;
   }
   if (weaponKey === "lance") {
+    if (playSfxBuffer(pickSfx('laser-s-2', 'laser-s-3'), { pan, gain: 0.66, rate: jitter(0.85) })) return;
     playTone({ type: "triangle", frequency: owner === "enemy" ? 220 : 260, sweepTo: 132, duration: 0.14, gain: 0.055, filterType: "bandpass", filterFrequency: 980, q: 0.8, pan });
     playNoise({ duration: 0.05, gain: 0.028, filterType: "highpass", filterFrequency: 1600, pan });
     return;
   }
   if (weaponKey === "cannon") {
+    if (playSfxBuffer(pickSfx('explosion-0', 'explosion-1', 'explosion-2'), { pan, gain: 0.78, rate: jitter(0.85) })) return;
     playNoise({ duration: 0.12, gain: 0.09, filterType: "lowpass", filterFrequency: 620, q: 0.7, pan });
     playTone({ type: "sawtooth", frequency: owner === "enemy" ? 96 : 110, sweepTo: 54, duration: 0.2, gain: 0.065, pan });
     return;
   }
   if (weaponKey === "axe") {
+    if (playSfxBuffer(pickSfx('impact-0', 'impact-1', 'impact-2'), { pan, gain: 0.68, rate: jitter(1.0, 0.1) })) return;
     playNoise({ duration: 0.09, gain: 0.042, filterType: "highpass", filterFrequency: 1200, pan });
     playTone({ type: "triangle", frequency: 182, sweepTo: 92, duration: 0.16, gain: 0.065, pan });
   }
@@ -686,58 +772,72 @@ export function playAbilityCue(abilityKey, owner = "player") {
     case "phaseDash":
     case "blinkStep":
     case "backstepBurst":
+      if (playSfxBuffer(pickSfx('dash-0', 'dash-1', 'dash-2'), { pan, gain: 0.58, rate: jitter(1.0) })) break;
       playNoise({ duration: 0.08, gain: 0.04, filterType: "highpass", filterFrequency: 1700, pan });
       playTone({ type: "triangle", frequency: 220, sweepTo: 520, duration: 0.1, gain: 0.042, pan });
       break;
     case "shockJavelin":
+      if (playSfxBuffer(pickSfx('laser-l-0', 'laser-l-1'), { pan, gain: 0.62, rate: jitter(1.1) })) break;
       playTone({ type: "sawtooth", frequency: 260, sweepTo: 680, duration: 0.14, gain: 0.05, filterType: "bandpass", filterFrequency: 1240, pan });
       break;
     case "energyParry":
+      if (playSfxBuffer(pickSfx('shield-0', 'shield-1'), { pan, gain: 0.52, rate: jitter(0.95) })) break;
       playNoise({ duration: 0.08, gain: 0.036, filterType: "highpass", filterFrequency: 1800, pan });
       playTone({ type: "triangle", frequency: 320, sweepTo: 510, duration: 0.12, gain: 0.046, filterType: "bandpass", filterFrequency: 1500, pan });
       break;
     case "energyParrySuccess":
+      if (playSfxBuffer(pickSfx('shield-2', 'shield-3'), { pan, gain: 0.72, rate: jitter(1.05) })) break;
       playNoise({ duration: 0.06, gain: 0.044, filterType: "bandpass", filterFrequency: 2100, q: 1.3, pan });
       playTone({ type: "square", frequency: 620, sweepTo: 290, duration: 0.12, gain: 0.058, filterType: "bandpass", filterFrequency: 1850, pan });
       playTone({ type: "sine", frequency: 220, sweepTo: 520, duration: 0.09, gain: 0.034, pan });
       break;
     case "energyParryFail":
+      if (playSfxBuffer(pickSfx('impact-3', 'impact-4'), { pan, gain: 0.4, rate: jitter(0.7) })) break;
       playNoise({ duration: 0.08, gain: 0.024, filterType: "lowpass", filterFrequency: 760, pan });
       playTone({ type: "sine", frequency: 260, sweepTo: 180, duration: 0.1, gain: 0.026, filterType: "lowpass", filterFrequency: 980, pan });
       break;
     case "magneticField":
     case "gravityWell":
+      if (playSfxBuffer(pickSfx('shield-0', 'shield-1'), { pan, gain: 0.5, rate: jitter(0.6) })) break;
       playTone({ type: "sine", frequency: 130, sweepTo: 86, duration: 0.28, gain: 0.06, filterType: "lowpass", filterFrequency: 620, pan });
       playNoise({ duration: 0.14, gain: 0.035, filterType: "bandpass", filterFrequency: 980, pan });
       break;
     case "magneticGrapple":
     case "chainLightning":
+      if (playSfxBuffer(pickSfx('laser-l-1', 'laser-l-2'), { pan, gain: 0.64, rate: jitter(1.15) })) break;
       playTone({ type: "square", frequency: 240, sweepTo: 480, duration: 0.14, gain: 0.052, filterType: "bandpass", filterFrequency: 1800, pan });
       break;
     case "energyShield":
     case "phaseShift":
+      if (playSfxBuffer(pickSfx('shield-1', 'shield-2'), { pan, gain: 0.52, rate: jitter(0.8) })) break;
       playTone({ type: "sine", frequency: 340, sweepTo: 260, duration: 0.24, gain: 0.05, filterType: "lowpass", filterFrequency: 1400, pan });
       break;
     case "empBurst":
     case "empCataclysm":
+      if (playSfxBuffer(pickSfx('explosion-heavy-0', 'explosion-heavy-1'), { pan, gain: 0.7, rate: jitter(0.9) })) break;
       playNoise({ duration: 0.18, gain: 0.058, filterType: "bandpass", filterFrequency: 740, q: 0.5, pan });
       playTone({ type: "square", frequency: 170, sweepTo: 80, duration: 0.18, gain: 0.06, pan });
       break;
     case "pulseBurst":
+      if (playSfxBuffer(pickSfx('laser-s-0', 'laser-s-1'), { pan, gain: 0.62, rate: jitter(1.3) })) break;
       playTone({ type: "sawtooth", frequency: 400, sweepTo: 260, duration: 0.1, gain: 0.046, pan });
       break;
     case "railShot":
+      if (playSfxBuffer(pickSfx('laser-l-0', 'laser-l-2'), { pan, gain: 0.82, rate: jitter(1.0) })) break;
       playTone({ type: "square", frequency: 640, sweepTo: 220, duration: 0.2, gain: 0.07, filterType: "bandpass", filterFrequency: 1600, q: 1.1, pan });
       break;
     case "speedSurge":
     case "berserkCore":
+      if (playSfxBuffer(pickSfx('dash-0', 'dash-1'), { pan, gain: 0.5, rate: jitter(0.75) })) break;
       playTone({ type: "triangle", frequency: 160, sweepTo: 290, duration: 0.2, gain: 0.05, pan });
       break;
     case "phantomSplit":
     case "hologramDecoy":
+      if (playSfxBuffer(pickSfx('shield-0', 'shield-3'), { pan, gain: 0.47, rate: jitter(1.1) })) break;
       playTone({ type: "sine", frequency: 240, sweepTo: 430, duration: 0.22, gain: 0.048, filterType: "bandpass", filterFrequency: 1100, pan });
       break;
     case "revivalProtocol":
+      if (playSfxBuffer(pickSfx('shield-2', 'shield-3'), { pan, gain: 0.55, rate: jitter(0.85) })) break;
       playTone({ type: "triangle", frequency: 200, sweepTo: 360, duration: 0.22, gain: 0.046, pan });
       break;
     default:
@@ -761,11 +861,17 @@ export function playStatusCue(statusType, target = "enemy") {
 export function playDamageCue(target = "enemy", amount = 10, source = "hit", blocked = false) {
   const pan = target === "player" ? -0.18 : 0.16;
   if (blocked) {
+    if (playSfxBuffer(pickSfx('shield-0', 'shield-1'), { pan, gain: 0.45, rate: jitter(1.2) })) return;
     playTone({ type: "sine", frequency: 430, sweepTo: 250, duration: 0.08, gain: 0.036, pan, filterType: "lowpass", filterFrequency: 900 });
     return;
   }
 
   const heavy = amount >= 18 || source === "axe-finisher" || source === "javelin";
+  if (heavy) {
+    if (playSfxBuffer(pickSfx('impact-0', 'impact-1', 'impact-2'), { pan, gain: 0.68, rate: jitter(0.85) })) { addCombatImpulse(0.04); return; }
+  } else {
+    if (playSfxBuffer(pickSfx('impact-2', 'impact-3', 'impact-4'), { pan, gain: 0.55, rate: jitter(1.0) })) { addCombatImpulse(0.022); return; }
+  }
   playNoise({ duration: heavy ? 0.09 : 0.06, gain: heavy ? 0.054 : 0.032, filterType: "bandpass", filterFrequency: heavy ? 760 : 980, pan });
   playTone({ type: "triangle", frequency: heavy ? 132 : 172, sweepTo: heavy ? 72 : 118, duration: heavy ? 0.14 : 0.1, gain: heavy ? 0.05 : 0.03, pan });
   addCombatImpulse(heavy ? 0.04 : 0.022);
@@ -776,18 +882,24 @@ export function playMapCue(kind) {
     if (!canTrigger("teleport", 120)) {
       return;
     }
-    playTone({ type: "sine", frequency: 320, sweepTo: 620, duration: 0.12, gain: 0.042, filterType: "bandpass", filterFrequency: 1400 });
-    playNoise({ duration: 0.06, gain: 0.026, filterType: "highpass", filterFrequency: 1800 });
+    if (!playSfxBuffer(pickSfx('dash-0', 'dash-2'), { gain: 0.5, rate: jitter(1.3) })) {
+      playTone({ type: "sine", frequency: 320, sweepTo: 620, duration: 0.12, gain: 0.042, filterType: "bandpass", filterFrequency: 1400 });
+      playNoise({ duration: 0.06, gain: 0.026, filterType: "highpass", filterFrequency: 1800 });
+    }
     addCombatImpulse(0.02);
     return;
   }
   if (kind === "pylon-hit") {
-    playTone({ type: "triangle", frequency: 120, sweepTo: 82, duration: 0.1, gain: 0.04, filterType: "lowpass", filterFrequency: 760 });
+    if (!playSfxBuffer(pickSfx('impact-3', 'impact-4'), { gain: 0.48, rate: jitter(0.75) })) {
+      playTone({ type: "triangle", frequency: 120, sweepTo: 82, duration: 0.1, gain: 0.04, filterType: "lowpass", filterFrequency: 760 });
+    }
     return;
   }
   if (kind === "pylon-collapse") {
-    playNoise({ duration: 0.18, gain: 0.062, filterType: "bandpass", filterFrequency: 520, q: 0.4 });
-    playTone({ type: "triangle", frequency: 86, sweepTo: 42, duration: 0.22, gain: 0.055 });
+    if (!playSfxBuffer(pickSfx('explosion-0', 'explosion-1'), { gain: 0.72, rate: jitter(0.85) })) {
+      playNoise({ duration: 0.18, gain: 0.062, filterType: "bandpass", filterFrequency: 520, q: 0.4 });
+      playTone({ type: "triangle", frequency: 86, sweepTo: 42, duration: 0.22, gain: 0.055 });
+    }
     addCombatImpulse(0.08);
     return;
   }
@@ -830,15 +942,23 @@ export function playUiCue(kind = "click") {
   }
 
   if (kind === "confirm") {
+    if (playSfxBuffer('ui-confirm', { gain: 0.42 })) return;
     playTone({ type: "triangle", frequency: 320, sweepTo: 430, duration: 0.11, gain: 0.038, filterType: "lowpass", filterFrequency: 1500 });
     playTone({ type: "triangle", frequency: 430, sweepTo: 520, duration: 0.14, gain: 0.024, filterType: "lowpass", filterFrequency: 1700 });
     return;
   }
 
   if (kind === "cancel") {
+    if (playSfxBuffer('ui-cancel', { gain: 0.32 })) return;
     playTone({ type: "sine", frequency: 260, sweepTo: 190, duration: 0.08, gain: 0.03, filterType: "lowpass", filterFrequency: 1200 });
     return;
   }
 
+  if (kind === "hover") {
+    playSfxBuffer('ui-hover', { gain: 0.22, rate: jitter(1.0, 0.04) });
+    return;
+  }
+
+  if (playSfxBuffer('ui-click', { gain: 0.3, rate: jitter(1.0, 0.05) })) return;
   playTone({ type: "triangle", frequency: 240, sweepTo: 300, duration: 0.07, gain: 0.022, filterType: "lowpass", filterFrequency: 1400 });
 }

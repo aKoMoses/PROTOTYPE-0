@@ -6,6 +6,8 @@
     <title>Prototype 0</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./shell-ui.css" />
+    <link rel="stylesheet" href="./auth.css" />
+    <link rel="stylesheet" href="./collection.css" />
     <link rel="stylesheet" href="./profile.css" />
     <link rel="stylesheet" href="./loadout.css" />
     <link rel="stylesheet" href="./loadout-builder.css" />
@@ -28,6 +30,10 @@
           <button class="shell-nav__button" type="button" data-shell-view="profile">
             <span class="shell-nav__label">Profile</span>
             <span class="shell-nav__meta">Identity & war record</span>
+          </button>
+          <button class="shell-nav__button" type="button" data-shell-view="collection">
+            <span class="shell-nav__label">Collection</span>
+            <span class="shell-nav__meta">Unlocks & test levels</span>
           </button>
           <button class="shell-nav__button" type="button" data-shell-view="loadouts">
             <span class="shell-nav__label">Loadouts</span>
@@ -71,6 +77,11 @@
                 <span class="landing-card__tag">Profile</span>
                 <strong>War Record</strong>
                 <p>Identity, badges, match history.</p>
+              </button>
+              <button class="landing-card" type="button" data-shell-view="collection">
+                <span class="landing-card__tag">Collection</span>
+                <strong>Unlock Table</strong>
+                <p>Progression, level test buttons, locked build content.</p>
               </button>
               <button class="landing-card" type="button" data-shell-view="dev">
                 <span class="landing-card__tag">Dev Status</span>
@@ -665,6 +676,12 @@
           </div>
         </section>
 
+        <section class="shell-view shell-view--collection" id="shell-view-collection" data-shell-panel="collection">
+          <div class="collection-view">
+            <div class="collection-layout" id="collection-root"></div>
+          </div>
+        </section>
+
         <section class="shell-view shell-view--loadouts" id="shell-view-loadouts" data-shell-panel="loadouts">
           <div class="loadout-view">
             <div class="loadout-layout" id="loadout-root">
@@ -771,8 +788,42 @@
     <script type="module" src="./src/gameplay/training-ui.js"></script>
     <script type="module" src="./dev-status.js"></script>
     <script type="module" src="./profile.js"></script>
+    <script type="module" src="./collection.js"></script>
     <script type="module" src="./loadout-page.js"></script>
     <script type="module" src="./loadout-builder.js"></script>
     <script type="module" src="./shell-ui.js"></script>
+    <script type="module" src="./auth.js"></script>
+
+    <!-- AUTH / SESSION GATE -->
+    <div class="auth-screen" id="auth-screen" role="dialog" aria-modal="true" aria-label="Connexion">
+      <div class="auth-card">
+        <div class="auth-corner auth-corner--tl"></div>
+        <div class="auth-corner auth-corner--tr"></div>
+        <div class="auth-corner auth-corner--bl"></div>
+        <div class="auth-corner auth-corner--br"></div>
+
+        <span class="auth-eyebrow">Prototype-0</span>
+        <strong class="auth-title">Arena Shell</strong>
+        <p class="auth-sub">Scrap-tech duel prototype</p>
+
+        <form class="auth-form" id="auth-form" autocomplete="off" novalidate>
+          <div class="auth-field">
+            <label class="auth-field__label" for="auth-identifier">Identifiant</label>
+            <input class="auth-field__input" id="auth-identifier" type="text" placeholder="tag ou adresse e-mail" autocomplete="username" spellcheck="false" />
+          </div>
+          <div class="auth-field">
+            <label class="auth-field__label" for="auth-password">Mot de passe</label>
+            <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <button class="auth-submit-btn" type="submit">Se connecter</button>
+        </form>
+
+        <button class="auth-forgot-btn" type="button">Mot de passe oublié ?</button>
+
+        <div class="auth-divider"><span>ou</span></div>
+
+        <button class="auth-connect-btn" id="auth-connect-btn" type="button">Connect as SAA_BOT</button>
+      </div>
+    </div>
   </body>
 </html>

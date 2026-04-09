@@ -15,6 +15,7 @@ import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } fr
 import { getAxeComboProfile } from "../gameplay/weapons.js";
 import { playUiCue, unlockAudio } from "../audio.js";
 import { normalizeStoredBuild, readStoredLoadouts } from "../loadouts/storage.js";
+import { formatMissingUnlocks, getMissingUnlocksForBuild, isContentUnlocked } from "../progression.js";
 
 // Forward declarations
 let _resetPlayer = null;
@@ -592,16 +593,16 @@ function getAbilityValueLines(item) {
 
 function getFallbackDetailKey(type) {
   if (type === "weapon") {
-    return loadout.weapon ?? buildLabVisiblePools.weapons[0];
+    return loadout.weapon ?? getPrematchCategoryItems("weapon")[0]?.key ?? buildLabVisiblePools.weapons[0];
   }
   if (type === "ability") {
-    return loadout.abilities.find(Boolean) ?? buildLabVisiblePools.abilities[0];
+    return loadout.abilities.find(Boolean) ?? getPrematchCategoryItems("ability")[0]?.key ?? buildLabVisiblePools.abilities[0];
   }
   if (type === "perk") {
-    return loadout.perks[0] ?? buildLabVisiblePools.perks[0];
+    return loadout.perks[0] ?? getPrematchCategoryItems("perk")[0]?.key ?? buildLabVisiblePools.perks[0];
   }
   if (type === "ultimate") {
-    return loadout.ultimate ?? buildLabVisiblePools.ultimates[0];
+    return loadout.ultimate ?? getPrematchCategoryItems("ultimate")[0]?.key ?? buildLabVisiblePools.ultimates[0];
   }
   return null;
 }
@@ -1484,7 +1485,7 @@ export function renderTrainingBotPanel() {
 
   renderSelectionGrid(
     dom.botWeaponGrid,
-    getVisibleContentItems("weapons"),
+    getVisibleContentItems("weapons", { ignoreProgression: true }),
     [botBuildState.custom.weapon],
     (weaponKey) => applyBotCustomWeapon(weaponKey),
     {
@@ -1495,7 +1496,7 @@ export function renderTrainingBotPanel() {
 
   renderSelectionGrid(
     dom.botAbilityGrid,
-    getVisibleContentItems("abilities"),
+    getVisibleContentItems("abilities", { ignoreProgression: true }),
     botBuildState.custom.abilities,
     (abilityKey) => toggleBotCustomAbility(abilityKey),
     {
@@ -1525,25 +1526,34 @@ function renderPresetButtons(container, presets, activeKey, onApply, options = {
 
   const eyebrowFor = options.getEyebrow ?? ((preset) => preset.role);
   const copyFor = options.getCopy ?? ((preset) => preset.description);
+  const disabledFor = options.isDisabled ?? (() => false);
+  const disabledCopyFor = options.getDisabledCopy ?? (() => "Locked");
 
   container.textContent = "";
   presets.forEach((preset) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "preset-chip";
+    const isDisabled = disabledFor(preset);
     if (preset.key === activeKey) {
       button.classList.add("is-active");
+    }
+    if (isDisabled) {
+      button.classList.add("is-disabled");
+      button.disabled = true;
     }
     button.innerHTML = `
       <span class="preset-chip__eyebrow">${eyebrowFor(preset)}</span>
       <strong>${preset.name}</strong>
-      <span class="preset-chip__copy">${copyFor(preset)}</span>
+      <span class="preset-chip__copy">${isDisabled ? disabledCopyFor(preset) : copyFor(preset)}</span>
     `;
-    button.addEventListener("click", () => {
-      unlockAudio();
-      playUiCue("confirm");
-      onApply(preset.key);
-    });
+    if (!isDisabled) {
+      button.addEventListener("click", () => {
+        unlockAudio();
+        playUiCue("confirm");
+        onApply(preset.key);
+      });
+    }
     container.appendChild(button);
   });
 }
@@ -1586,7 +1596,13 @@ function renderBuildPresets() {
     findActiveSavedLoadoutKey(savedLoadouts),
     (loadoutId) => {
       const selectedLoadout = savedLoadouts.find((entry) => entry.id === loadoutId);
-      if (!selectedLoadout || !applySavedPlayerLoadout(selectedLoadout)) {
+      if (!selectedLoadout) {
+        return;
+      }
+
+      const result = applySavedPlayerLoadout(selectedLoadout);
+      if (!result.ok) {
+        dom.statusLine.textContent = `Loadout locked. ${formatMissingUnlocks(result.missing)}`;
         return;
       }
 
@@ -1602,6 +1618,8 @@ function renderBuildPresets() {
       emptyMessage: "No loadouts yet. Forge one from the Loadouts page.",
       getEyebrow: (entry) => entry.tags.length ? entry.tags.join(" / ") : (entry.role || "Loadout"),
       getCopy: (entry) => getSavedLoadoutSummary(entry),
+      isDisabled: (entry) => getMissingUnlocksForBuild(entry).length > 0,
+      getDisabledCopy: (entry) => formatMissingUnlocks(getMissingUnlocksForBuild(entry), { short: true }),
     },
   );
 

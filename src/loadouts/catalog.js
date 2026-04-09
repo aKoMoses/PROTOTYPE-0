@@ -24,7 +24,7 @@ export const playerStarterPresets = [
       weapon: weapons.pulse.key,
       abilities: ["shockJavelin", "magneticField", "phaseShift"],
       perks: ["reactiveArmor"],
-      ultimate: "revivalProtocol",
+      ultimate: "phantomSplit",
       runes: createPresetRunes({
         attack: { secondary: 2, primary: 0, ultimate: 0 },
         defense: { secondary: 5, primary: 3, ultimate: 1 },

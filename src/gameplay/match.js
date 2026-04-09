@@ -10,6 +10,7 @@ import { setPrematchStep, resetBuildWizard, prevBuildWizardStep, commitBuildStep
 import { startSurvivalRun } from "./survival.js";
 import * as dom from "../dom.js";
 import { playUiCue, unlockAudio } from "../audio.js";
+import { addXp } from "../progression.js";
 export { relaunchCurrentSession } from "../build/ui.js";
 
 // Forward declarations - these will be set by the modules that define them
@@ -118,6 +119,13 @@ export function updateDuelMatch(dt) {
         matchState.playerRounds >= matchState.formatWins ||
         matchState.enemyRounds >= matchState.formatWins
       ) {
+        if (matchState.playerRounds > matchState.enemyRounds) {
+          const progression = addXp(1, "duel-win");
+          const levelText = progression.leveledUp
+            ? ` Level ${progression.snapshot.level} reached.`
+            : ` XP ${progression.snapshot.xp}.`;
+          dom.statusLine.textContent = `Match won. +1 XP earned.${levelText}`;
+        }
         matchState.phase = "match_end";
         matchState.timer = 2.2;
         showRoundBanner(
@@ -125,10 +133,9 @@ export function updateDuelMatch(dt) {
           matchState.playerRounds > matchState.enemyRounds ? "Victory" : "Defeat",
           true,
         );
-        dom.statusLine.textContent =
-          matchState.playerRounds > matchState.enemyRounds
-            ? "Match won. Duel sequence resetting."
-            : "Match lost. Duel sequence resetting.";
+        if (matchState.playerRounds <= matchState.enemyRounds) {
+          dom.statusLine.textContent = "Match lost. Duel sequence resetting.";
+        }
       } else {
         matchState.roundNumber += 1;
         startDuelRound();
