@@ -171,12 +171,19 @@ export function renderSelectionGrid(container, items, selectedKeys, onSelect, op
     if (options.previewKey === item.key) {
       row.classList.add("is-previewing");
     }
+    if (options.equippedKeys?.includes(item.key)) {
+      row.classList.add("is-equipped");
+    }
 
     let stateLabel = "";
     let stateClass = "";
+
     if (options.previewKey === item.key) {
       stateLabel = "PREVIEW";
       stateClass = " item-row__state--pending";
+    } else if (options.equippedKeys?.includes(item.key)) {
+      stateLabel = "EQUIPPED";
+      stateClass = " item-row__state--equipped";
     } else if (selectedKeys.includes(item.key)) {
       stateLabel = "LOCKED IN";
     } else if (item.state === "preview") {
@@ -192,7 +199,9 @@ export function renderSelectionGrid(container, items, selectedKeys, onSelect, op
       ${stateLabel ? `<span class="item-row__state${stateClass}">${stateLabel}</span>` : ""}
     `;
 
-    if (!item.locked) {
+    const isActuallyLocked = item.locked || options.equippedKeys?.includes(item.key);
+
+    if (!isActuallyLocked) {
       row.addEventListener("click", () => {
         unlockAudio();
         playUiCue("click");
@@ -1357,6 +1366,17 @@ export function renderBuildLibrary() {
   const currentSlotItem = getLoadoutItemForSlot(targetSlot);
   const filteredSelectedKeys = currentSlotItem ? [currentSlotItem.key] : [];
 
+  // Identify keys equipped in OTHER slots of the same category
+  // This prevents dual-equipping the same ability across Q, F, or E.
+  const equippedKeys = [];
+  const compatibleSlots = getPrematchCategoryConfig(uiState.buildCategory)?.compatibleSlots ?? [];
+  compatibleSlots.forEach(slot => {
+    if (slot !== targetSlot) {
+      const equipped = getLoadoutItemForSlot(slot);
+      if (equipped) equippedKeys.push(equipped.key);
+    }
+  });
+
   renderSelectionGrid(
     dom.buildLibraryGrid,
     items,
@@ -1366,6 +1386,7 @@ export function renderBuildLibrary() {
     },
     {
       activeKeys: filteredSelectedKeys,
+      equippedKeys: equippedKeys,
       iconType: config.iconType,
       previewKey,
     },

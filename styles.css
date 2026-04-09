@@ -1972,6 +1972,31 @@ body {
   box-shadow: 0 0 20px rgba(255, 211, 117, 0.22);
 }
 
+.ability-slot.recast {
+  border-color: #fff0a4;
+  box-shadow: 
+    0 0 25px rgba(255, 240, 164, 0.35),
+    inset 0 0 12px rgba(255, 240, 164, 0.15);
+  animation: recast-active-glow 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes recast-active-glow {
+  from { filter: brightness(1); box-shadow: 0 0 15px rgba(255, 240, 164, 0.25); }
+  to { filter: brightness(1.25); box-shadow: 0 0 30px rgba(255, 240, 164, 0.5); }
+}
+
+.ability-slot.recast .ability-slot__name {
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(255, 240, 164, 0.6);
+}
+
+.ability-slot.recast .ability-slot__timer {
+  color: #fff;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+
 .ability-slot.charging .ability-slot__cooldown {
   background: conic-gradient(from -90deg, rgba(55, 33, 10, 0.82) 360deg, rgba(55, 33, 10, 0.16) 360deg);
 }
@@ -2987,6 +3012,13 @@ body {
 .item-row.is-selected {
   background: rgba(119, 216, 255, 0.1);
   border-color: rgba(119, 216, 255, 0.3);
+}
+
+.item-row.is-equipped {
+  opacity: 0.35;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .item-row.is-active {

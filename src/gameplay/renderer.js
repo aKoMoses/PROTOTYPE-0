@@ -2068,6 +2068,7 @@ export function drawWorld() {
   }
 
   drawPendingAxeTelegraph();
+  drawJavelinRecastUI();
 
   if (playerClone.active && playerClone.alive) {
     const cloneAvatar = content.avatars[playerClone.avatar] ?? content.avatars[loadout.avatar] ?? content.avatars.drifter;
@@ -2311,6 +2312,47 @@ export function drawWorld() {
   ctx.lineTo(input.mouseX, input.mouseY);
   ctx.stroke();
 
+  ctx.restore();
+}
+
+export function drawJavelinRecastUI() {
+  if (!abilityState.javelin.recastReady || abilityState.javelin.activeTime <= 0) {
+    return;
+  }
+
+  const target = getAllBots().find(b => b.kind === abilityState.javelin.targetKind && b.alive);
+  if (!target) return;
+
+  const pulse = 1 + Math.sin(performance.now() * 0.015) * 0.1;
+  const color = "#fff0a4";
+  const accent = "#8fe8ff";
+
+  // 1. Connection Line (Thread)
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.4;
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(target.x, target.y);
+  ctx.stroke();
+  ctx.restore();
+
+  // 2. Target Diamond Mark
+  ctx.save();
+  ctx.translate(target.x, target.y - target.radius - 25);
+  ctx.rotate(Math.PI / 4 + performance.now() * 0.002);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = color;
+  ctx.strokeRect(-8 * pulse, -8 * pulse, 16 * pulse, 16 * pulse);
+  
+  // Inner core
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.6;
+  ctx.fillRect(-3, -3, 6, 6);
   ctx.restore();
 }
 

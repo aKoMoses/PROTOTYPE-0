@@ -7,7 +7,7 @@ import * as dom from "../dom.js";
 import { clamp } from "../utils.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getMapLayout } from "../maps.js";
-import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize, getSelectedRuneUltimateTree } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getAbilityBySlot, getActiveDashCooldown, getPulseMagazineSize, getSelectedRuneUltimateTree, getStatusDuration } from "../build/loadout.js";
 import { getAllBots, getPrimaryBot } from "./combat.js";
 
 const {
@@ -246,7 +246,8 @@ export function updateHud() {
 export function updateAbilitySlot(slot, overlay, timerLabel, state) {
   slot.classList.toggle("ready", state.ready);
   slot.classList.toggle("charging", state.charging);
-  slot.classList.toggle("cooling", !state.ready && !state.charging);
+  slot.classList.toggle("recast", !!state.recast);
+  slot.classList.toggle("cooling", !state.ready && !state.charging && !state.recast);
   const clampedRatio = Math.max(0, Math.min(1, state.cooldownRatio ?? 1));
   const cooldownDegrees = Math.round(clampedRatio * 360);
   const clearDegrees = 360 - cooldownDegrees;
@@ -271,17 +272,18 @@ export function getAbilityHudState(abilityKey) {
     case "shockJavelin":
       return {
         ready: abilityState.javelin.cooldown <= 0 && !abilityState.javelin.pendingCooldown && !abilityState.javelin.recastReady,
-        charging: abilityState.javelin.recastReady,
+        recast: abilityState.javelin.recastReady,
+        charging: false,
         cooldownRatio:
           abilityState.javelin.recastReady
-            ? 0
+            ? 1 - (abilityState.javelin.activeTime / getStatusDuration(config.javelinSlowDuration))
             : abilityState.javelin.pendingCooldown
               ? Math.max(0, Math.min(1, abilityState.javelin.activeTime / Math.max(0.001, config.javelinSlowDuration)))
             : abilityState.javelin.cooldown <= 0
             ? 0
             : Math.max(0, Math.min(1, abilityState.javelin.cooldown / abilityConfig.javelin.cooldown)),
         timer: abilityState.javelin.recastReady
-          ? "RE"
+          ? "RECAST"
           : abilityState.javelin.pendingCooldown
             ? abilityState.javelin.activeTime.toFixed(1)
           : abilityState.javelin.cooldown <= 0
