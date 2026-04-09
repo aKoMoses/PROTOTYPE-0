@@ -22,7 +22,13 @@ const audioState = {
   combatImpulse: 0,
   cooldowns: new Map(),
   noiseBuffer: null,
-  music: null,
+  music: {
+    current: null,
+    target: null,
+    tracks: new Map(), // name -> HTMLAudioElement
+    fadePhase: "none", // "none", "out", "in"
+    fadeStartTime: 0,
+  },
   ambience: null,
 };
 
@@ -213,58 +219,114 @@ function playNoise({
   source.stop(audioState.ctx.currentTime + duration + release + 0.03);
 }
 
-function buildMusicGraph() {
-  const calmOsc = audioState.ctx.createOscillator();
-  const calmFilter = audioState.ctx.createBiquadFilter();
-  const calmGain = audioState.ctx.createGain();
-  calmOsc.type = "triangle";
-  calmOsc.frequency.value = 92;
-  calmFilter.type = "lowpass";
-  calmFilter.frequency.value = 520;
-  calmGain.gain.value = 0.0001;
-  calmOsc.connect(calmFilter);
-  calmFilter.connect(calmGain);
-  calmGain.connect(audioState.musicGain);
-  calmOsc.start();
-
-  const pulseOsc = audioState.ctx.createOscillator();
-  const pulseFilter = audioState.ctx.createBiquadFilter();
-  const pulseGain = audioState.ctx.createGain();
-  pulseOsc.type = "sawtooth";
-  pulseOsc.frequency.value = 144;
-  pulseFilter.type = "bandpass";
-  pulseFilter.frequency.value = 640;
-  pulseFilter.Q.value = 0.8;
-  pulseGain.gain.value = 0.0001;
-  pulseOsc.connect(pulseFilter);
-  pulseFilter.connect(pulseGain);
-  pulseGain.connect(audioState.musicGain);
-  pulseOsc.start();
-
-  const tensionOsc = audioState.ctx.createOscillator();
-  const tensionFilter = audioState.ctx.createBiquadFilter();
-  const tensionGain = audioState.ctx.createGain();
-  tensionOsc.type = "square";
-  tensionOsc.frequency.value = 196;
-  tensionFilter.type = "lowpass";
-  tensionFilter.frequency.value = 1200;
-  tensionGain.gain.value = 0.0001;
-  tensionOsc.connect(tensionFilter);
-  tensionFilter.connect(tensionGain);
-  tensionGain.connect(audioState.musicGain);
-  tensionOsc.start();
-
-  return {
-    calmOsc,
-    calmFilter,
-    calmGain,
-    pulseOsc,
-    pulseFilter,
-    pulseGain,
-    tensionOsc,
-    tensionFilter,
-    tensionGain,
+function loadMusicTracks() {
+  const sources = {
+    menu: "/music/menu.mp3",
+    training: "/music/training.mp3",
+    "map-electro": "/music/map-electro.mp3",
+    "map-scrap": "/music/map-scrap.mp3",
   };
+
+  for (const [key, url] of Object.entries(sources)) {
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = 0;
+    
+    // We'll use the AudioContext to pipe this through our gain nodes
+    const sourceNode = audioState.ctx.createMediaElementSource(audio);
+    const trackGain = audioState.ctx.createGain();
+    trackGain.gain.value = 0; // Controlled by crossfade logic
+    
+    sourceNode.connect(trackGain);
+    trackGain.connect(audioState.musicGain);
+    
+    audioState.music.tracks.set(key, { 
+      audio, 
+      gain: trackGain,
+      url 
+    });
+  }
+}
+
+function updateMusicPlaylist() {
+  if (!audioState.unlocked || !audioState.music.tracks.size) {
+    return;
+  }
+
+  // 1. Identify what SHOULD be playing
+  let targetKey = "menu";
+  if (!uiState.prematchOpen) {
+    if (sandbox.mode === "training" || sandbox.mapKey === "trainingExpanse") {
+      targetKey = "training";
+    } else {
+      targetKey = sandbox.mapKey === "bricABroc" ? "map-scrap" : "map-electro";
+    }
+  }
+
+  const m = audioState.music;
+  const now = audioState.ctx.currentTime;
+  const fadeDuration = 1.0; // 1 second out, 1 second in
+
+  // 2. Trigger a new transition if target has changed
+  if (m.target !== targetKey) {
+    m.target = targetKey;
+    m.fadePhase = m.current ? "out" : "in";
+    m.fadeStartTime = now;
+    
+    // If we're starting from silence (none), jump to 'in'
+    if (m.fadePhase === "in") {
+      const trackData = m.tracks.get(targetKey);
+      if (trackData && trackData.audio.paused) {
+        trackData.audio.play().catch(() => {});
+      }
+    }
+  }
+
+  // 3. Process the Sequential Fade
+  if (m.fadePhase === "out") {
+    const progress = Math.min(1, (now - m.fadeStartTime) / fadeDuration);
+    const currentTrack = m.tracks.get(m.current);
+    
+    if (currentTrack) {
+        setParamTarget(currentTrack.gain.gain, 1 - progress, 0.05);
+    }
+    
+    // Switch to 'in' once faded out
+    if (progress >= 1) {
+        if (currentTrack && !currentTrack.audio.paused) currentTrack.audio.pause();
+        m.current = null; // Grounded to silence
+        m.fadePhase = "in";
+        m.fadeStartTime = now;
+        
+        const nextTrack = m.tracks.get(m.target);
+        if (nextTrack && nextTrack.audio.paused) {
+            nextTrack.audio.play().catch(() => {});
+        }
+    }
+  } else if (m.fadePhase === "in") {
+    const progress = Math.min(1, (now - m.fadeStartTime) / fadeDuration);
+    const nextTrack = m.tracks.get(m.target);
+    
+    if (nextTrack) {
+        setParamTarget(nextTrack.gain.gain, progress, 0.05);
+        nextTrack.audio.volume = 1.0;
+    }
+    
+    if (progress >= 1) {
+        m.current = m.target;
+        m.fadePhase = "none";
+    }
+  } else if (m.fadePhase === "none") {
+    // Steady state: ensure only current is playing at full volume
+    for (const [key, track] of m.tracks.entries()) {
+        if (key === m.current) {
+            setParamTarget(track.gain.gain, 1.0, 0.1);
+        } else {
+            setParamTarget(track.gain.gain, 0.0001, 0.1);
+            if (!track.audio.paused) track.audio.pause();
+        }
+    }
+  }
 }
 
 function buildAmbienceGraph() {
@@ -358,7 +420,7 @@ function ensureAudioGraph() {
   audioState.sfxGain.connect(audioState.masterGain);
   audioState.ambienceGain.connect(audioState.masterGain);
   audioState.masterGain.connect(audioState.ctx.destination);
-  audioState.music = buildMusicGraph();
+  loadMusicTracks();
   audioState.ambience = buildAmbienceGraph();
   applyMixTargets(true);
 }
@@ -451,25 +513,11 @@ function computeIntensity() {
 }
 
 function updateMusicLayers(intensity) {
-  if (!audioState.music) {
-    return;
-  }
-
-  const calmLevel = 0.028 + (1 - intensity) * 0.05;
-  const pulseLevel = 0.004 + intensity * 0.048;
-  const tensionLevel = Math.max(0, intensity - 0.42) * 0.07;
-
-  setParamTarget(audioState.music.calmGain.gain, calmLevel, 0.2);
-  setParamTarget(audioState.music.pulseGain.gain, pulseLevel, 0.14);
-  setParamTarget(audioState.music.tensionGain.gain, tensionLevel, 0.14);
-  setParamTarget(audioState.music.calmFilter.frequency, 380 + (1 - intensity) * 360, 0.22);
-  setParamTarget(audioState.music.pulseFilter.frequency, 420 + intensity * 860, 0.16);
-  setParamTarget(audioState.music.tensionFilter.frequency, 760 + intensity * 1300, 0.16);
-  setParamTarget(audioState.music.calmOsc.frequency, 88 + intensity * 16, 0.2);
-  setParamTarget(audioState.music.pulseOsc.frequency, 124 + intensity * 62, 0.14);
-  setParamTarget(audioState.music.tensionOsc.frequency, 176 + intensity * 118, 0.14);
+  updateMusicPlaylist();
+  
+  // Note: intensity can still modulate the underlying gain or filters if we want
+  // But for now we just handle track switching.
 }
-
 function updateAmbienceLayers() {
   if (!audioState.ambience) {
     return;
@@ -478,7 +526,7 @@ function updateAmbienceLayers() {
   const mapKey = sandbox.mapKey;
   const electro = mapKey === "electroGallery" ? 1 : 0;
   const scrap = mapKey === "bricABroc" ? 1 : 0;
-  const training = mapKey === "trainingGround" || mapKey === "trainingExpanse" ? 1 : 0;
+  const training = mapKey === "trainingExpanse" ? 1 : 0;
 
   setParamTarget(audioState.ambience.electroHumGain.gain, electro ? 0.028 : 0.0001, 0.28);
   setParamTarget(audioState.ambience.electroNoiseGain.gain, electro ? 0.016 : 0.0001, 0.28);
@@ -569,6 +617,9 @@ export function addCombatImpulse(amount) {
 }
 
 export function playWeaponFire(weaponKey, owner = "player") {
+  if (owner === "player") player.combatTimer = 3.0;
+  if (owner === "enemy") enemy.combatTimer = 3.0;
+
   const enemyPan = owner === "enemy" ? 0.32 : -0.18;
   const pan = owner === "enemy" ? enemyPan : 0;
   addCombatImpulse(owner === "enemy" ? 0.014 : 0.02);
@@ -624,6 +675,9 @@ export function playReloadCue(owner = "player") {
 }
 
 export function playAbilityCue(abilityKey, owner = "player") {
+  if (owner === "player") player.combatTimer = 3.0;
+  if (owner === "enemy") enemy.combatTimer = 3.0;
+
   const pan = owner === "enemy" ? 0.26 : 0;
   addCombatImpulse(owner === "enemy" ? 0.016 : 0.028);
 

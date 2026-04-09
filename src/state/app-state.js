@@ -55,4 +55,9 @@ export const botBuildState = {
 export const trainingToolState = {
   botsFire: false,
   editingBuild: false,
+  botOverrides: {},
+  trainingConfig: {
+    selectedBotId: null,
+    isSelecting: false,
+  },
 };

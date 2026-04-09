@@ -1,7 +1,6 @@
 // Game configuration constants
 export const arena = { width: 1600, height: 900 };
 
-
 export const config = {
   playerSpeed: 420,
   playerAcceleration: 4400,
@@ -89,7 +88,7 @@ export const config = {
   gravityWellSlow: 0.26,
   gravityWellPullStrength: 124,
   energyParryStartup: 0.04,
-  energyParryWindow: 0.45,
+  energyParryWindow: 1.2,
   energyParryFailRecovery: 0.15,
   energyParryCooldown: 9,
   energyParryShield: 18,
@@ -162,7 +161,6 @@ export const config = {
   runePoints: 15,
 };
 
-
 export const sandboxModes = {
   duel: {
     key: "duel",
@@ -180,7 +178,6 @@ export const sandboxModes = {
     subtitle: "Static targets and instant rebuilds for values, spacing, and combo tests.",
   },
 };
-
 
 export const abilityConfig = {
   dash: {
@@ -232,5 +229,13 @@ export const abilityConfig = {
       glow: "#bed1ff",
     },
   },
+  castTimes: {
+    javelin: 0.18,
+    pulseBurst: 0.15,
+    railShot: 0.22,
+    chainLightning: 0.16,
+    gravityWell: 0.21,
+    magneticField: 0.19,
+    magneticGrapple: 0.18,
+  },
 };
-

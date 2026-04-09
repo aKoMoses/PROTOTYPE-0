@@ -80,6 +80,16 @@ export const player = {
   injectorMarkTime: 0,
   mainRuneCooldown: 0,
   defenseRuneShieldCooldown: 0,
+  castTime: 0,
+  totalCastTime: 0,
+  castingAbility: null,
+  castParams: null,
+  visualCastTime: 0,
+  totalVisualCastTime: 0,
+  visualCastingAbility: null,
+  weaponChargeTime: 0,
+  totalWeaponChargeTime: 0,
+  weaponCasting: null,
 };
 
 export const playerClone = {
@@ -305,6 +315,17 @@ export function createBot({
     statusEffects: [],
     injectorMarks: 0,
     injectorMarkTime: 0,
+    combatTimer: 0,
+    castTime: 0,
+    totalCastTime: 0,
+    castingAbility: null,
+    castParams: null,
+    visualCastTime: 0,
+    totalVisualCastTime: 0,
+    visualCastingAbility: null,
+    weaponChargeTime: 0,
+    totalWeaponChargeTime: 0,
+    weaponCasting: null,
   };
 }
 
@@ -327,7 +348,7 @@ enemy.fieldCooldown = 2.4;
 enemy.postAttackMoveTime = 0;
 enemy.lastSeenMissTime = 0;
 
-export const trainingBots = Array.from({ length: 5 }, (_, index) =>
+export const trainingBots = Array.from({ length: 8 }, (_, index) =>
   createBot({
     kind: `training-${index + 1}`,
     role: "training",
@@ -407,6 +428,7 @@ export const mapState = {
   portals: [],
   pylons: [],
   decor: [],
+  healPacks: [],
 };
 
 export const globals = {

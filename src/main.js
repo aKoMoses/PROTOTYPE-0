@@ -7,7 +7,7 @@ import { canvas } from "./dom.js";
 import * as dom from "./dom.js";
 import { resetMapState } from "./maps.js";
 import { updatePortalCooldowns, resolveCharacterBodyBlocking } from "./maps.js";
-import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, getAllBots, resetBotsForMode, clearCombatArtifacts } from "./gameplay/combat.js";
+import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, getAllBots, resetBotsForMode, clearCombatArtifacts, updateMapInteractables } from "./gameplay/combat.js";
 import { updateDuelMatch, showRoundBanner, startDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton } from "./gameplay/match.js";
 import { updateImpacts } from "./gameplay/combat.js";
 import { updatePlayer, resetPlayer, setWeapon } from "./gameplay/player.js";
@@ -36,6 +36,7 @@ bindSurvivalDeps({ resetPlayer, openPrematch, resetBotsForMode });
 
 // Game loop
 function frame(time) {
+  try {
   const dt = Math.min(0.033, (time - globals.lastTime) / 1000);
   globals.lastTime = time;
 
@@ -60,6 +61,7 @@ function frame(time) {
     updateDuelMatch(dt);
     updateSurvivalMode(dt);
     updateImpacts(dt);
+    updateMapInteractables(dt);
   }
 
   updateAudio(dt);
@@ -72,6 +74,13 @@ function frame(time) {
     persistSession();
   }
 
+  } catch (err) {
+    document.body.style.background = 'black';
+    document.body.style.color = 'red';
+    document.body.style.zIndex = '99999';
+    document.body.innerHTML = '<pre style="font-size: 20px; white-space: pre-wrap; padding: 20px">' + err.stack + '</pre>';
+    throw err;
+  }
   requestAnimationFrame(frame);
 }
 
@@ -91,6 +100,27 @@ resetBotsForMode(sandbox.mode);
 showRoundBanner("", "", false);
 toggleHelpPanel(false);
 initRobotWizardZoneClicks();
+
+// Bind core prematch navigation buttons
+bindPrematchButton(dom.modeDuel, "mode-duel");
+bindPrematchButton(dom.modeSurvival, "mode-survival");
+bindPrematchButton(dom.modeTraining, "mode-training");
+bindPrematchButton(dom.continueMap, "continue-map");
+bindPrematchButton(dom.backMode, "back-mode");
+bindPrematchButton(dom.continueBuild, "continue-build");
+
+const matchPanelToggle = document.getElementById("match-panel-toggle");
+const matchPanel = document.getElementById("match-panel");
+matchPanelToggle?.addEventListener("click", () => {
+  matchPanel?.classList.toggle("is-collapsed");
+});
+
+const ttPanelToggle = document.getElementById("tt-panel-toggle");
+const ttPanel = document.getElementById("training-tools-panel");
+ttPanelToggle?.addEventListener("click", () => {
+  ttPanel?.classList.toggle("is-collapsed");
+});
+
 const restoredSnapshot = restoreSessionSnapshot();
 if (restoredSnapshot) {
   if (restoredSnapshot.resumeGameplay) {

@@ -12,6 +12,7 @@ import { getAllBots, getPrimaryBot, isCombatLive, damageBot, spawnBullet, startP
 import { mapState } from "../state.js";
 import { playWeaponFire } from "../audio.js";
 import { queuePhantomWeapon } from "./phantom.js";
+import { startWeaponTelegraph } from "./casting.js";
 
 export function collectTargetsAlongLine(owner, facing, range, width, targets = getAllBots(), singleTarget = true) {
   const lineStartX = owner.x + Math.cos(facing) * Math.max(10, owner.radius - 2);
@@ -51,6 +52,7 @@ export function attackPulseRifle() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.stock;
   const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.pulse.key);
+  startWeaponTelegraph(player, "pulse", 0.06);
   spawnBullet(player, input.mouseX, input.mouseY, bullets, activeSkin.tint, config.bulletSpeed, config.pulseDamage * getWeaponDamageMultiplier(), {
     radius: 4,
     source: "pulse-rifle",
@@ -77,6 +79,7 @@ export function attackScrapShotgun() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.rustfang;
   const attackId = beginPlayerWeaponAttack(6);
   player.fireCooldown = getWeaponCooldown(weapons.shotgun.key);
+  startWeaponTelegraph(player, "shotgun", 0.08);
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
 
   for (let pellet = 0; pellet < 6; pellet += 1) {
@@ -111,6 +114,7 @@ export function attackRailSniper(chargeRatio = 0) {
   const projectileSpeed = config.sniperProjectileSpeed + (config.sniperChargedProjectileSpeed - config.sniperProjectileSpeed) * charge;
 
   player.fireCooldown = getWeaponCooldown(weapons.sniper.key) * (1 + (1 - charge) * 0.04);
+  startWeaponTelegraph(player, "sniper", 0.12);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   spawnBullet(
     player,
@@ -166,6 +170,7 @@ export function attackVoltStaff() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.shockglass;
   const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.staff.key);
+  startWeaponTelegraph(player, "staff", 0.1);
   spawnBullet(
     player,
     input.mouseX,
@@ -195,6 +200,7 @@ export function attackBioInjector() {
   const activeSkin = getContentItem("weaponSkins", loadout.weaponSkin) ?? content.weaponSkins.voidchrome;
   const attackId = beginPlayerWeaponAttack(1);
   player.fireCooldown = getWeaponCooldown(weapons.injector.key);
+  startWeaponTelegraph(player, "injector", 0.1);
   spawnBullet(
     player,
     input.mouseX,
@@ -228,6 +234,7 @@ export function attackChargeLance(altFire = false) {
   const hits = collectTargetsAlongLine(player, player.facing, range, width, getAllBots(), true);
 
   player.fireCooldown = altFire ? config.lanceAltCooldown : config.lancePrimaryCooldown;
+  startWeaponTelegraph(player, "lance", 0.12);
   player.recoil = altFire ? 1.1 : 0.78;
   player.flash = Math.max(player.flash, altFire ? 0.14 : 0.1);
   const pylonHit = damagePylonsAlongLine(player.x, player.y, endX, endY, damage * 0.3, "player");
@@ -289,6 +296,7 @@ export function fireHeavyCannon(altFire = false) {
   const detonateX = player.x + direction.x * clampedDistance;
   const detonateY = player.y + direction.y * clampedDistance;
   player.fireCooldown = charged ? config.cannonAltCooldown : config.cannonPrimaryCooldown;
+  startWeaponTelegraph(player, "cannon", 0.14);
   player.recoil = charged ? 1.08 : 1.28;
   player.flash = Math.max(player.flash, charged ? 0.14 : 0.1);
   spawnBullet(
@@ -597,6 +605,7 @@ export function attackElectricAxe() {
     profile.damage *= getWeaponDamageMultiplier();
   }
   player.fireCooldown = profile.cooldown;
+  startWeaponTelegraph(player, "axe", 0.16);
   player.attackStartupTime = profile.startup;
   player.attackCommitTime = 0;
   player.attackCommitX = Math.cos(player.facing);

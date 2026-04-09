@@ -69,46 +69,90 @@
       <canvas id="game" aria-label="Prototype 0 arena"></canvas>
 
       <div class="match-panel" id="match-panel">
-        <div class="match-panel__row">
-          <span class="label">Sandbox</span>
-          <strong id="map-name">Duel Map</strong>
-        </div>
-        <div class="match-panel__row">
-          <span class="label">Round</span>
-          <strong id="round-label">Round 1</strong>
-        </div>
-        <div class="match-panel__row">
-          <span class="label">Score</span>
-          <strong id="match-score">0 - 0</strong>
-        </div>
-        <div class="match-panel__row">
-          <span class="label">Format</span>
-          <strong id="match-format">BO3</strong>
-        </div>
-        <span class="match-panel__status" id="status-line">Prototype 0 online.</span>
-        <div class="match-panel__actions">
-          <button class="hud-action-button" id="menu-button" type="button">Menu</button>
-          <button class="hud-action-button" id="rematch-button" type="button">Rematch</button>
-          <button class="hud-action-button training-build-button" id="training-build-button" type="button">Build Lab</button>
-          <a class="hud-action-button" href="./dev-status.html" target="_blank" rel="noreferrer">Dev Board</a>
-        </div>
-        <div class="audio-panel" id="audio-panel">
-          <div class="audio-panel__header">
-            <span class="label">Audio</span>
-            <button class="hud-action-button audio-toggle" id="audio-mute-button" type="button">Audio On</button>
+        <button class="panel-collapse-button" id="match-panel-toggle" type="button" style="pointer-events: auto;">
+          <span>Match Info</span>
+          <span class="collapse-icon">▼</span>
+        </button>
+        <div class="match-panel__content" id="match-panel-content">
+          <div class="match-panel__row">
+            <span class="label">Sandbox</span>
+            <strong id="map-name">Duel Map</strong>
           </div>
-          <label class="audio-control" for="audio-music-volume">
-            <span>Music</span>
-            <input id="audio-music-volume" type="range" min="0" max="100" step="1" value="68" />
-          </label>
-          <label class="audio-control" for="audio-sfx-volume">
-            <span>SFX</span>
-            <input id="audio-sfx-volume" type="range" min="0" max="100" step="1" value="90" />
-          </label>
-          <label class="audio-control" for="audio-ambience-volume">
-            <span>Ambience</span>
-            <input id="audio-ambience-volume" type="range" min="0" max="100" step="1" value="58" />
-          </label>
+          <div class="match-panel__row">
+            <span class="label">Round</span>
+            <strong id="round-label">Round 1</strong>
+          </div>
+          <div class="match-panel__row">
+            <span class="label">Score</span>
+            <strong id="match-score">0 - 0</strong>
+          </div>
+          <div class="match-panel__row">
+            <span class="label">Format</span>
+            <strong id="match-format">BO3</strong>
+          </div>
+          <span class="match-panel__status" id="status-line">Prototype 0 online.</span>
+          <div class="match-panel__actions">
+            <button class="hud-action-button" id="menu-button" type="button">Menu</button>
+            <button class="hud-action-button" id="rematch-button" type="button">Rematch</button>
+            <button class="hud-action-button training-build-button" id="training-build-button" type="button">Build Lab</button>
+            <a class="hud-action-button" href="./dev-status.html" target="_blank" rel="noreferrer">Dev Board</a>
+          </div>
+          <div class="audio-panel" id="audio-panel">
+            <div class="audio-panel__header">
+              <span class="label">Audio</span>
+              <button class="hud-action-button audio-toggle" id="audio-mute-button" type="button">Audio On</button>
+            </div>
+            <label class="audio-control" for="audio-music-volume">
+              <span>Music</span>
+              <input id="audio-music-volume" type="range" min="0" max="100" step="1" value="68" />
+            </label>
+            <label class="audio-control" for="audio-sfx-volume">
+              <span>SFX</span>
+              <input id="audio-sfx-volume" type="range" min="0" max="100" step="1" value="90" />
+            </label>
+            <label class="audio-control" for="audio-ambience-volume">
+              <span>Ambience</span>
+              <input id="audio-ambience-volume" type="range" min="0" max="100" step="1" value="58" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="training-tools-panel" class="match-panel is-hidden" style="left: auto; right: 16px; top: 78px; width: 280px; z-index: 6;">
+        <button class="panel-collapse-button" id="tt-panel-toggle" type="button" style="pointer-events: auto;">
+          <span>Training Menu</span>
+          <span class="collapse-icon">▼</span>
+        </button>
+        <div class="match-panel__content" id="tt-panel-content">
+          <div class="match-panel__actions" style="margin-top: 5px;">
+            <button class="hud-action-button" id="tt-respawn-btn" type="button">Respawn Bots</button>
+            <button class="hud-action-button" id="tt-toggle-fire-btn" type="button">Atk: OFF</button>
+            <button class="hud-action-button" id="tt-reset-cd-btn" type="button">Reset CDs (G)</button>
+          </div>
+          <div class="match-panel__row" style="margin-top: 10px;">
+            <span class="label">Bot Config</span>
+            <strong id="tt-selected-bot-label">No Bot Selected</strong>
+          </div>
+          <div class="match-panel__actions">
+             <button class="hud-action-button" id="tt-modify-bot-btn" type="button" style="width: 100%;">Modify Bot (Click)</button>
+          </div>
+          <div id="tt-bot-sliders" class="audio-panel is-hidden" style="margin-top: 5px;">
+            <div class="match-panel__actions" style="margin-bottom: 8px;">
+              <button class="hud-action-button" id="tt-bot-fire-btn" type="button" style="width: 100%;">Indiv. Atk: Default</button>
+            </div>
+            <label class="audio-control">
+               <span>HP (<span id="tt-hp-val">140</span>)</span>
+               <input id="tt-hp-slider" type="range" min="1" max="5000" step="10" value="140" />
+            </label>
+            <label class="audio-control">
+               <span>Armor (<span id="tt-armor-val">0</span>)</span>
+               <input id="tt-armor-slider" type="range" min="0" max="900" step="10" value="0" />
+            </label>
+            <label class="audio-control">
+               <span>Tenacity (<span id="tt-tenacity-val">0</span>)</span>
+               <input id="tt-tenacity-slider" type="range" min="0" max="100" step="5" value="0" />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -677,6 +721,7 @@
     </div>
 
     <script type="module" src="./src/main.js"></script>
+    <script type="module" src="./src/gameplay/training-ui.js"></script>
     <script type="module" src="./dev-status.js"></script>
     <script type="module" src="./shell-ui.js"></script>
   </body>

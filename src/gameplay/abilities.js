@@ -12,6 +12,7 @@ import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spaw
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
+import { startCast, startVisualCast } from "./casting.js";
 
 export function getJavelinProfile() {
   return {
@@ -244,6 +245,10 @@ export function startJavelinCharge() {
     return;
   }
 
+  startCast(player, "javelin", executeJavelinCast, null);
+}
+
+export function executeJavelinCast() {
   const profile = getJavelinProfile();
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
 
@@ -270,6 +275,7 @@ export function startJavelinCharge() {
   abilityState.javelin.aimY = input.mouseY;
   abilityState.javelin.lastDirectionX = direction.x;
   abilityState.javelin.lastDirectionY = direction.y;
+  abilityState.javelin.pendingCooldown = true;
   triggerAbilityCastRuneEffects();
   player.recoil = Math.max(player.recoil, 0.22);
   queuePhantomAbility("shockJavelin", {
@@ -349,6 +355,11 @@ export function recastShockJavelin() {
 }
 
 export function spawnEnemyJavelin(charged = false, targetEntity = player) {
+  startCast(enemy, "javelin", executeEnemyJavelinCast, { charged, targetEntity });
+}
+
+export function executeEnemyJavelinCast(params) {
+  const { charged, targetEntity } = params;
   const direction = normalize((targetEntity?.x ?? player.x) - enemy.x, (targetEntity?.y ?? player.y) - enemy.y);
   const speed = charged ? config.javelinSpeed * 0.94 : config.javelinSpeed;
   const radius = charged ? config.javelinRadius + 1 : config.javelinRadius;
@@ -500,6 +511,10 @@ export function castMagneticGrapple() {
     return;
   }
 
+  startCast(player, "magneticGrapple", executeMagneticGrappleCast);
+}
+
+export function executeMagneticGrappleCast() {
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   const life = config.grappleRange / Math.max(1, config.grappleProjectileSpeed) + 0.12;
   abilityState.grapple.cooldown = getAbilityCooldown(config.grappleCooldown);
@@ -520,9 +535,8 @@ export function castMagneticGrapple() {
   player.flash = 0.08;
   queuePhantomAbility("magneticGrapple", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playAbilityCue("magneticGrapple");
-  addImpact(player.x, player.y, "#c5f6ff", 24);
-  addAfterimage(player.x, player.y, player.facing, player.radius + 3, "#9ee9ff");
-  addShake(4.2);
+  addImpact(player.x, player.y, "#9feeff", 32);
+  addShake(5.4);
   statusLine.textContent = "Magnetic Grapple launched. Confirm the hook before you commit in.";
 }
 
@@ -531,6 +545,7 @@ export function castEnergyShield() {
     return;
   }
 
+  startVisualCast(player, "energyShield", 0.3);
   abilityState.shield.cooldown = getAbilityCooldown(config.shieldCooldown);
   triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, config.shieldValue + getRuneValue("defense", "primary") * 3);
@@ -568,6 +583,7 @@ export function castEnergyParry() {
   player.activeAxeStrike = null;
   player.weaponCharge = 0;
   player.weaponChargeActive = false;
+  startVisualCast(player, "energyParry", 0.22);
   abilityState.energyParry.startupTime = config.energyParryStartup;
   abilityState.energyParry.activeTime = 0;
   abilityState.energyParry.recoveryTime = 0;
@@ -584,6 +600,7 @@ export function castEmpBurst() {
     return;
   }
 
+  startVisualCast(player, "empBurst", 0.35);
   abilityState.emp.cooldown = getAbilityCooldown(config.boosterCooldown);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("empBurst");
@@ -643,11 +660,6 @@ export function castChainLightning() {
     return;
   }
 
-  const aliveBots = getAllBots().filter((bot) => bot.alive);
-  if (aliveBots.length === 0) {
-    return;
-  }
-
   const rankedTargets = [...aliveBots].sort((a, b) => {
     const aScore = length(a.x - input.mouseX, a.y - input.mouseY) + length(a.x - player.x, a.y - player.y) * 0.35;
     const bScore = length(b.x - input.mouseX, b.y - input.mouseY) + length(b.x - player.x, b.y - player.y) * 0.35;
@@ -657,6 +669,14 @@ export function castChainLightning() {
   if (!firstTarget || length(firstTarget.x - player.x, firstTarget.y - player.y) > 520) {
     return;
   }
+
+  startCast(player, "chainLightning", executeChainLightningCast, { target: firstTarget });
+}
+
+export function executeChainLightningCast(params) {
+  const firstTarget = params.target;
+  const aliveBots = getAllBots().filter((bot) => bot.alive);
+  if (!firstTarget || !firstTarget.alive) return;
 
   abilityState.chainLightning.cooldown = getAbilityCooldown(5.4);
   triggerAbilityCastRuneEffects();
@@ -699,6 +719,7 @@ export function castBlinkStep() {
   if (!isCombatLive() || abilityState.blink.cooldown > 0) {
     return;
   }
+  startVisualCast(player, "blinkStep", 0.3);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   player.x += direction.x * 148;
   player.y += direction.y * 148;
@@ -719,6 +740,7 @@ export function castPhaseDash() {
   if (!isCombatLive() || abilityState.phaseDash.cooldown > 0) {
     return;
   }
+  startVisualCast(player, "speedSurge", 0.28);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   player.attackCommitX = direction.x;
   player.attackCommitY = direction.y;
@@ -739,14 +761,25 @@ export function castPulseBurst() {
   if (!isCombatLive() || abilityState.pulseBurst.cooldown > 0) {
     return;
   }
+
+  startCast(player, "pulseBurst", executePulseBurstCast, null);
+}
+
+export function executePulseBurstCast() {
   abilityState.pulseBurst.cooldown = getAbilityCooldown(config.pulseBurstCooldown);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("pulseBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
   const burstId = beginPulseBurstCast("player", config.pulseBurstMissiles);
+  const totalAngle = 35 * (Math.PI / 180); // 35 degree cone
+
   for (let pellet = 0; pellet < config.pulseBurstMissiles; pellet += 1) {
-    const spread = -0.18 + pellet * (0.36 / Math.max(1, config.pulseBurstMissiles - 1));
+    let spread = 0;
+    if (config.pulseBurstMissiles > 1) {
+      spread = -totalAngle / 2 + pellet * (totalAngle / (config.pulseBurstMissiles - 1));
+    }
     const angle = baseAngle + spread;
+    
     spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.pulseBurstProjectileSpeed, config.pulseBurstBaseDamage * getPerkDamageMultiplier(getPrimaryBot()), {
       radius: 4.5,
       life: config.pulseBurstLifetime,
@@ -757,13 +790,15 @@ export function castPulseBurst() {
         burstId,
         guideTurnRate: config.pulseBurstGuideTurnRate,
         guideDot: config.pulseBurstGuideDot,
+        guideDelay: 0.12,
         resolved: false,
       },
     });
   }
   playAbilityCue("pulseBurst");
-  addImpact(player.x + Math.cos(baseAngle) * 24, player.y + Math.sin(baseAngle) * 24, "#84dcff", 18);
-  addShake(5.2);
+  addImpact(player.x, player.y, "#7ddcff", 32);
+  addShake(5.6);
+  player.flash = 0.08;
   statusLine.textContent = "Pulse Burst fired. Lock the target in place to cash in the full volley.";
 }
 
@@ -771,6 +806,11 @@ export function castRailShotAbility() {
   if (!isCombatLive() || abilityState.railShot.cooldown > 0) {
     return;
   }
+
+  startCast(player, "railShot", executeRailShotCast, null);
+}
+
+export function executeRailShotCast() {
   abilityState.railShot.cooldown = getAbilityCooldown(5.1);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("railShot", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
@@ -783,8 +823,9 @@ export function castRailShotAbility() {
     effect: { kind: "rail", bonusSlow: 0.22, bonusSlowDuration: 0.8 },
   });
   playAbilityCue("railShot");
-  addImpact(player.x + Math.cos(player.facing) * 28, player.y + Math.sin(player.facing) * 28, "#ffd279", 22);
-  addShake(7.6);
+  addImpact(player.x, player.y, "#ffd279", 38);
+  addShake(7.2);
+  player.flash = 0.12;
   statusLine.textContent = "Rail Shot tore a high-voltage line through the arena.";
 }
 
@@ -792,6 +833,10 @@ export function castGravityWell() {
   if (!isCombatLive() || abilityState.gravityWell.cooldown > 0) {
     return;
   }
+  startCast(player, "gravityWell", executeGravityWellCast, null);
+}
+
+export function executeGravityWellCast() {
   abilityState.gravityWell.cooldown = getAbilityCooldown(config.gravityWellCooldown);
   triggerAbilityCastRuneEffects();
   queuePhantomAbility("gravityWell", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
@@ -808,7 +853,9 @@ export function castGravityWell() {
     pullStrength: config.gravityWellPullStrength,
   });
   playAbilityCue("gravityWell");
-  addExplosion(input.mouseX, input.mouseY, config.gravityWellRadius + 8, "#b999ff");
+  addExplosion(input.mouseX, input.mouseY, config.gravityWellRadius, "#b999ff");
+  addImpact(player.x, player.y, "#b999ff", 32);
+  addShake(5.8);
   addShake(5.8);
   statusLine.textContent = "Gravity Well collapsed the lane inward. Respect the singularity.";
 }
@@ -817,6 +864,7 @@ export function castPhaseShift() {
   if (!isCombatLive() || abilityState.phaseShift.cooldown > 0 || abilityState.phaseShift.time > 0) {
     return;
   }
+  startVisualCast(player, "phaseShift", 0.35);
   abilityState.phaseShift.cooldown = getAbilityCooldown(config.phaseShiftCooldown);
   triggerAbilityCastRuneEffects();
   clearStatusEffects(player);
@@ -844,6 +892,7 @@ export function castHologramDecoy() {
   if (!isCombatLive() || abilityState.hologramDecoy.cooldown > 0) {
     return;
   }
+  startVisualCast(player, "hologramDecoy", 0.32);
   abilityState.hologramDecoy.cooldown = getAbilityCooldown(6.2);
   triggerAbilityCastRuneEffects();
   player.decoyTime = Math.max(player.decoyTime, 2.8);
@@ -858,6 +907,7 @@ export function castSpeedSurge() {
   if (!isCombatLive() || abilityState.speedSurge.cooldown > 0) {
     return;
   }
+  startVisualCast(player, "speedSurge", 0.4);
   abilityState.speedSurge.cooldown = getAbilityCooldown(4.2);
   triggerAbilityCastRuneEffects();
   player.hasteTime = Math.max(player.hasteTime, 2.2);

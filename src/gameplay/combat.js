@@ -144,6 +144,11 @@ function applyPulseBurstGuidance(projectile, team, dt) {
     return;
   }
 
+  if ((projectile.effect.guideDelay ?? 0) > 0) {
+    projectile.effect.guideDelay -= dt;
+    return;
+  }
+
   const currentSpeed = length(projectile.vx, projectile.vy);
   if (currentSpeed <= 0) {
     return;
@@ -654,6 +659,13 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     entity.statusEffects = [];
   }
 
+  if (entity.team === "enemy" && duration > 0) {
+    const tenacity = entity.tenacity || 0;
+    if (tenacity > 0) {
+      duration = duration * Math.max(0, 1 - tenacity / 100);
+    }
+  }
+
   if (entity === player && (abilityState.phaseShift.time > 0 || isEnergyParryResolving())) {
     return null;
   }
@@ -1011,6 +1023,12 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
     return false;
   }
 
+  const armor = bot.armor || 0;
+  if (armor > 0) {
+    const damageMultiplier = 100 / (100 + armor);
+    damage = damage * damageMultiplier;
+  }
+
   bot.hp = Math.max(0, bot.hp - damage);
   bot.flash = 0.18;
   const heavyHit = damage >= 60;
@@ -1090,6 +1108,7 @@ export function tickEntityMarks(entity, dt) {
   if ((entity.injectorMarkTime ?? 0) <= 0) {
     entity.injectorMarks = 0;
   }
+  entity.combatTimer = Math.max(0, (entity.combatTimer ?? 0) - dt);
 }
 
 export function healEntity(entity, amount) {
@@ -1826,16 +1845,26 @@ export function resetBotsForMode(mode = sandbox.mode) {
   });
 
   for (const bot of bots) {
+    const override = bot.role === "training" ? trainingToolState.botOverrides?.[bot.kind] : null;
+    bot.maxHp = override?.maxHp ?? (bot.role === "hunter" ? config.enemyMaxHp : 140);
+    bot.armor = override?.armor ?? 0;
+    bot.tenacity = override?.tenacity ?? 0;
+
     bot.x = bot.spawnX;
     bot.y = bot.spawnY;
     bot.hp = bot.maxHp;
     bot.alive = bot.modes.includes(mode);
     bot.flash = 0;
     bot.facing = 0;
+    let isFiring = trainingToolState.botsFire;
+    if (override && override.canFire && override.canFire !== "default") {
+      isFiring = override.canFire === "on";
+    }
+
     bot.shootCooldown =
       bot.role === "hunter"
         ? 0.7
-        : trainingToolState.botsFire
+        : isFiring
           ? 0.35 + trainingBots.indexOf(bot) * 0.08
           : 999;
     bot.cadence = bot.role === "hunter" ? 0.72 : 1.15 + trainingBots.indexOf(bot) * 0.02;
@@ -1883,6 +1912,32 @@ export function resetBotsForMode(mode = sandbox.mode) {
       bot.fieldCooldown = 1.8;
     }
     clearStatusEffects(bot);
+  }
+}
+
+export function updateMapInteractables(dt) {
+  const allActors = [player, ...getAllBots()];
+  
+  if (mapState.healPacks) {
+    for (const pack of mapState.healPacks) {
+      if (pack.cooldown > 0) {
+        pack.cooldown -= dt;
+        continue;
+      }
+      
+      for (const actor of allActors) {
+        if (!actor.alive) continue;
+        const dx = actor.x - pack.x;
+        const dy = actor.y - pack.y;
+        if (dx * dx + dy * dy < (actor.radius + 24) * (actor.radius + 24)) {
+          const maxHpBase = actor === player ? getBuildStats().maxHp : (actor.maxHp ?? 100);
+          healEntity(actor, maxHpBase * 0.15);
+          pack.cooldown = 20.0;
+          addImpact(pack.x, pack.y, "#8bfdb0", 30);
+          break;
+        }
+      }
+    }
   }
 }
 

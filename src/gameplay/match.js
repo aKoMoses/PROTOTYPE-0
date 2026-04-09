@@ -259,7 +259,7 @@ export function handlePrematchAction(buttonId) {
   if (buttonId === "mode-training") {
     playUiCue("click");
     uiState.selectedMode = sandboxModes.training.key;
-    uiState.selectedMap = mapChoices.trainingGround.key;
+    uiState.selectedMap = mapChoices.trainingExpanse.key;
     dom.statusLine.textContent = "Training Lab selected.";
     _renderPrematch?.();
     return;

@@ -103,7 +103,8 @@ body {
   top: 16px;
   left: 16px;
   z-index: 6;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 7px;
   width: min(220px, calc(100vw - 32px));
   padding: 10px 12px;
@@ -112,6 +113,46 @@ body {
   background: linear-gradient(180deg, rgba(8, 14, 21, 0.78), rgba(8, 14, 21, 0.62));
   border-color: rgba(134, 199, 242, 0.14);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.match-panel__content {
+  display: grid;
+  gap: 7px;
+}
+
+.panel-collapse-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.panel-collapse-button:hover {
+  background: rgba(119, 216, 255, 0.08);
+}
+
+.panel-collapse-button .collapse-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  color: var(--accent);
+}
+
+.match-panel.is-collapsed .match-panel__content {
+  display: none !important;
+}
+
+.match-panel.is-collapsed .collapse-icon {
+  transform: rotate(-90deg);
 }
 
 .match-panel__status {

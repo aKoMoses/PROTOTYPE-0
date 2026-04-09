@@ -10,6 +10,7 @@ import { getBuildStats, hasPerk, getRuneValue, getActiveDashCooldown, getAbility
 import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerSpawn, clearStatusEffects, updateStatusEffects, tickEntityMarks, clearCombatArtifacts, getStatusState, getZoneEffectsForEntity, finalizePulseReload, defeatPlayer, resetPlayerWeaponMomentum, completePlayerWeaponAttack } from "./combat.js";
 import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackChargeLance, fireHeavyCannon, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
 import { updateDashAbility, updateJavelinAbility, updateFieldAbility, updateExtraAbilities } from "./abilities.js";
+import { updateCasting } from "./casting.js";
 import { resetPhantomClone } from "./phantom.js";
 import * as dom from "../dom.js";
 import { playWeaponEquip } from "../audio.js";
@@ -172,6 +173,7 @@ export function updatePlayer(dt) {
   player.fireCooldown = Math.max(0, player.fireCooldown - dt);
   player.reloadTime = Math.max(0, player.reloadTime - dt);
   player.flash = Math.max(0, player.flash - dt);
+  player.combatTimer = Math.max(0, player.combatTimer - dt);
   player.recoil = Math.max(0, player.recoil - dt * 7.5);
   player.weaponChargeFlash = Math.max(0, player.weaponChargeFlash - dt);
   player.comboTimer = Math.max(0, player.comboTimer - dt);
@@ -201,6 +203,13 @@ export function updatePlayer(dt) {
   updateJavelinAbility(dt);
   updateFieldAbility(dt);
   updateExtraAbilities(dt);
+  updateCasting(player, dt, abilityState.dash.activeTime > 0);
+
+  const phaseLocked = abilityState.phaseShift.time > 0;
+  const parryLocked =
+    abilityState.energyParry.startupTime > 0 ||
+    abilityState.energyParry.activeTime > 0 ||
+    abilityState.energyParry.recoveryTime > 0;
 
   if (
     buildStats.outOfCombatRegen > 0 &&
@@ -228,9 +237,16 @@ export function updatePlayer(dt) {
     player.velocityX = player.attackCommitX * player.attackCommitSpeed;
     player.velocityY = player.attackCommitY * player.attackCommitSpeed;
     addAfterimage(player.x, player.y, player.facing, player.radius, "#bfffd8");
-  } else if (playerStatus.stunned) {
-    player.velocityX = approach(player.velocityX, 0, config.playerFriction * dt);
-    player.velocityY = approach(player.velocityY, 0, config.playerFriction * dt);
+  } else if (playerStatus.stunned || parryLocked || (player.castingAbility && abilityState.dash.activeTime <= 0)) {
+    // Casting aggressive spells stops movement with the "glissade" friction handled in updateCasting.
+    // We already handled friction inside updateCasting for player & bots.
+    // Ensure we don't apply standard movement here.
+    if (player.castingAbility && abilityState.dash.activeTime <= 0) {
+       // updateCasting already handles friction for casts.
+    } else {
+       player.velocityX = approach(player.velocityX, 0, config.playerFriction * dt);
+       player.velocityY = approach(player.velocityY, 0, config.playerFriction * dt);
+    }
   } else {
     const activeMoveSpeed = getActiveMoveSpeed() * playerStatus.speedMultiplier * playerZoneEffects.slowMultiplier;
     const targetVelocityX = move.x * activeMoveSpeed;
@@ -277,11 +293,6 @@ export function updatePlayer(dt) {
 
   const wantsLanceAlt = input.altFiring && player.weapon === weapons.lance.key;
   const wantsCannonCharge = player.weapon === weapons.cannon.key && (input.firing || input.altFiring);
-  const phaseLocked = abilityState.phaseShift.time > 0;
-  const parryLocked =
-    abilityState.energyParry.startupTime > 0 ||
-    abilityState.energyParry.activeTime > 0 ||
-    abilityState.energyParry.recoveryTime > 0;
 
   const canUseWeapon = combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && !phaseLocked && !parryLocked;
   if (player.weapon === weapons.sniper.key) {
@@ -297,6 +308,7 @@ export function updatePlayer(dt) {
       attackRailSniper(player.weaponCharge);
       player.weaponChargeActive = false;
       player.weaponCharge = 0;
+      player.combatTimer = 3.0;
       return;
     }
     return;
@@ -312,6 +324,7 @@ export function updatePlayer(dt) {
       fireHeavyCannon(player.weaponCharge);
       player.weaponChargeActive = false;
       player.weaponCharge = 0;
+      player.combatTimer = 3.0;
       return;
     }
   } else if (player.weaponChargeActive) {
@@ -326,6 +339,7 @@ export function updatePlayer(dt) {
   }
 
   if (combatLive && !playerStatus.stunned && player.fireCooldown <= 0 && (input.firing || wantsLanceAlt)) {
+    player.combatTimer = 3.0;
     if (wantsLanceAlt && player.weapon === weapons.lance.key) {
       attackChargeLance(true);
     } else if (player.weapon === weapons.axe.key) {

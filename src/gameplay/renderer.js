@@ -5,10 +5,10 @@ import { player, playerClone, enemy, abilityState, sandbox, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   supportZones, beamEffects, mapState, globals } from "../state.js";
-import { loadout } from "../state/app-state.js";
+import { loadout, trainingToolState } from "../state/app-state.js";
 import { canvas, ctx } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
-import { getMapLayout, canSeeTarget } from "../maps.js";
+import { getMapLayout, canSeeTarget, isEntityInBush } from "../maps.js";
 import { getBuildStats } from "../build/loadout.js";
 import { getAllBots, getStatusState } from "./combat.js";
 import { mapChoices } from "../maps.js";
@@ -296,15 +296,34 @@ export function drawProjectileSprite(projectile, hostile = false) {
     ctx.closePath();
     ctx.fill();
   } else if (source.includes("staff")) {
+    // 1. Core Scrap Tip
+    ctx.fillStyle = "#555"; // Hardcoded metallic scrap color
+    ctx.fillRect(-6, -4, 12, 8);
+    
+    // 2. Neon Induction Halo
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.arc(4, 0, projectile.radius + 6, -1.2, 1.2);
+    ctx.stroke();
+    
+    // 3. Electric Core
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(0, 0, projectile.radius + 2, 0, Math.PI * 2);
+    ctx.arc(6, 0, projectile.radius + 1, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = hostile ? "rgba(224, 255, 235, 0.7)" : "rgba(236, 255, 242, 0.86)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, projectile.radius + 5, 0, Math.PI * 2);
-    ctx.stroke();
+  } else if (source.includes("lance")) {
+    // 1. High-Voltage Lightning Bolt
+    ctx.lineWidth = 3.5;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = color;
+    drawLightningBolt(16, 0, -16, 0, color, ctx, 1);
+    
+    // 2. Hot White Core
+    ctx.lineWidth = 1.2;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "white";
+    drawLightningBolt(16, 0, -16, 0, "white", ctx, 0);
   } else if (source.includes("cannon")) {
     ctx.fillStyle = color;
     traceRoundedRect(source.includes("charged") ? -12 : -10, source.includes("charged") ? -8 : -7, source.includes("charged") ? 24 : 20, source.includes("charged") ? 16 : 14, 4);
@@ -481,110 +500,114 @@ export function drawActorFrame(actor, palette, options = {}) {
 function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0, chargeRatio = 0) {
   const flashOn = actionFlash > 0;
   if (weaponKey === weapons.axe.key) {
+    // 1. Heavy Scrap Handle
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-4, -4, 34, 8);
-    ctx.shadowBlur = 28;
-    ctx.shadowColor = flashOn ? glow : tint;
+    ctx.fillRect(-6, -4, 42, 8); // Longer 2-handed handle
+    ctx.fillRect(-8, -6, 12, 12); // Bolted pommel
+    
+    // 2. Asymmetric Scrap Head
+    ctx.fillStyle = "#555"; // Dark scrap metal
+    traceRoundedRect(22, -28, 18, 56, 4);
+    ctx.fill();
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(26, -24, 10, 48); // Reinforcement plate
+    
+    // 3. Sharp Neon Blade Edges
     ctx.fillStyle = tint;
     ctx.beginPath();
-    ctx.moveTo(20, -26);
-    ctx.lineTo(42, -18);
-    ctx.lineTo(38, -4);
-    ctx.lineTo(22, -9);
+    ctx.moveTo(40, -28);
+    ctx.lineTo(54, -20);
+    ctx.lineTo(54, 20);
+    ctx.lineTo(40, 28);
     ctx.closePath();
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(20, 26);
-    ctx.lineTo(42, 18);
-    ctx.lineTo(38, 4);
-    ctx.lineTo(22, 9);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `${glow}88`;
-    ctx.fillRect(18, -3, 18, 6);
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(212, 255, 255, 0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(20, -22);
-    ctx.lineTo(38, -15);
-    ctx.moveTo(20, 22);
-    ctx.lineTo(38, 15);
-    ctx.moveTo(28, -4);
-    ctx.lineTo(43, -1);
-    ctx.moveTo(28, 4);
-    ctx.lineTo(43, 1);
-    ctx.stroke();
+    
+    // 4. Electrical Coils
+    ctx.fillStyle = glow;
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(24, -18 + i * 12, 6, 4);
+    }
     return;
   }
 
   if (weaponKey === weapons.sniper.key) {
     const chargeGlow = clamp(chargeRatio, 0, 1);
-    const jitter = Math.sin(performance.now() * 0.08) * chargeGlow * 1.5;
+    // Removed jitter
     ctx.save();
-    ctx.translate(0, jitter);
+    
+    // 1. Heavy Rail Frame
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-4, -4, 36, 8);
+    ctx.fillRect(-4, -5, 42, 10);
+    ctx.fillRect(10, -8, 12, 16); // Receiver block
+    
+    // 2. Dual Rail Barrels
+    ctx.fillStyle = "#444";
+    ctx.fillRect(18, -6, 46, 4);
+    ctx.fillRect(18, 2, 46, 4);
+    
+    // 3. Neon Induction Plates
     ctx.fillStyle = tint;
-    ctx.fillRect(18, -5, 34, 10);
-    ctx.shadowBlur = 18 + chargeGlow * 18;
-    ctx.shadowColor = glow;
-    ctx.fillStyle = glow;
-    ctx.fillRect(48, -2, 12, 4);
-    ctx.fillRect(14, -9, 12, 4);
-    ctx.fillStyle = `rgba(255, 226, 134, ${0.18 + chargeGlow * 0.46})`;
-    ctx.fillRect(20, -3, 28, 6);
-    ctx.strokeStyle = "rgba(255, 245, 210, 0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(60, 0);
-    ctx.stroke();
-    if (chargeGlow > 0.08) {
-      ctx.strokeStyle = `rgba(255, 240, 180, ${0.22 + chargeGlow * 0.54})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(18, -9);
-      ctx.lineTo(22 + chargeGlow * 8, -15);
-      ctx.lineTo(28 + chargeGlow * 10, -7);
-      ctx.moveTo(22, 9);
-      ctx.lineTo(30 + chargeGlow * 10, 14);
-      ctx.lineTo(36 + chargeGlow * 10, 7);
-      ctx.stroke();
+    const plateCount = 4;
+    for (let i = 0; i < plateCount; i++) {
+      const active = chargeGlow > (i / plateCount);
+      ctx.globalAlpha = active ? 1 : 0.3;
+      ctx.fillRect(22 + i * 10, -9, 6, 18);
     }
+    
+    // 4. Core Muzzle Cell
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glow;
+    ctx.fillRect(58, -3, 10, 6);
+    
     ctx.restore();
     return;
   }
 
   if (weaponKey === weapons.staff.key) {
+    // 1. Long Scrap Conduit
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-3, -4, 44, 8);
+    ctx.fillRect(-6, -4, 48, 8); // Rusty pipe frame
+    
+    // 2. Induction Coils
+    ctx.fillStyle = "#444";
+    ctx.fillRect(12, -7, 6, 14);
+    ctx.fillRect(28, -7, 6, 14);
+    
+    // 3. Large Neon Generator Loop
+    const pulse = 0.82 + Math.sin(performance.now() * 0.12) * 0.18;
     ctx.strokeStyle = tint;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(54, 0);
+    ctx.arc(52, 0, 10 * pulse, 0, Math.PI * 2);
     ctx.stroke();
+    
+    // 4. Power Core
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(54, 0, 8, 0, Math.PI * 2);
+    ctx.arc(52, 0, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "rgba(214, 255, 232, 0.82)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(54, 0, 12, 0, Math.PI * 2);
-    ctx.stroke();
     return;
   }
 
   if (weaponKey === weapons.injector.key) {
+    // 1. Blocky Scrap Receiver
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-4, -4, 30, 8);
+    ctx.fillRect(-4, -6, 28, 12);
+    ctx.fillRect(10, -12, 12, 24); // Heavy vertical block
+    
+    // 2. Neon Vials (Glass Tubes)
     ctx.fillStyle = tint;
-    ctx.fillRect(18, -7, 20, 14);
-    ctx.fillStyle = glow;
-    ctx.fillRect(34, -3, 18, 6);
-    ctx.fillRect(12, -10, 8, 20);
+    for (let i = 0; i < 3; i++) {
+        ctx.fillRect(18 + i * 8, -4, 5, 8);
+    }
+    
+    // 3. Feed Tubes
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(10, -6);
+    ctx.lineTo(-2, -10);
+    ctx.stroke();
     return;
   }
 
@@ -599,71 +622,89 @@ function drawEquippedWeapon(weaponKey, detailColor, tint, glow, actionFlash = 0,
   }
 
   if (weaponKey === weapons.lance.key) {
+    // 1. Pneumatic Scrap Rod
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-4, -4, 26, 8);
+    ctx.fillRect(-4, -4, 30, 8);
+    ctx.fillStyle = "#555";
+    ctx.fillRect(12, -3, 42, 6); // Main lance rod
+    
+    // 2. Bolted Pistons
+    ctx.fillStyle = detailColor;
+    ctx.fillRect(18, -7, 8, 14);
+    ctx.fillRect(34, -7, 8, 14);
+    
+    // 3. Neon Tip & Coils
     ctx.fillStyle = tint;
     ctx.beginPath();
-    ctx.moveTo(12, -4);
-    ctx.lineTo(44, -4);
-    ctx.lineTo(56, 0);
-    ctx.lineTo(44, 4);
-    ctx.lineTo(12, 4);
+    ctx.moveTo(54, -4);
+    ctx.lineTo(68, 0);
+    ctx.lineTo(54, 4);
     ctx.closePath();
     ctx.fill();
+    
     ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.moveTo(48, -2);
-    ctx.lineTo(64, 0);
-    ctx.lineTo(48, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255, 247, 210, 0.86)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(58, 0);
-    ctx.stroke();
+    ctx.fillRect(26, -2, 8, 4);
+    ctx.fillRect(42, -2, 8, 4);
     return;
   }
 
   if (weaponKey === weapons.cannon.key) {
     const chargeGlow = clamp(chargeRatio, 0, 1);
-    const jitter = Math.sin(performance.now() * 0.1) * chargeGlow * 1.6;
+    // Removed jitter
     ctx.save();
-    ctx.translate(0, jitter);
+    
+    // 1. Reclaimed Engine Block Housing
     ctx.fillStyle = detailColor;
-    ctx.fillRect(-6, -6, 24, 12);
+    ctx.fillRect(-6, -8, 22, 16);
+    ctx.fillStyle = "#444";
+    ctx.fillRect(12, -12, 34, 24); // Heavy main barrel
+    
+    // 2. Neon Vents
     ctx.fillStyle = tint;
-    traceRoundedRect(14, -9, 30, 18, 6);
-    ctx.fill();
-    ctx.shadowBlur = 14 + chargeGlow * 18;
-    ctx.shadowColor = glow;
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(42, 0, 6 + chargeGlow * 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(40, -3, 18, 6);
-    if (chargeGlow > 0.06) {
-      ctx.strokeStyle = `rgba(255, 230, 179, ${0.35 + chargeGlow * 0.4})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(18, -10);
-      ctx.lineTo(28 + chargeGlow * 8, -16);
-      ctx.lineTo(36 + chargeGlow * 8, -7);
-      ctx.moveTo(18, 10);
-      ctx.lineTo(30 + chargeGlow * 8, 16);
-      ctx.lineTo(38 + chargeGlow * 8, 7);
-      ctx.stroke();
+    const ventCount = 3;
+    for (let i = 0; i < ventCount; i++) {
+        ctx.globalAlpha = 0.3 + chargeGlow * 0.7;
+        ctx.fillRect(16 + i * 10, -14, 6, 2);
+        ctx.fillRect(16 + i * 10, 12, 6, 2);
     }
-    ctx.strokeStyle = "rgba(255, 239, 220, 0.82)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(14, -9, 30, 18);
+    
+    // 3. Discharge Core
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glow;
+    if (chargeGlow >= 1) {
+        // 1. Max Power Electrical Arcing across the weapon
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 3; i++) {
+            const x0 = Math.random() * 40 - 6;
+            const y0 = (Math.random() - 0.5) * 20;
+            const x1 = Math.random() * 40 - 6;
+            const y1 = (Math.random() - 0.5) * 20;
+            drawLightningBolt(x0, y0, x1, y1, "white", ctx, 0);
+        }
+        
+        // 2. Overheat Strobe
+        const strobe = Math.sin(performance.now() * 0.05) > 0;
+        ctx.fillStyle = strobe ? "white" : glow;
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = glow;
+        
+        // 3. Pressure Distortion Halo
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(52, 0, 16 + Math.sin(performance.now() * 0.04) * 6, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.fillRect(46, -6, 12, 12);
+    
     ctx.restore();
     return;
   }
 
+  ctx.fillStyle = "#555";
+  ctx.fillRect(-4, -6, 32, 12); // Scrap frame
   ctx.fillStyle = tint;
-  ctx.fillRect(-3, -5, 28, 10);
+  ctx.fillRect(12, -4, 24, 8); // Neon emitter
 }
 
 export function drawPendingAxeTelegraph() {
@@ -724,6 +765,484 @@ export function drawPendingAxeTelegraph() {
   ctx.restore();
 }
 
+export function drawCastTelegraph(entity) {
+  const isCasting = entity.castTime > 0 && entity.totalCastTime > 0;
+  const isVisualCasting = entity.visualCastTime > 0 && entity.totalVisualCastTime > 0;
+  
+  if (!isCasting && !isVisualCasting) {
+    return;
+  }
+
+  const castProgress = isCasting ? Math.min(1, 1 - entity.castTime / entity.totalCastTime) : 0;
+  const visualProgress = isVisualCasting ? Math.min(1, 1 - entity.visualCastTime / entity.totalVisualCastTime) : 0;
+  const progress = Math.max(castProgress, visualProgress);
+  const ability = entity.castingAbility || entity.visualCastingAbility;
+  const isHostile = entity !== player && entity !== playerClone;
+  const time = performance.now() * 0.005;
+  
+  const abilityColors = {
+    javelin: "#8fe8ff",
+    pulseBurst: "#7ddcff",
+    railShot: "#ffd279",
+    gravityWell: "#b999ff",
+    chainLightning: "#9feaff",
+    magneticField: "#89c8ff",
+    magneticGrapple: "#9feeff",
+    energyShield: "#9cd5ff",
+    energyParry: "#bdf4ff",
+    speedSurge: "#8dfcc7",
+    empBurst: "#be9dff",
+    phaseShift: "#d2f1ff",
+    blinkStep: "#b3f6ff",
+    hologramDecoy: "#d8b8ff",
+    ultimate: "#ff8c67"
+  };
+
+  const baseColor = abilityColors[ability] || (isHostile ? "#ff5050" : "#50c8ff");
+  const baseRadius = entity.radius + 24;
+  const radius = baseRadius * (1 + Math.sin(time * 2.5) * 0.08);
+
+  ctx.save();
+  ctx.translate(entity.x, entity.y);
+  ctx.globalCompositeOperation = "lighter";
+
+  // 1.5 Aura/Shadow Glow
+  ctx.shadowBlur = 0; // Keeping it sharp
+  ctx.shadowColor = baseColor;
+
+  // 2. Ability-Specific Unique Geometry
+  ctx.strokeStyle = baseColor;
+  ctx.lineWidth = 3.5;
+  ctx.globalAlpha = 0.9 * progress;
+  
+  switch (ability) {
+    case "javelin":
+      drawTriangle(0, 0, radius * 1.1, entity.facing, ctx);
+      break;
+    case "railShot":
+      drawRailBars(radius * 1.2, entity.facing, progress, ctx);
+      break;
+    case "pulseBurst":
+      drawHexagon(0, 0, radius * 1.15, progress, ctx);
+      break;
+    case "gravityWell":
+      drawVortex(0, 0, radius * 1.1, progress, time, ctx);
+      break;
+    case "chainLightning":
+      drawJaggedStar(0, 0, radius, progress, time, ctx);
+      break;
+    case "magneticGrapple":
+      drawBrackets(0, 0, radius, progress, ctx);
+      break;
+    case "energyShield":
+      drawDecagon(0, 0, radius, progress, ctx);
+      break;
+    case "energyParry":
+      drawDiamondBrackets(0, 0, radius, progress, ctx);
+      break;
+    case "speedSurge":
+      drawChevron(radius, entity.facing, progress, ctx);
+      break;
+    case "empBurst":
+      drawSquareWave(0, 0, radius, progress, ctx);
+      break;
+    case "phaseShift":
+      drawDoubleSpiral(radius, progress, time, ctx);
+      break;
+    case "blinkStep":
+      drawPortalIris(radius, progress, ctx);
+      break;
+    case "hologramDecoy":
+      drawTwinSilhouette(radius, progress, time, ctx);
+      break;
+    case "ultimate":
+      drawNestedRunes(radius, progress, time, ctx);
+      break;
+    default:
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+  }
+
+  // 3. Core Pulse (Minimal)
+  ctx.globalAlpha = 0.2 * progress;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.3 * progress, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawTriangle(x, y, radius, angle, context) {
+  context.save();
+  context.translate(x, y);
+  context.rotate(angle);
+  context.beginPath();
+  context.moveTo(radius, 0);
+  context.lineTo(-radius * 0.6, radius * 0.6);
+  context.lineTo(-radius * 0.6, -radius * 0.6);
+  context.closePath();
+  context.stroke();
+  context.restore();
+}
+
+function drawRailBars(radius, angle, progress, context) {
+  context.save();
+  context.rotate(angle);
+  const offset = radius * (1 - progress);
+  context.lineWidth = 4;
+  // Two bars slamming inward
+  context.beginPath();
+  context.moveTo(radius * 0.8, -radius * 0.4 + offset);
+  context.lineTo(radius * 0.8, radius * 0.4 - offset);
+  context.moveTo(-radius * 0.2, -radius * 0.5 + offset);
+  context.lineTo(-radius * 0.2, radius * 0.5 - offset);
+  context.stroke();
+  context.restore();
+}
+
+function drawHexagon(x, y, radius, progress, context) {
+  context.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = i * Math.PI / 3;
+    const px = Math.cos(angle) * radius;
+    const py = Math.sin(angle) * radius;
+    if (i === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.closePath();
+  context.stroke();
+  // Inner jitter hexagon
+  if (progress > 0.5) {
+    context.globalAlpha *= 0.5;
+    context.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = i * Math.PI / 3 + (Math.random() - 0.5) * 0.1;
+      const px = Math.cos(angle) * radius * 0.7;
+      const py = Math.sin(angle) * radius * 0.7;
+      if (i === 0) context.moveTo(px, py);
+      else context.lineTo(px, py);
+    }
+    context.closePath();
+    context.stroke();
+  }
+}
+
+function drawVortex(x, y, radius, progress, time, context) {
+  context.beginPath();
+  const points = 24;
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2 + time * 1.5;
+    const r = radius * (1 - (i / points) * progress);
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.stroke();
+}
+
+function drawJaggedStar(x, y, radius, progress, time, context) {
+  context.beginPath();
+  const points = 8;
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (i / (points * 2)) * Math.PI * 2 + time;
+    const r = i % 2 === 0 ? radius : radius * (0.4 + Math.random() * 0.2);
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.closePath();
+  context.stroke();
+}
+
+function drawBrackets(x, y, radius, progress, context) {
+  const size = radius * 0.5;
+  const offset = radius * (1 - progress);
+  for (let i = 0; i < 4; i++) {
+    context.save();
+    context.rotate(i * Math.PI / 2);
+    context.translate(radius + offset, radius + offset);
+    context.beginPath();
+    context.moveTo(-size, 0);
+    context.lineTo(0, 0);
+    context.lineTo(0, -size);
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawDecagon(x, y, radius, progress, context) {
+  const points = 10;
+  context.beginPath();
+  for (let i = 0; i <= points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const px = Math.cos(angle) * radius;
+    const py = Math.sin(angle) * radius;
+    if (i === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.stroke();
+  if (progress > 0.4) {
+    context.save();
+    context.globalAlpha *= 0.6;
+    context.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2 + 0.1;
+      const r = radius * 0.82;
+      const px = Math.cos(angle) * r;
+      const py = Math.sin(angle) * r;
+      if (i === 0) context.moveTo(px, py);
+      else context.lineTo(px, py);
+    }
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawDiamondBrackets(x, y, radius, progress, context) {
+  const offset = radius * (1 - progress);
+  context.save();
+  context.rotate(Math.PI / 4);
+  for (let i = 0; i < 4; i++) {
+    context.save();
+    context.rotate(i * Math.PI / 2);
+    context.beginPath();
+    context.moveTo(radius + offset, -radius * 0.3);
+    context.lineTo(radius + offset, 0);
+    context.lineTo(radius * 0.7 + offset, 0);
+    context.stroke();
+    context.restore();
+  }
+  context.restore();
+}
+
+function drawChevron(radius, angle, progress, context) {
+  context.save();
+  context.rotate(angle);
+  const offset = radius * (1 - progress);
+  for (let i = 0; i < 3; i++) {
+    const r = radius - i * 15 - offset;
+    if (r < 0) continue;
+    context.beginPath();
+    context.moveTo(-r * 0.5, -r * 0.6);
+    context.lineTo(0, 0);
+    context.lineTo(-r * 0.5, r * 0.6);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawSquareWave(x, y, radius, progress, context) {
+  const size = radius;
+  context.strokeRect(-size, -size, size * 2, size * 2);
+  if (progress > 0.5) {
+    context.save();
+    context.globalAlpha *= 0.5;
+    const s2 = size * (1.2 - progress * 0.4);
+    context.strokeRect(-s2, -s2, s2 * 2, s2 * 2);
+    context.restore();
+  }
+}
+
+function drawDoubleSpiral(radius, progress, time, context) {
+  for (let spiral = 0; spiral < 2; spiral++) {
+    context.beginPath();
+    const dir = spiral === 0 ? 1 : -1;
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2 + time * 3 * dir;
+      const r = radius * (0.4 + (i / 20) * 0.6 * progress);
+      const px = Math.cos(angle) * r;
+      const py = Math.sin(angle) * r;
+      if (i === 0) context.moveTo(px, py);
+      else context.lineTo(px, py);
+    }
+    context.stroke();
+  }
+}
+
+function drawPortalIris(radius, progress, context) {
+  const blades = 8;
+  const offset = radius * (1 - progress);
+  for (let i = 0; i < blades; i++) {
+    context.save();
+    context.rotate(i * Math.PI / 4);
+    context.beginPath();
+    context.moveTo(radius + offset, -radius * 0.4);
+    context.lineTo(radius + offset, radius * 0.4);
+    context.lineTo(radius * 0.4 + offset, 0);
+    context.closePath();
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawTwinSilhouette(radius, progress, time, context) {
+  context.save();
+  const shift = Math.sin(time * 10) * 8;
+  context.setLineDash([8, 4]);
+  ctx.beginPath();
+  ctx.arc(shift, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(-shift, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  context.restore();
+}
+
+function drawNestedRunes(radius, progress, time, context) {
+  for (let r = 0; r < 3; r++) {
+    const currR = radius * (0.4 + r * 0.3);
+    const dir = r % 2 === 0 ? 1 : -1;
+    context.save();
+    context.rotate(time * 2 * dir);
+    context.beginPath();
+    context.arc(0, 0, currR, 0, Math.PI * 2);
+    context.stroke();
+    // Inner ticks
+    for (let i = 0; i < 4; i++) {
+      context.beginPath();
+      context.moveTo(currR - 8, 0);
+      context.lineTo(currR + 8, 0);
+      context.rotate(Math.PI / 2);
+      context.stroke();
+    }
+    context.restore();
+  }
+}
+
+export function drawWeaponTelegraph(entity) {
+  if (entity.weaponChargeTime <= 0 || !entity.totalWeaponChargeTime) return;
+  const progress = Math.min(1, 1 - entity.weaponChargeTime / entity.totalWeaponChargeTime);
+  const baseColor = entity.team === "enemy" ? "#ff7a5c" : "#74d6ff";
+  const radius = entity.radius + 14 + progress * 8;
+  const time = performance.now() * 0.01;
+
+  ctx.save();
+  ctx.translate(entity.x, entity.y);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.strokeStyle = baseColor;
+  ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.9;
+  ctx.shadowBlur = 0;
+
+  switch (entity.weaponCasting) {
+    case "pulse":
+      drawTargetCorners(radius, progress, ctx);
+      break;
+    case "sniper":
+    case "cannon":
+      drawConvergenceLines(radius * 1.5, entity.facing, progress, ctx);
+      break;
+    case "shotgun":
+      drawWideArc(radius, entity.facing, progress, ctx);
+      break;
+    case "axe":
+      drawCrescentArc(radius * 1.8, entity.facing, progress, ctx);
+      break;
+    default:
+      drawDiamondCore(radius, progress, ctx);
+  }
+  ctx.restore();
+}
+
+function drawTargetCorners(radius, progress, context) {
+  const size = radius * 0.3;
+  const offset = radius * (1 - progress) * 0.5;
+  for (let i = 0; i < 4; i++) {
+    context.save();
+    context.rotate(i * Math.PI / 2 + Math.PI / 4);
+    context.translate(radius + offset, 0);
+    context.beginPath();
+    context.moveTo(-size, -size);
+    context.lineTo(0, 0);
+    context.lineTo(-size, size);
+    context.stroke();
+    context.restore();
+  }
+}
+
+function drawConvergenceLines(radius, angle, progress, context) {
+  context.save();
+  context.rotate(angle);
+  const offset = radius * (1 - progress) * 2;
+  context.beginPath();
+  // Fixed: Lines now come from the front towards the muzzle
+  context.moveTo(radius + offset, -radius * 0.4);
+  context.lineTo(radius * 0.8, -radius * 0.1);
+  context.moveTo(radius + offset, radius * 0.4);
+  context.lineTo(radius * 0.8, radius * 0.1);
+  context.stroke();
+  context.restore();
+}
+
+function drawWideArc(radius, angle, progress, context) {
+  context.save();
+  context.rotate(angle);
+  const span = Math.PI * 0.3;
+  const offset = radius * (1 - progress);
+  context.beginPath();
+  context.arc(offset, 0, radius, -span, span);
+  context.stroke();
+  context.restore();
+}
+
+function drawCrescentArc(radius, angle, progress, context) {
+  context.save();
+  context.rotate(angle);
+  const span = Math.PI * 0.6;
+  const offset = radius * (1 - progress);
+  context.beginPath();
+  context.arc(-radius * 0.3 + offset, 0, radius, -span, span);
+  context.stroke();
+  context.restore();
+}
+
+function drawDiamondCore(radius, progress, context) {
+  const r = radius * (0.4 + progress * 0.6);
+  context.save();
+  context.rotate(Math.PI / 4);
+  context.strokeRect(-r, -r, r * 2, r * 2);
+  context.restore();
+}
+
+function drawLightningBolt(x0, y0, x1, y1, color, context, forks = 0) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const sections = Math.max(3, Math.floor(dist / 12));
+    
+    context.beginPath();
+    context.strokeStyle = color;
+    context.moveTo(x0, y0);
+    
+    let curX = x0;
+    let curY = y0;
+    
+    for (let i = 1; i <= sections; i++) {
+        const t = i / sections;
+        const targetX = x0 + dx * t;
+        const targetY = y0 + dy * t;
+        const jitter = (Math.random() - 0.5) * (dist * 0.25);
+        
+        const nextX = i === sections ? x1 : targetX + (Math.random() - 0.5) * 8;
+        const nextY = i === sections ? y1 : targetY + (Math.random() - 0.5) * 8;
+        
+        context.lineTo(nextX, nextY);
+        curX = nextX;
+        curY = nextY;
+        
+        if (forks > 0 && Math.random() < 0.15) {
+            const fAngle = (Math.random() - 0.5) * 1.5;
+            const fDist = dist * 0.2;
+            drawLightningBolt(curX, curY, curX + Math.cos(fAngle) * fDist, curY + Math.sin(fAngle) * fDist, color, context, forks - 1);
+            context.moveTo(curX, curY);
+        }
+    }
+    context.stroke();
+}
+
 export function drawBot(bot) {
   if (!bot.alive) {
     return;
@@ -733,9 +1252,24 @@ export function drawBot(bot) {
   const hiddenAlpha = bot.role === "training" ? 0.42 : 0.18;
   const hitOffset = getHitReactionOffset(bot);
 
+  // Apply cast jitter
+  let castJitterX = 0;
+  let castJitterY = 0;
+  if (bot.castTime > 0 && bot.totalCastTime > 0) {
+    const progress = 1 - bot.castTime / bot.totalCastTime;
+    const amount = progress * 3.5;
+    castJitterX = (Math.random() - 0.5) * amount;
+    castJitterY = (Math.random() - 0.5) * amount;
+  }
+
+  if (visibleToPlayer) {
+    drawCastTelegraph(bot);
+    drawWeaponTelegraph(bot);
+  }
+
   ctx.save();
   ctx.globalAlpha = visibleToPlayer ? 1 : hiddenAlpha;
-  ctx.translate(bot.x + hitOffset.x, bot.y + hitOffset.y);
+  ctx.translate(bot.x + hitOffset.x + castJitterX, bot.y + hitOffset.y + castJitterY);
   ctx.rotate(bot.facing);
   drawActorFrame(
     bot,
@@ -759,10 +1293,16 @@ export function drawBot(bot) {
   ctx.restore();
 
   if (bot.role === "training" && visibleToPlayer) {
-    ctx.strokeStyle = "rgba(116, 214, 255, 0.45)";
-    ctx.lineWidth = 2;
+    const isSelected = trainingToolState.trainingConfig?.selectedBotId === bot.kind;
+    if (bot.isHovered || isSelected) {
+      ctx.strokeStyle = isSelected ? "#00ff66" : "#8bfdb0";
+      ctx.lineWidth = isSelected ? 5 : 4;
+    } else {
+      ctx.strokeStyle = "rgba(116, 214, 255, 0.45)";
+      ctx.lineWidth = 2;
+    }
     ctx.beginPath();
-    ctx.arc(bot.x, bot.y, bot.radius + 8, 0, Math.PI * 2);
+    ctx.arc(bot.x, bot.y, bot.radius + 8 + (isSelected ? 2 : 0), 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -940,6 +1480,38 @@ export function drawBushes() {
       ctx.lineTo(x + 6, bush.y + 8);
       ctx.stroke();
     }
+  }
+}
+
+export function drawHealPacks() {
+  if (!mapState.healPacks) return;
+  for (const pack of mapState.healPacks) {
+    if (pack.cooldown > 0) continue;
+    
+    const pulse = 1 + Math.sin(performance.now() * 0.005 + pack.x * 0.01) * 0.1;
+    ctx.save();
+    ctx.translate(pack.x, pack.y);
+    ctx.fillStyle = "rgba(32, 48, 42, 0.8)";
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = `rgba(138, 255, 176, ${0.4 + pulse * 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.fillStyle = "#8bfdb0";
+    ctx.fillRect(-3, -9, 6, 18);
+    ctx.fillRect(-9, -3, 18, 6);
+    
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#8bfdb0";
+    ctx.beginPath();
+    ctx.arc(0, 0, 18 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -1150,6 +1722,7 @@ export function drawWorld() {
   ctx.strokeRect(6, 6, arena.width - 12, arena.height - 12);
 
   drawBushes();
+  drawHealPacks();
   drawPortals();
   drawMapObstacles();
   drawPylons();
@@ -1542,6 +2115,10 @@ export function drawWorld() {
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
   const weaponSkin = content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
   const playerHitOffset = getHitReactionOffset(player);
+
+  drawCastTelegraph(player);
+  drawWeaponTelegraph(player);
+
   const parryStartup = abilityState.energyParry.startupTime > 0;
   const parryActive = abilityState.energyParry.activeTime > 0;
   const parryVisible = parryStartup || parryActive;
@@ -1549,13 +2126,24 @@ export function drawWorld() {
   const parryPulse = 0.5 + Math.sin(performance.now() * (parryActive ? 0.03 : 0.018)) * 0.5;
   ctx.save();
   const recoilOffset = player.recoil * 8;
+  // Apply cast jitter
+  let playerCastJitterX = 0;
+  let playerCastJitterY = 0;
+  if (player.castTime > 0 && player.totalCastTime > 0) {
+    const progress = 1 - player.castTime / player.totalCastTime;
+    const amount = progress * 4.4;
+    playerCastJitterX = (Math.random() - 0.5) * amount;
+    playerCastJitterY = (Math.random() - 0.5) * amount;
+  }
+
   ctx.translate(
-    player.x + playerHitOffset.x - Math.cos(player.facing) * recoilOffset,
-    player.y + playerHitOffset.y - Math.sin(player.facing) * recoilOffset,
+    player.x + playerHitOffset.x + playerCastJitterX - Math.cos(player.facing) * recoilOffset,
+    player.y + playerHitOffset.y + playerCastJitterY - Math.sin(player.facing) * recoilOffset,
   );
   ctx.rotate(player.facing);
-  if (player.ghostTime > 0 || abilityState.phaseShift.time > 0) {
-    ctx.globalAlpha = abilityState.phaseShift.time > 0 ? 0.34 : 0.5;
+  const playerInBushStealth = player.combatTimer <= 0 && isEntityInBush(player);
+  if (player.ghostTime > 0 || abilityState.phaseShift.time > 0 || playerInBushStealth) {
+    ctx.globalAlpha = abilityState.phaseShift.time > 0 ? 0.34 : playerInBushStealth ? 0.52 : 0.5;
   }
   if (player.lastStandTime > 0) {
     ctx.save();

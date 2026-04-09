@@ -12,12 +12,12 @@ export const duelMapRegistry = {
     name: "Electro Gallery",
     subtitle: "Neon conduit arena with linked portals and high-speed repositioning.",
     theme: {
-      backgroundStart: "#13253a",
-      backgroundEnd: "#071019",
-      floorGlow: "#6ae9ff",
-      laneGlow: "#7ee9ff",
-      warmGlow: "#ffb06b",
-      border: "#8cefff",
+      backgroundStart: "#0a1320",
+      backgroundEnd: "#030810",
+      floorGlow: "#45d9f0",
+      laneGlow: "#4deeff",
+      warmGlow: "#ff903b",
+      border: "#6bf3ff",
     },
   },
   bricABroc: {
@@ -25,12 +25,12 @@ export const duelMapRegistry = {
     name: "Bric-a-Broc",
     subtitle: "Scrapyard duel ground with collapsing pillars and shifting cover.",
     theme: {
-      backgroundStart: "#261d18",
-      backgroundEnd: "#100d0b",
-      floorGlow: "#ffb77e",
-      laneGlow: "#ff995b",
-      warmGlow: "#ffd8a6",
-      border: "#ffc78c",
+      backgroundStart: "#1a130f",
+      backgroundEnd: "#080605",
+      floorGlow: "#ff9a4f",
+      laneGlow: "#ff843a",
+      warmGlow: "#ffc280",
+      border: "#ffb46f",
     },
   },
 };
@@ -70,30 +70,18 @@ export const mapChoices = {
     subtitle: "Draw a live duel arena from the registered map pool.",
     theme: duelMapRegistry.electroGallery.theme,
   },
-  trainingGround: {
-    key: "trainingGround",
-    name: "Training Range",
-    subtitle: "Open firing lane with static bots for clean build testing.",
-    theme: {
-      backgroundStart: "#1a2229",
-      backgroundEnd: "#0b1115",
-      floorGlow: "#8fb4ca",
-      laneGlow: "#89d6ff",
-      warmGlow: "#d0dee8",
-      border: "#b7d9ee",
-    },
-  },
+
   trainingExpanse: {
     key: "trainingExpanse",
-    name: "Wasteland Expanse",
-    subtitle: "Large scrollable proving ground with long lanes, sparse cover, and room to stress-test builds.",
+    name: "Virtual Sandbox",
+    subtitle: "Endless virtual testing grid. No obstacles, pure data.",
     theme: {
-      backgroundStart: "#182027",
-      backgroundEnd: "#0a0f14",
-      floorGlow: "#86c5e7",
-      laneGlow: "#8fdcff",
-      warmGlow: "#e7c07f",
-      border: "#b7d9ee",
+      backgroundStart: "#060913",
+      backgroundEnd: "#020306",
+      floorGlow: "#00ccff",
+      laneGlow: "#00e5ff",
+      warmGlow: "#00ffff",
+      border: "#00f0ff",
     },
   },
 };
@@ -104,38 +92,48 @@ const mapLayouts = {
     name: duelMapRegistry.electroGallery.name,
     subtitle: duelMapRegistry.electroGallery.subtitle,
     theme: duelMapRegistry.electroGallery.theme,
-    playerSpawn: { x: 240, y: 450 },
-    enemySpawn: { x: 1360, y: 450 },
-    trainingSpawn: { x: 240, y: 450 },
+    width: 3200,
+    height: 2000,
+    scrollable: true,
+    playerSpawn: { x: 400, y: 1000 },
+    enemySpawn: { x: 2800, y: 1000 },
+    trainingSpawn: { x: 400, y: 1000 },
     survivalSpawns: [
-      { x: 220, y: 180 },
-      { x: 1380, y: 180 },
-      { x: 220, y: 720 },
-      { x: 1380, y: 720 },
-      { x: 800, y: 148 },
-      { x: 800, y: 752 },
+      { x: 400, y: 400 },
+      { x: 2800, y: 400 },
+      { x: 400, y: 1600 },
+      { x: 2800, y: 1600 },
+      { x: 1600, y: 400 },
+      { x: 1600, y: 1600 },
     ],
-    arenaDecor: [
-      { type: "lane", x: 112, y: 116, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.12)", stroke: "rgba(135, 235, 255, 0.18)" },
-      { type: "lane", x: 112, y: 666, w: 1376, h: 118, color: "rgba(86, 116, 150, 0.1)", stroke: "rgba(255, 174, 109, 0.12)" },
-      { type: "bridge", x: 640, y: 202, w: 320, h: 92, color: "rgba(73, 102, 130, 0.2)", stroke: "rgba(165, 241, 255, 0.22)" },
-      { type: "bridge", x: 640, y: 606, w: 320, h: 92, color: "rgba(73, 102, 130, 0.2)", stroke: "rgba(165, 241, 255, 0.22)" },
-      { type: "pit", x: 692, y: 364, w: 216, h: 172, color: "rgba(8, 12, 20, 0.52)", stroke: "rgba(124, 214, 255, 0.22)" },
-    ],
+    arenaDecor: [],
     obstacles: [
-      { key: "gallery-wall-1", x: 430, y: 278, w: 168, h: 62, style: "gallery-wall" },
-      { key: "gallery-wall-2", x: 1002, y: 560, w: 168, h: 62, style: "gallery-wall" },
-      { key: "gallery-core-1", x: 660, y: 286, w: 100, h: 156, style: "gallery-block" },
-      { key: "gallery-core-2", x: 840, y: 456, w: 100, h: 156, style: "gallery-block" },
-      { key: "gallery-column-1", x: 566, y: 370, w: 52, h: 120, style: "gallery-panel" },
-      { key: "gallery-column-2", x: 982, y: 410, w: 52, h: 120, style: "gallery-panel" },
+      { key: "eg-w-tl", x: 800, y: 300, w: 200, h: 80, style: "gallery-wall", solid: true },
+      { key: "eg-w-br", x: 2200, y: 1620, w: 200, h: 80, style: "gallery-wall", solid: true },
+      { key: "eg-w-bl", x: 800, y: 1620, w: 200, h: 80, style: "gallery-wall", solid: true },
+      { key: "eg-w-tr", x: 2200, y: 300, w: 200, h: 80, style: "gallery-wall", solid: true },
+      { key: "eg-c1", x: 1300, y: 600, w: 80, h: 800, style: "gallery-block", solid: true },
+      { key: "eg-c2", x: 1820, y: 600, w: 80, h: 800, style: "gallery-block", solid: true },
     ],
-    bushes: [],
+    bushes: [
+      { x: 1450, y: 900, w: 300, h: 200 },
+      { x: 500, y: 1500, w: 200, h: 400 },
+      { x: 2500, y: 100, w: 200, h: 400 },
+      { x: 500, y: 100, w: 200, h: 400 },
+      { x: 2500, y: 1500, w: 200, h: 400 },
+    ],
+    healPacks: [
+      { x: 1600, y: 1000, cooldown: 0 },
+      { x: 600, y: 1000, cooldown: 0 },
+      { x: 2600, y: 1000, cooldown: 0 },
+      { x: 1600, y: 300, cooldown: 0 },
+      { x: 1600, y: 1700, cooldown: 0 },
+    ],
     portals: [
-      { key: "gallery-portal-a-in", x: 236, y: 186, radius: 34, targetKey: "gallery-portal-a-out", color: "#6ef4ff" },
-      { key: "gallery-portal-a-out", x: 1368, y: 710, radius: 34, targetKey: "gallery-portal-a-in", color: "#6ef4ff" },
-      { key: "gallery-portal-b-in", x: 1368, y: 186, radius: 34, targetKey: "gallery-portal-b-out", color: "#ff9a6a" },
-      { key: "gallery-portal-b-out", x: 236, y: 710, radius: 34, targetKey: "gallery-portal-b-in", color: "#ff9a6a" },
+      { key: "eg-p-1in", x: 200, y: 200, radius: 40, targetKey: "eg-p-1out", color: "#6ef4ff" },
+      { key: "eg-p-1out", x: 3000, y: 1800, radius: 40, targetKey: "eg-p-1in", color: "#6ef4ff" },
+      { key: "eg-p-2in", x: 3000, y: 200, radius: 40, targetKey: "eg-p-2out", color: "#ff9a6a" },
+      { key: "eg-p-2out", x: 200, y: 1800, radius: 40, targetKey: "eg-p-2in", color: "#ff9a6a" },
     ],
     pylons: [],
     trainingBots: [],
@@ -145,61 +143,52 @@ const mapLayouts = {
     name: duelMapRegistry.bricABroc.name,
     subtitle: duelMapRegistry.bricABroc.subtitle,
     theme: duelMapRegistry.bricABroc.theme,
-    playerSpawn: { x: 248, y: 450 },
-    enemySpawn: { x: 1352, y: 450 },
-    trainingSpawn: { x: 248, y: 450 },
+    width: 3200,
+    height: 2000,
+    scrollable: true,
+    playerSpawn: { x: 400, y: 1000 },
+    enemySpawn: { x: 2800, y: 1000 },
+    trainingSpawn: { x: 400, y: 1000 },
     survivalSpawns: [
-      { x: 214, y: 192 },
-      { x: 1390, y: 212 },
-      { x: 214, y: 700 },
-      { x: 1388, y: 686 },
-      { x: 798, y: 176 },
-      { x: 826, y: 730 },
+      { x: 400, y: 400 },
+      { x: 2800, y: 400 },
+      { x: 400, y: 1600 },
+      { x: 2800, y: 1600 },
+      { x: 1600, y: 400 },
+      { x: 1600, y: 1600 },
     ],
-    arenaDecor: [
-      { type: "lane", x: 108, y: 132, w: 1384, h: 134, color: "rgba(124, 92, 66, 0.14)", stroke: "rgba(255, 194, 135, 0.14)" },
-      { type: "lane", x: 108, y: 634, w: 1384, h: 142, color: "rgba(112, 84, 60, 0.13)", stroke: "rgba(255, 194, 135, 0.12)" },
-      { type: "bridge", x: 590, y: 342, w: 420, h: 120, color: "rgba(116, 82, 56, 0.16)", stroke: "rgba(255, 214, 174, 0.16)" },
-    ],
+    arenaDecor: [],
     obstacles: [
-      { key: "bric-wall-1", x: 362, y: 274, w: 154, h: 68, style: "scrap-wall" },
-      { key: "bric-wall-2", x: 1092, y: 536, w: 168, h: 72, style: "scrap-wall" },
-      { key: "bric-crate-1", x: 560, y: 578, w: 92, h: 58, style: "crate" },
-      { key: "bric-crate-2", x: 952, y: 272, w: 92, h: 58, style: "crate" },
+      { key: "bb-w1", x: 700, y: 800, w: 100, h: 400, style: "scrap-wall", solid: true },
+      { key: "bb-w2", x: 2400, y: 800, w: 100, h: 400, style: "scrap-wall", solid: true },
+      { key: "bb-c1", x: 1400, y: 400, w: 400, h: 100, style: "crate", solid: true },
+      { key: "bb-c2", x: 1400, y: 1500, w: 400, h: 100, style: "crate", solid: true },
     ],
-    bushes: [],
+    bushes: [
+      { x: 1000, y: 800, w: 300, h: 400 },
+      { x: 1900, y: 800, w: 300, h: 400 },
+      { x: 800, y: 200, w: 200, h: 200 },
+      { x: 2200, y: 200, w: 200, h: 200 },
+      { x: 800, y: 1600, w: 200, h: 200 },
+      { x: 2200, y: 1600, w: 200, h: 200 },
+    ],
+    healPacks: [
+      { x: 1600, y: 1000, cooldown: 0 },
+      { x: 1000, y: 400, cooldown: 0 },
+      { x: 2200, y: 400, cooldown: 0 },
+      { x: 1000, y: 1600, cooldown: 0 },
+      { x: 2200, y: 1600, cooldown: 0 },
+    ],
     portals: [],
     pylons: [
-      { key: "bric-pillar-1", x: 506, y: 456, radius: 24, hp: 72, height: 178, fallLength: 196, color: "#ffbf80" },
-      { key: "bric-pillar-2", x: 812, y: 330, radius: 24, hp: 72, height: 184, fallLength: 208, color: "#ffd39f" },
-      { key: "bric-pillar-3", x: 1096, y: 534, radius: 24, hp: 72, height: 178, fallLength: 196, color: "#ff9d63" },
+      { key: "bb-pyl-1", x: 1600, y: 600, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ffbf80" },
+      { key: "bb-pyl-2", x: 1600, y: 1400, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ffd39f" },
+      { key: "bb-pyl-3", x: 1300, y: 1000, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ff9d63" },
+      { key: "bb-pyl-4", x: 1900, y: 1000, radius: 32, hp: 120, height: 180, fallLength: 200, color: "#ff9d63" },
     ],
     trainingBots: [],
   },
-  trainingGround: {
-    key: "trainingGround",
-    name: mapChoices.trainingGround.name,
-    subtitle: mapChoices.trainingGround.subtitle,
-    theme: mapChoices.trainingGround.theme,
-    playerSpawn: { x: 186, y: 450 },
-    enemySpawn: { x: 1336, y: 236 },
-    trainingSpawn: { x: 186, y: 450 },
-    arenaDecor: [
-      { type: "lane", x: 120, y: 362, w: 1360, h: 176, color: "rgba(111, 142, 164, 0.08)", stroke: "rgba(173, 223, 252, 0.14)" },
-      { type: "bridge", x: 344, y: 422, w: 920, h: 56, color: "rgba(84, 104, 122, 0.08)", stroke: "rgba(173, 223, 252, 0.12)" },
-    ],
-    obstacles: [],
-    bushes: [],
-    portals: [],
-    pylons: [],
-    trainingBots: [
-      { x: 656, y: 450 },
-      { x: 818, y: 450 },
-      { x: 980, y: 450 },
-      { x: 1142, y: 450 },
-      { x: 1304, y: 450 },
-    ],
-  },
+
   trainingExpanse: {
     key: "trainingExpanse",
     name: mapChoices.trainingExpanse.name,
@@ -213,25 +202,9 @@ const mapLayouts = {
     trainingSpawn: { x: 420, y: 1400 },
     survivalSpawns: [],
     arenaDecor: [
-      { type: "lane", x: 220, y: 1120, w: 4760, h: 560, color: "rgba(111, 142, 164, 0.07)", stroke: "rgba(173, 223, 252, 0.12)" },
-      { type: "lane", x: 320, y: 420, w: 4560, h: 180, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
-      { type: "lane", x: 320, y: 2200, w: 4560, h: 180, color: "rgba(111, 142, 164, 0.04)", stroke: "rgba(173, 223, 252, 0.08)" },
-      { type: "bridge", x: 1260, y: 1200, w: 480, h: 220, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.10)" },
-      { type: "bridge", x: 3460, y: 1200, w: 480, h: 220, color: "rgba(84, 104, 122, 0.06)", stroke: "rgba(173, 223, 252, 0.10)" },
-      { type: "pit", x: 2280, y: 1140, w: 640, h: 520, color: "rgba(7, 13, 20, 0.48)", stroke: "rgba(130, 212, 255, 0.16)" },
+      { type: "lane", x: 220, y: 1120, w: 4760, h: 560, color: "rgba(0, 255, 255, 0.02)", stroke: "rgba(0, 255, 255, 0.06)" },
     ],
-    obstacles: [
-      { key: "expanse-block-1", x: 1180, y: 700, w: 160, h: 132, style: "core-block" },
-      { key: "expanse-block-2", x: 1180, y: 1968, w: 160, h: 132, style: "core-block" },
-      { key: "expanse-block-3", x: 3860, y: 700, w: 160, h: 132, style: "core-block" },
-      { key: "expanse-block-4", x: 3860, y: 1968, w: 160, h: 132, style: "core-block" },
-      { key: "expanse-block-5", x: 1920, y: 840, w: 128, h: 120, style: "gallery-block" },
-      { key: "expanse-block-6", x: 3140, y: 1840, w: 128, h: 120, style: "gallery-block" },
-      { key: "expanse-pillar-1", x: 2120, y: 1124, w: 82, h: 332, style: "bridge-pillar" },
-      { key: "expanse-pillar-2", x: 2980, y: 1124, w: 82, h: 332, style: "bridge-pillar" },
-      { key: "expanse-cover-1", x: 760, y: 1328, w: 220, h: 108, style: "gallery-wall" },
-      { key: "expanse-cover-2", x: 4220, y: 1328, w: 220, h: 108, style: "gallery-wall" },
-    ],
+    obstacles: [],
     bushes: [],
     portals: [],
     pylons: [],
@@ -255,16 +228,14 @@ export function cloneRect(rect) {
 
 export function getSelectableMapsForMode(mode = uiState.selectedMode) {
   if (mode === sandboxModes.training.key) {
-    return [mapChoices.trainingGround, mapChoices.trainingExpanse];
+    return [mapChoices.trainingExpanse];
   }
   return [mapChoices.electroGallery, mapChoices.bricABroc, mapChoices.randomMap];
 }
 
 export function normalizeSelectedMap(mode, mapKey) {
   if (mode === sandboxModes.training.key) {
-    return mapKey === mapChoices.trainingExpanse.key
-      ? mapChoices.trainingExpanse.key
-      : mapChoices.trainingGround.key;
+    return mapChoices.trainingExpanse.key;
   }
   if (mapKey === mapChoices.randomMap.key || duelMapRegistry[mapKey]) {
     return mapKey;
@@ -289,7 +260,7 @@ export function resolveMapKey(mode, mapKey, resolveRandom = false) {
 
 export function getSelectedMapMeta(mode = uiState.selectedMode, mapKey = uiState.selectedMap) {
   const normalized = normalizeSelectedMap(mode, mapKey);
-  return getSelectableMapsForMode(mode).find((item) => item.key === normalized) ?? mapChoices.trainingGround;
+  return getSelectableMapsForMode(mode).find((item) => item.key === normalized) ?? mapChoices.trainingExpanse;
 }
 
 export function getMapLayout(mode = sandbox.mode, mapKey = sandbox.mapKey) {
@@ -305,6 +276,7 @@ export function buildMapState(mode = sandbox.mode, mapKey = sandbox.mapKey) {
   mapState.decor = layout.arenaDecor.map((item) => ({ ...item }));
   mapState.obstacles = layout.obstacles.map((item) => ({ ...cloneRect(item), solid: true }));
   mapState.bushes = layout.bushes.map((item) => ({ ...cloneRect(item) }));
+  mapState.healPacks = layout.healPacks ? layout.healPacks.map((item) => ({ ...item })) : [];
   mapState.portals = layout.portals.map((item) => ({ ...item, cooldowns: new Map() }));
   mapState.pylons = layout.pylons.map((item) => ({
     ...item,
@@ -503,7 +475,7 @@ export function canSeeTarget(viewer, target) {
     return false;
   }
   const viewerInBush = isEntityInBush(viewer);
-  const targetInBush = isEntityInBush(target);
+  const targetInBush = target.combatTimer <= 0 && isEntityInBush(target);
   if (!targetInBush) {
     return true;
   }

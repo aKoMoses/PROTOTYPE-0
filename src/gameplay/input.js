@@ -23,6 +23,9 @@ import { isCombatLive } from "./combat.js";
 
 let menuConfirmExpiresAt = 0;
 
+const boltSvg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="#00ff66" stroke="black" stroke-width="3" stroke-linejoin="round"/><circle cx="16" cy="16" r="6" fill="#111" /></svg>`;
+const boltCursorUrl = `url('data:image/svg+xml;base64,${btoa(boltSvg)}') 16 16, pointer`;
+
 function tryOpenPrematchMenu() {
   const now = performance.now();
   if (isCombatLive()) {
@@ -147,6 +150,17 @@ window.addEventListener("keydown", (event) => {
 
   if (sandbox.mode !== sandboxModes.training.key) {
     return;
+  }
+
+  if (event.code === "KeyG") {
+    player.fireCooldown = 0;
+    abilityState.javelin.cooldown = 0;
+    abilityState.field.cooldown = 0;
+    abilityState.shield.cooldown = 0;
+    abilityState.ultimate.cooldown = 0;
+    abilityState.energyParry.cooldown = 0;
+    abilityState.dash.charges = 2;
+    statusLine.textContent = "Cooldowns reset.";
   }
 
   if (event.code === "Digit1") {
@@ -406,6 +420,23 @@ trainingBuildButton?.addEventListener("click", () => {
 
 canvas.addEventListener("mousemove", (event) => {
   updatePointer(event.clientX, event.clientY);
+
+  if (sandbox.mode === sandboxModes.training.key && trainingToolState.trainingConfig?.isSelecting) {
+    let anyHovered = false;
+    for (const bot of trainingBots) {
+      bot.isHovered = false;
+      if (bot.alive && length(input.mouseX - bot.x, input.mouseY - bot.y) < 60) {
+        bot.isHovered = true;
+        anyHovered = true;
+      }
+    }
+    canvas.style.cursor = boltCursorUrl;
+  } else {
+    for (const bot of trainingBots) bot.isHovered = false;
+    if (canvas.style.cursor === boltCursorUrl || canvas.style.cursor === "pointer" || canvas.style.cursor === "crosshair") {
+      canvas.style.cursor = "";
+    }
+  }
 });
 
 canvas.addEventListener("mousedown", (event) => {
@@ -414,6 +445,30 @@ canvas.addEventListener("mousedown", (event) => {
   }
   unlockAudio();
   updatePointer(event.clientX, event.clientY);
+
+  if (sandbox.mode === sandboxModes.training.key && trainingToolState.trainingConfig?.isSelecting) {
+    let closestBot = null;
+    let minDistance = 60;
+    for (const bot of trainingBots) {
+      if (!bot.alive) continue;
+      const dist = length(input.mouseX - bot.x, input.mouseY - bot.y);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestBot = bot;
+      }
+    }
+    if (closestBot) {
+      trainingToolState.trainingConfig.selectedBotId = closestBot.kind;
+      trainingToolState.trainingConfig.isSelecting = false;
+      canvas.style.cursor = "";
+      for (const b of trainingBots) b.isHovered = false;
+      document.dispatchEvent(new CustomEvent('training-bot-selected', { detail: closestBot.kind }));
+      statusLine.textContent = `Bot selected: ${closestBot.kind}.`;
+    } else {
+      statusLine.textContent = "No target found near cursor. Try again.";
+    }
+    return;
+  }
   if (event.button === 2) {
     input.altFiring = true;
     return;

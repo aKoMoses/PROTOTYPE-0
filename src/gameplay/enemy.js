@@ -1,10 +1,9 @@
 // Enemy AI, training bots, enemy actions
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, trainingBots, abilityState, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
   bullets, enemyBullets, shockJavelins, enemyShockJavelins, magneticFields, supportZones, mapState,
-  tracers } from "../state.js";
-import { loadout, trainingToolState } from "../state/app-state.js";
+  tracers, trainingToolState } from "../state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";
@@ -19,6 +18,7 @@ import { spawnEnemyJavelin, confirmShockJavelinImpact, expireShockJavelin } from
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playWeaponFire, playAbilityCue } from "../audio.js";
+import { updateCasting, startCast, startVisualCast, startWeaponTelegraph } from "./casting.js";
 import { applyPhantomDamage } from "./phantom.js";
 
 export function updateShockJavelins(dt) {
@@ -314,6 +314,7 @@ export function fireEnemyShotgun(targetX, targetY) {
       },
     );
   }
+  startWeaponTelegraph(enemy, "shotgun", 0.08);
   playWeaponFire(weapons.shotgun.key, "enemy");
   addImpact(enemy.x + Math.cos(baseAngle) * 22, enemy.y + Math.sin(baseAngle) * 22, "#ffb078", 16);
   return true;
@@ -390,6 +391,7 @@ export function fireEnemySniper(targetX, targetY) {
     travelBonusRange: config.sniperTravelBonusRange,
     effect: { kind: "rail", bonusSlow: 0.12, bonusSlowDuration: 0.48, maxSlow: 0.2, maxSlowDuration: 0.7, snareDuration: 0.24, snareMagnitude: 0.72 },
   });
+  startWeaponTelegraph(enemy, "sniper", 0.12);
   playWeaponFire(weapons.sniper.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd27a", 18);
   return true;
@@ -403,6 +405,7 @@ export function fireEnemyStaff(targetX, targetY) {
     source: "enemy-staff",
     effect: { kind: "staff", heal: 6 },
   });
+  startWeaponTelegraph(enemy, "staff", 0.1);
   playWeaponFire(weapons.staff.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 24, enemy.y + Math.sin(enemy.facing) * 24, "#9cffc4", 14);
   return true;
@@ -416,6 +419,7 @@ export function fireEnemyInjector(targetX, targetY) {
     source: "enemy-injector",
     effect: { kind: "injector", markDuration: 4, markMax: 3, healOnConsume: 10 },
   });
+  startWeaponTelegraph(enemy, "injector", 0.1);
   playWeaponFire(weapons.injector.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 22, enemy.y + Math.sin(enemy.facing) * 22, "#d894ff", 12);
   return true;
@@ -432,6 +436,7 @@ export function fireEnemyLance(target = player, altFire = false) {
   addBeamEffect(enemy.x, enemy.y, endX, endY, altFire ? "#ffd7a8" : "#ffe7bf", altFire ? 7 : 4, 0.12);
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, "#ffd8ac", altFire ? 20 : 16);
   damagePylonsAlongLine(enemy.x, enemy.y, endX, endY, damage * 0.26, "enemy");
+  startWeaponTelegraph(enemy, "lance", 0.12);
   playWeaponFire(weapons.lance.key, "enemy");
 
   if (hits.length === 0) {
@@ -493,6 +498,7 @@ export function fireEnemyCannon(targetX, targetY, charged = false) {
       },
     },
   );
+  startWeaponTelegraph(enemy, "cannon", 0.14);
   playWeaponFire(weapons.cannon.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 26, enemy.y + Math.sin(enemy.facing) * 26, charged ? "#ffe3af" : "#ffcca4", charged ? 20 : 22);
   return true;
@@ -515,6 +521,7 @@ export function fireTrainingPulse(bot, targetX, targetY) {
       source: "training-pulse",
     },
   );
+  startWeaponTelegraph(bot, "pulse", 0.05);
   playWeaponFire(weapons.pulse.key, "enemy");
   addImpact(bot.x + Math.cos(bot.facing) * 20, bot.y + Math.sin(bot.facing) * 20, "#9de8ff", 10);
 }
@@ -531,6 +538,7 @@ export function queueEnemyAxeStrike() {
     facing: enemy.facing,
     comboStep: enemy.comboStep,
   };
+  startWeaponTelegraph(enemy, "axe", 0.16);
   enemy.shootCooldown = profile.cooldown;
   playWeaponFire(weapons.axe.key, "enemy");
   addImpact(enemy.x + Math.cos(enemy.facing) * 28, enemy.y + Math.sin(enemy.facing) * 28, profile.color, 18);
@@ -613,11 +621,21 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   }
 }
 
+ // spawnEnemyJavelin is imported from abilities.js
+
 export function castEnemyGrapple(forward, target = player) {
+  startCast(enemy, "magneticGrapple", executeEnemyGrappleCast, { forward, target });
+}
+
+export function executeEnemyGrappleCast(params) {
+  const { forward, target } = params;
+  if (!target || !target.alive) return;
+
   enemy.abilityCooldowns.grapple = config.grappleCooldown + 0.6;
   playAbilityCue("magneticGrapple", "enemy");
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
-  addImpact(enemy.x, enemy.y, "#bfeeff", 18);
+  addImpact(enemy.x, enemy.y, "#9feeff", 32);
+  addShake(5.2);
 
   if (target === player && tryTriggerEnergyParry(enemy, "grapple")) {
     return;
@@ -647,6 +665,7 @@ export function castEnemyGrapple(forward, target = player) {
 }
 
 export function castEnemyShield() {
+  startVisualCast(enemy, "energyShield", 0.3);
   enemy.abilityCooldowns.shield = config.shieldCooldown + 0.5;
   enemy.shield = Math.max(enemy.shield, config.shieldValue);
   enemy.shieldTime = config.shieldDuration;
@@ -665,6 +684,7 @@ export function castEnemyBooster() {
 }
 
 export function castEnemyEmp() {
+  startVisualCast(enemy, "empBurst", 0.35);
   enemy.abilityCooldowns.emp = config.boosterCooldown + 0.8;
   playAbilityCue("empBurst", "enemy");
   addExplosion(enemy.x, enemy.y, 72, "#cbb0ff");
@@ -681,6 +701,7 @@ export function castEnemyEmp() {
 }
 
 export function castEnemyBackstep() {
+  startVisualCast(enemy, "backstepBurst", 0.3);
   enemy.abilityCooldowns.backstep = 4.1;
   const retreat = normalize(enemy.x - player.x, enemy.y - player.y);
   enemy.x = clamp(enemy.x + retreat.x * 150, enemy.radius, arena.width - enemy.radius);
@@ -695,8 +716,14 @@ export function castEnemyBackstep() {
 }
 
 export function castEnemyChainLightning(target = player) {
-  enemy.abilityCooldowns.chainLightning = 5.8;
-  playAbilityCue("chainLightning", "enemy");
+  startCast(enemy, "chainLightning", executeEnemyChainLightningCast, { target });
+}
+
+export function executeEnemyChainLightningCast(params) {
+  const target = params.target;
+  if (!target || !target.alive) return;
+
+  enemy.abilityCooldowns.chainLightning = getStatusDuration(5.6);
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#d7bfff", 4.5, 0.14);
   if (target === playerClone) {
     applyPhantomDamage(24, "enemy-chain-lightning");
@@ -709,10 +736,13 @@ export function castEnemyChainLightning(target = player) {
       return;
     }
   }
-  addImpact(target.x, target.y, "#d7bfff", 18);
+  addImpact(target.x, target.y, "#d7bfff", 24);
+  addImpact(enemy.x, enemy.y, "#9feaff", 28);
+  addShake(3.2);
 }
 
 export function castEnemyBlink(forward) {
+  startVisualCast(enemy, "blinkStep", 0.3);
   enemy.abilityCooldowns.blink = 3.6;
   enemy.x = clamp(enemy.x + forward.x * 132, enemy.radius, arena.width - enemy.radius);
   enemy.y = clamp(enemy.y + forward.y * 132, enemy.radius, arena.height - enemy.radius);
@@ -723,6 +753,7 @@ export function castEnemyBlink(forward) {
 }
 
 export function castEnemyPhaseDash(forward) {
+  startVisualCast(enemy, "speedSurge", 0.28);
   enemy.abilityCooldowns.phaseDash = 4.8;
   enemy.dodgeVectorX = forward.x;
   enemy.dodgeVectorY = forward.y;
@@ -734,6 +765,13 @@ export function castEnemyPhaseDash(forward) {
 }
 
 export function castEnemyPulseBurst(target = player) {
+  startCast(enemy, "pulseBurst", executeEnemyPulseBurstCast, { target });
+}
+
+export function executeEnemyPulseBurstCast(params) {
+  const target = params.target;
+  if (!target || !target.alive) return;
+
   enemy.abilityCooldowns.pulseBurst = config.pulseBurstCooldown + 0.2;
   const baseAngle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
   const burstId = beginPulseBurstCast("enemy", config.pulseBurstMissiles);
@@ -755,16 +793,35 @@ export function castEnemyPulseBurst(target = player) {
     });
   }
   playAbilityCue("pulseBurst", "enemy");
-  addImpact(enemy.x + Math.cos(baseAngle) * 22, enemy.y + Math.sin(baseAngle) * 22, "#84dcff", 14);
+  addImpact(enemy.x, enemy.y, "#7ddcff", 32);
+  addShake(4.8);
+  enemy.flash = 0.08;
 }
 
 export function castEnemyRailShot(target = player) {
+  startCast(enemy, "railShot", executeEnemyRailShotCast, { target });
+}
+
+export function executeEnemyRailShotCast(params) {
+  const target = params.target;
+  if (!target) return;
+
   enemy.abilityCooldowns.railShot = 5.3;
   playAbilityCue("railShot", "enemy");
+  addImpact(enemy.x, enemy.y, "#ffd279", 36);
+  addShake(6.4);
+  enemy.flash = 0.1;
   fireEnemySniper(target.x + (target.velocityX ?? 0) * 0.24, target.y + (target.velocityY ?? 0) * 0.24);
 }
 
 export function castEnemyGravityWell(target = player) {
+  startCast(enemy, "gravityWell", executeEnemyGravityWellCast, { target });
+}
+
+export function executeEnemyGravityWellCast(params) {
+  const target = params.target;
+  if (!target) return;
+
   enemy.abilityCooldowns.gravityWell = config.gravityWellCooldown + 0.2;
   supportZones.push({
     type: "gravity",
@@ -779,10 +836,13 @@ export function castEnemyGravityWell(target = player) {
     pullStrength: config.gravityWellPullStrength * 0.92,
   });
   playAbilityCue("gravityWell", "enemy");
-  addExplosion(target.x, target.y, config.gravityWellRadius, "#d1a2ff");
+  addExplosion(target.x, target.y, config.gravityWellRadius, "#b999ff");
+  addImpact(enemy.x, enemy.y, "#b999ff", 32);
+  addShake(5.6);
 }
 
 export function castEnemyPhaseShift() {
+  startVisualCast(enemy, "phaseShift", 0.35);
   enemy.abilityCooldowns.phaseShift = 5.8;
   enemy.shield = Math.max(enemy.shield, 14);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.7);
@@ -791,6 +851,7 @@ export function castEnemyPhaseShift() {
 }
 
 export function castEnemyHologram() {
+  startVisualCast(enemy, "hologramDecoy", 0.32);
   enemy.abilityCooldowns.hologramDecoy = 6.4;
   enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.5);
   playAbilityCue("hologramDecoy", "enemy");
@@ -798,6 +859,7 @@ export function castEnemyHologram() {
 }
 
 export function castEnemySpeedSurge() {
+  startVisualCast(enemy, "speedSurge", 0.4);
   enemy.abilityCooldowns.speedSurge = 4.4;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
   playAbilityCue("speedSurge", "enemy");
@@ -929,6 +991,7 @@ export function updateEnemy(dt) {
   enemy.shootCooldown -= dt;
   enemy.strafeTimer += dt;
   enemy.dodgeCooldown = Math.max(0, enemy.dodgeCooldown - dt);
+  updateCasting(enemy, dt);
 
   if (enemy.shieldTime <= 0) {
     enemy.shield = 0;
@@ -1002,12 +1065,22 @@ export function updateEnemy(dt) {
       moveY -= forward.y * behaviorProfile.retreatBias;
     }
 
+    if (enemy.castTime > 0) {
+      const castFriction = config.playerFriction * 3.2;
+      enemy.velocityX = approach(enemy.velocityX, 0, castFriction * dt);
+      enemy.velocityY = approach(enemy.velocityY, 0, castFriction * dt);
+      moveX *= 0.1;
+      moveY *= 0.1;
+    }
+
     if (enemy.meleeWindupTime > 0) {
       moveX *= 0.28;
       moveY *= 0.28;
     }
   }
 
+  enemy.velocityX += moveX * config.enemyAccel * dt;
+  enemy.velocityY += moveY * config.enemyAccel * dt;
   const desired = normalize(moveX, moveY);
   const speed =
       (enemy.dodgeTime > 0 ? config.enemyDodgeSpeed : config.enemySpeed) *
@@ -1207,6 +1280,14 @@ export function updateTrainingBots(dt) {
 
     if (!bot.alive) {
       continue;
+    }
+
+    updateCasting(bot, dt);
+
+    if (bot.castTime > 0) {
+      const botFriction = config.playerFriction * 3.2;
+      bot.velocityX = approach(bot.velocityX ?? 0, 0, botFriction * dt);
+      bot.velocityY = approach(bot.velocityY ?? 0, 0, botFriction * dt);
     }
 
     const dx = player.x - bot.x;
