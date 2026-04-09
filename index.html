@@ -6,6 +6,10 @@
     <title>Prototype 0</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./shell-ui.css" />
+    <link rel="stylesheet" href="./profile.css" />
+    <link rel="stylesheet" href="./loadout.css" />
+    <link rel="stylesheet" href="./loadout-builder.css" />
+    <link rel="stylesheet" href="./profile.css" />
   </head>
   <body class="app-shell-page">
     <div class="app-shell">
@@ -20,6 +24,14 @@
           <button class="shell-nav__button shell-nav__button--active" type="button" data-shell-view="game">
             <span class="shell-nav__label">Main Game</span>
             <span class="shell-nav__meta">Combat live</span>
+          </button>
+          <button class="shell-nav__button" type="button" data-shell-view="profile">
+            <span class="shell-nav__label">Profile</span>
+            <span class="shell-nav__meta">Identity & war record</span>
+          </button>
+          <button class="shell-nav__button" type="button" data-shell-view="loadouts">
+            <span class="shell-nav__label">Loadouts</span>
+            <span class="shell-nav__meta">Builds sauvegardés</span>
           </button>
           <button class="shell-nav__button" type="button" data-shell-view="dev">
             <span class="shell-nav__label">Dev Status</span>
@@ -54,6 +66,11 @@
                 <span class="landing-card__tag">Main Game</span>
                 <strong>Interface actuelle</strong>
                 <p>Duel, Build Lab, HUD, match flow.</p>
+              </button>
+              <button class="landing-card" type="button" data-shell-view="profile">
+                <span class="landing-card__tag">Profile</span>
+                <strong>War Record</strong>
+                <p>Identity, badges, match history.</p>
               </button>
               <button class="landing-card" type="button" data-shell-view="dev">
                 <span class="landing-card__tag">Dev Status</span>
@@ -397,10 +414,10 @@
 
                       <section class="build-card build-card--presets">
                         <div class="build-card__header">
-                          <span class="label">Starter Presets</span>
+                          <span class="label">Loadouts</span>
                           <strong>Load a coherent fighter</strong>
                         </div>
-                        <span class="builder-copy">Three clean starter builds so new players and balance tests can jump straight into a useful kit.</span>
+                        <span class="builder-copy">All your loadouts live here now, including the starter builds shipped with the game.</span>
                         <div class="preset-grid" id="player-preset-grid"></div>
                       </section>
                     </div>
@@ -642,6 +659,36 @@
           </div>
         </section>
 
+        <section class="shell-view shell-view--profile" id="shell-view-profile" data-shell-panel="profile">
+          <div class="profile-view">
+            <div class="profile-layout" id="profile-content"></div>
+          </div>
+        </section>
+
+        <section class="shell-view shell-view--loadouts" id="shell-view-loadouts" data-shell-panel="loadouts">
+          <div class="loadout-view">
+            <div class="loadout-layout" id="loadout-root">
+              <div class="loadout-page-header">
+                <div>
+                  <h1 class="loadout-page-title">Loadouts</h1>
+                  <p class="loadout-page-sub">Forge &amp; manage your builds</p>
+                </div>
+                <button class="loadout-create-btn" id="loadout-create-btn">New Loadout</button>
+              </div>
+
+              <div class="loadout-section-header">
+                <h2 class="loadout-section-title">Style Tags</h2>
+              </div>
+              <div class="loadout-tag-bar" id="loadout-tag-bar"></div>
+
+              <div class="loadout-section-header">
+                <h2 class="loadout-section-title">Saved Builds</h2>
+              </div>
+              <div class="loadout-grid" id="loadout-grid"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="shell-view shell-view--dev" id="shell-view-dev" data-shell-panel="dev">
           <main class="dev-shell dev-shell--embedded">
             <section class="hero-panel">
@@ -723,6 +770,9 @@
     <script type="module" src="./src/main.js"></script>
     <script type="module" src="./src/gameplay/training-ui.js"></script>
     <script type="module" src="./dev-status.js"></script>
+    <script type="module" src="./profile.js"></script>
+    <script type="module" src="./loadout-page.js"></script>
+    <script type="module" src="./loadout-builder.js"></script>
     <script type="module" src="./shell-ui.js"></script>
   </body>
 </html>
