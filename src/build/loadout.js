@@ -63,6 +63,23 @@ const botPresetLibrary = [
     },
   },
   {
+    key: "bot-assassin",
+    name: "Bot Assassin",
+    role: "Burst / disengage",
+    description: "Closes fast, unloads burst damage, then slips out before you can trade back.",
+    loadout: {
+      weapon: weapons.shotgun.key,
+      abilities: ["magneticGrapple", "shockJavelin", "phaseShift"],
+      perk: "executionRelay",
+      ultimate: "phantomSplit",
+      runes: createPresetRunes({
+        attack: { secondary: 5, primary: 3, ultimate: 1 },
+        spells: { secondary: 3, primary: 0, ultimate: 0 },
+        support: { secondary: 4, primary: 0, ultimate: 0 },
+      }),
+    },
+  },
+  {
     key: "bot-controller",
     name: "Bot Controller",
     role: "Zone / reset",

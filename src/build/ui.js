@@ -15,7 +15,7 @@ import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } fr
 import { getAxeComboProfile } from "../gameplay/weapons.js";
 import { playUiCue, unlockAudio } from "../audio.js";
 import { normalizeStoredBuild, readStoredLoadouts } from "../loadouts/storage.js";
-import { formatMissingUnlocks, getLoadoutAccessState, isContentUnlocked } from "../progression.js";
+import { formatMissingUnlocks, getCurrentBotDifficultyTier, getLoadoutAccessState, isContentUnlocked } from "../progression.js";
 import { registerClickTooltip } from "../ui/tooltip-manager.js";
 
 // Forward declarations
@@ -1191,15 +1191,17 @@ export function renderTrainingBotPanel() {
     return;
   }
 
+  const adaptiveDifficulty = getCurrentBotDifficultyTier();
+
   // Match rules card — visible only in duel mode
   const isDuel = uiState.selectedMode === sandboxModes.duel.key || uiState.selectedMode === sandboxModes.teamDuel.key;
   dom.matchRulesCard?.classList.toggle("is-hidden", !isDuel);
 
   if (isDuel) {
-    dom.botDifficultyEasy?.classList.toggle("is-active", matchSettings.difficulty === "easy");
-    dom.botDifficultyNormal?.classList.toggle("is-active", matchSettings.difficulty === "normal");
-    dom.botDifficultyHard?.classList.toggle("is-active", matchSettings.difficulty === "hard");
-    dom.botDifficultyNightmare?.classList.toggle("is-active", matchSettings.difficulty === "nightmare");
+    dom.botDifficultyEasy?.classList.toggle("is-active", adaptiveDifficulty === "easy");
+    dom.botDifficultyNormal?.classList.toggle("is-active", adaptiveDifficulty === "normal");
+    dom.botDifficultyHard?.classList.toggle("is-active", adaptiveDifficulty === "hard");
+    dom.botDifficultyNightmare?.classList.toggle("is-active", adaptiveDifficulty === "nightmare");
     dom.ruleFormatBo3?.classList.toggle("is-active", matchSettings.format === "bo3");
     dom.ruleFormatBo5?.classList.toggle("is-active", matchSettings.format === "bo5");
     dom.ruleTimerOff?.classList.toggle("is-active", matchSettings.timer === 0);
@@ -1258,8 +1260,8 @@ export function renderTrainingBotPanel() {
   dom.botModeCustom.classList.toggle("is-active", botBuildState.mode === "custom");
   dom.botConfigCopy.textContent =
     botBuildState.mode === "random"
-      ? "Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different."
-      : previewBuild.description ?? "Custom mode locks the hunter build. Use it to lab exact matchup pressure before entering the arena.";
+      ? `Hunter bot randomizes a full playable loadout on each duel reset, and its AI scales with your current level (${adaptiveDifficulty}).`
+      : previewBuild.description ?? `Custom mode locks the hunter build while keeping its AI synced to your current level (${adaptiveDifficulty}).`;
 
   renderSelectionGrid(
     dom.botWeaponGrid,
