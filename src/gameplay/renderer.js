@@ -739,12 +739,6 @@ export function drawPendingAxeTelegraph() {
     ctx.lineTo(profile.range, profile.width * 0.5);
     ctx.lineTo(20, profile.width);
     ctx.stroke();
-  } else if (profile.hitMode === "arc") {
-    ctx.strokeStyle = "rgba(126, 222, 255, 0.82)";
-    ctx.lineWidth = 14;
-    ctx.beginPath();
-    ctx.arc(0, 0, profile.range, -profile.arc, profile.arc);
-    ctx.stroke();
   } else if (profile.hitMode === "dashPath") {
     ctx.strokeStyle = "rgba(255, 221, 138, 0.9)";
     ctx.lineWidth = 10;
@@ -1129,17 +1123,17 @@ export function drawWeaponTelegraph(entity) {
 
   switch (entity.weaponCasting) {
     case "pulse":
-      drawTargetCorners(radius, progress, ctx);
+      // Removed target corners per user request
       break;
     case "sniper":
     case "cannon":
-      drawConvergenceLines(radius * 1.5, entity.facing, progress, ctx);
+      // Removed line telegraph per user request
       break;
     case "shotgun":
       drawWideArc(radius, entity.facing, progress, ctx);
       break;
     case "axe":
-      drawCrescentArc(radius * 1.8, entity.facing, progress, ctx);
+      // Removed crescent arc per user request
       break;
     default:
       drawDiamondCore(radius, progress, ctx);
@@ -1915,12 +1909,59 @@ export function drawWorld() {
   }
 
   for (const blast of explosions) {
-    const t = blast.life / blast.maxLife;
-    ctx.beginPath();
-    ctx.arc(blast.x, blast.y, blast.radius * (1.2 - t * 0.35), 0, Math.PI * 2);
-    ctx.strokeStyle = `${blast.color}${Math.floor(t * 255).toString(16).padStart(2, "0")}`;
-    ctx.lineWidth = 8 * t + 2;
-    ctx.stroke();
+    const t = blast.life / blast.maxLife; // 1 to 0
+    const progress = 1 - t; // 0 to 1
+
+    if (blast.type === "death") {
+      ctx.save();
+      ctx.translate(blast.x, blast.y);
+
+      // 1. Expand geometric ring
+      ctx.beginPath();
+      ctx.arc(0, 0, blast.radius * (0.4 + progress * 0.8), 0, Math.PI * 2);
+      ctx.strokeStyle = blast.color;
+      ctx.lineWidth = 4 * t;
+      ctx.globalAlpha = t;
+      ctx.stroke();
+
+      // 2. Rotating Diamond Core
+      ctx.save();
+      ctx.rotate(progress * Math.PI * 0.5);
+      const diamondSize = blast.radius * 0.3 * t;
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(-diamondSize, -diamondSize, diamondSize * 2, diamondSize * 2);
+      ctx.restore();
+
+      // 3. Debris Shards (Triangles)
+      const shardCount = 6;
+      for (let i = 0; i < shardCount; i++) {
+        const angle = (i / shardCount) * Math.PI * 2 + progress * 0.8;
+        const dist = blast.radius * (0.2 + progress * 1.1);
+        const shardX = Math.cos(angle) * dist;
+        const shardY = Math.sin(angle) * dist;
+
+        ctx.save();
+        ctx.translate(shardX, shardY);
+        ctx.rotate(angle + progress * 2);
+        ctx.fillStyle = blast.color;
+
+        ctx.beginPath();
+        ctx.moveTo(8 * t, 0);
+        ctx.lineTo(-6 * t, -5 * t);
+        ctx.lineTo(-6 * t, 5 * t);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.arc(blast.x, blast.y, blast.radius * (1.2 - t * 0.35), 0, Math.PI * 2);
+      ctx.strokeStyle = `${blast.color}${Math.floor(t * 255).toString(16).padStart(2, "0")}`;
+      ctx.lineWidth = 10 * t + 3;
+      ctx.stroke();
+    }
   }
 
   for (const zone of supportZones) {

@@ -108,8 +108,6 @@ export function startDashInput() {
   }
 
   abilityState.dash.inputHeld = true;
-  abilityState.dash.holdTime = 0;
-  abilityState.dash.upgraded = false;
   executeDash("tap");
 }
 
@@ -155,46 +153,13 @@ export function executeDash(dashMode) {
   addShake(dashMode === "hold" ? 7.5 : 6);
 }
 
-export function upgradeDashToHold() {
-  if (abilityState.dash.mode === "hold") {
-    return;
-  }
-
-  const holdProfile = getDashProfile("hold");
-  abilityState.dash.mode = "hold";
-  abilityState.dash.activeTime = Math.max(abilityState.dash.activeTime, holdProfile.duration * 0.82);
-  abilityState.dash.invulnerabilityTime = Math.max(
-    abilityState.dash.invulnerabilityTime,
-    holdProfile.invulnerability,
-  );
-  addAfterimage(player.x, player.y, player.facing, player.radius + 3, holdProfile.trailColor);
-}
 
 export function releaseDashInput() {
-  if (!abilityState.dash.inputHeld) {
-    return;
-  }
-
   abilityState.dash.inputHeld = false;
-  abilityState.dash.holdTime = 0;
 }
 
 export function updateDashAbility(dt) {
   const activeDashCharges = getActiveDashCharges();
-
-  if (abilityState.dash.inputHeld) {
-    abilityState.dash.holdTime = Math.min(0.4, abilityState.dash.holdTime + dt);
-  }
-
-  if (
-    abilityState.dash.inputHeld &&
-    abilityState.dash.activeTime > 0 &&
-    !abilityState.dash.upgraded &&
-    abilityState.dash.holdTime >= abilityConfig.dash.holdThreshold
-  ) {
-    abilityState.dash.upgraded = true;
-    upgradeDashToHold();
-  }
 
   if (abilityState.dash.charges > activeDashCharges) {
     abilityState.dash.charges = activeDashCharges;

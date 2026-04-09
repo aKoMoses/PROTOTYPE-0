@@ -77,14 +77,15 @@ export function addSlashEffect(x, y, facing, comboStep) {
   });
 }
 
-export function addExplosion(x, y, radius, color) {
+export function addExplosion(x, y, radius, color, options = {}) {
   explosions.push({
     x,
     y,
     radius,
     color,
-    life: 0.18,
-    maxLife: 0.18,
+    life: options.life ?? 0.18,
+    maxLife: options.life ?? 0.18,
+    type: options.type ?? "standard",
   });
 }
 

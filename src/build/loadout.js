@@ -476,16 +476,7 @@ export function getActiveDashCharges() {
   return 1;
 }
 
-export function getDashProfile(mode = abilityState.dash.mode) {
-  if (mode === "hold") {
-    return {
-      duration: abilityConfig.dash.holdDuration,
-      invulnerability: abilityConfig.dash.holdInvulnerability,
-      speed: abilityConfig.dash.holdSpeed,
-      trailColor: "#c8ffe4",
-    };
-  }
-
+export function getDashProfile() {
   return {
     duration: abilityConfig.dash.tapDuration,
     invulnerability: abilityConfig.dash.tapInvulnerability,

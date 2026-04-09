@@ -264,7 +264,7 @@ export function getAbilityHudState(abilityKey) {
       const ready = abilityState.dash.charges > 0;
       return {
         ready,
-        charging: abilityState.dash.inputHeld && abilityState.dash.activeTime <= 0,
+        charging: false,
         cooldownRatio: ready ? 0 : Math.max(0, Math.min(1, abilityState.dash.rechargeTimer / getActiveDashCooldown())),
         timer: abilityState.dash.activeTime > 0 ? "GO" : ready ? "" : abilityState.dash.rechargeTimer.toFixed(1),
       };

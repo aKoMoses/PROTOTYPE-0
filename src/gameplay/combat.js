@@ -1061,6 +1061,7 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
 
   if (bot.hp <= 0) {
     bot.alive = false;
+    addExplosion(bot.x, bot.y, 68, bot.accent, { type: "death", life: 0.28 });
     addImpact(bot.x, bot.y, "#b6fff4", 42);
     statusLine.textContent =
       bot.role === "training"
@@ -1436,6 +1437,7 @@ export function updateBullets(collection, dt) {
 
 export function defeatPlayer(source = "hit") {
   player.alive = false;
+  addExplosion(player.x, player.y, 80, "#74d6ff", { type: "death", life: 0.32 });
   if (sandbox.mode === sandboxModes.duel.key && matchState.phase === "active") {
     finishDuelRound("enemy");
   } else if (sandbox.mode === sandboxModes.survival.key) {
