@@ -2,24 +2,17 @@
 import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
 import { player, input, sandbox, abilityState, trainingBots } from "../state.js";
-import { uiState, loadout, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
+import { uiState, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
   modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
-  backMode, backMap, startSession, labTabLoadout, labTabStyle, labLoadout, labStyle,
-  libraryTabs, loadoutSlotButtons, moveJoystick, moveStick, statusLine,
-  botModeRandom, botModeCustom, trainingFireOff, trainingFireOn,
-  botDifficultyEasy, botDifficultyNormal, botDifficultyHard, botDifficultyNightmare,
-  ruleFormatBo3, ruleFormatBo5, ruleTimerOff, ruleTimer60, ruleTimer75,
-  ruleSuddendeathOff, ruleSuddendeathOn, ruleMirrorOff, ruleMirrorOn,
-  buildStepPrev, buildStepNext, botConfigToggle, botConfigCard,
-  detailLockButton, detailSecondaryButton,
-  continueRunes, backBuild, runeResetButton, trainingBuildButton } from "../dom.js";
+  backMode, backMap, startSession, moveJoystick, moveStick, statusLine,
+  trainingFireOff, trainingFireOn,
+  continueRunes, backBuild, runeResetButton, trainingBuildButton, acceptMatchButton } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./abilities.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
-import { toggleHelpPanel, openPrematch, renderPrematch, getSlotCategory, getLoadoutItemForSlot, goToBuildWizardStep, resetBuildWizard, resetRuneAllocation, lockActivePreviewSelection, cancelPreviewSelection, unlockLoadoutSlot } from "../build/ui.js";
-import { setBotBuildMode } from "../build/loadout.js";
+import { toggleHelpPanel, openPrematch, renderPrematch, resetBuildWizard, resetRuneAllocation } from "../build/ui.js";
 import { resize, getCameraState } from "./renderer.js";
 import { playUiCue, unlockAudio } from "../audio.js";
 import { isCombatLive } from "./combat.js";
@@ -89,16 +82,6 @@ export function clearJoystick() {
   input.moveTouchY = 0;
   moveStick.style.transform = "translate(0px, 0px)";
   moveJoystick.classList.remove("active");
-}
-
-function formatBuildSlotLabel(slotKey) {
-  if (slotKey === "weapon") return "Weapon";
-  if (slotKey === "ultimate") return "Ultimate";
-  if (slotKey === "perk-0") return "Perk";
-  if (slotKey === "ability-0") return "Ability 1";
-  if (slotKey === "ability-1") return "Ability 2";
-  if (slotKey === "ability-2") return "Ability 3";
-  return "Slot";
 }
 
 export function setupInputListeners() {
@@ -249,50 +232,9 @@ bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
-bindPrematchButton(buildStepPrev, "build-step-prev");
-  bindPrematchButton(buildStepNext, "build-step-next");
-  bindPrematchButton(continueRunes, "continue-runes");
-  bindPrematchButton(backBuild, "back-build");
-
-  detailLockButton?.addEventListener("click", () => {
-    unlockAudio();
-    const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
-    if (!lockActivePreviewSelection()) {
-      playUiCue("cancel");
-      statusLine.textContent = "Preview an item first, then lock it in.";
-      return;
-    }
-    playUiCue("confirm");
-    renderPrematch();
-    const lockedItem = getLoadoutItemForSlot(slotKey);
-    statusLine.textContent = `${formatBuildSlotLabel(slotKey)} locked: ${lockedItem?.name ?? "selection confirmed"}.`;
-  });
-
-  detailSecondaryButton?.addEventListener("click", () => {
-    unlockAudio();
-    const slotKey = uiState.selectedLoadoutSlot ?? "weapon";
-    const previewPending =
-      uiState.previewSelection?.slotKey === slotKey &&
-      getLoadoutItemForSlot(slotKey)?.key !== uiState.previewSelection.key;
-    if (previewPending) {
-      if (!cancelPreviewSelection()) {
-        playUiCue("cancel");
-        statusLine.textContent = "No preview to cancel.";
-        return;
-      }
-      playUiCue("cancel");
-      statusLine.textContent = `${formatBuildSlotLabel(slotKey)} preview canceled.`;
-      return;
-    }
-
-    if (!unlockLoadoutSlot(slotKey)) {
-      playUiCue("cancel");
-      statusLine.textContent = `${formatBuildSlotLabel(slotKey)} is already empty.`;
-      return;
-    }
-    playUiCue("cancel");
-    statusLine.textContent = `${formatBuildSlotLabel(slotKey)} unlocked. Pick a new option to preview.`;
-  });
+bindPrematchButton(continueRunes, "continue-runes");
+bindPrematchButton(backBuild, "back-build");
+bindPrematchButton(acceptMatchButton, "accept-match");
 
   runeResetButton?.addEventListener("click", () => {
     unlockAudio();
@@ -300,158 +242,6 @@ bindPrematchButton(buildStepPrev, "build-step-prev");
     resetRuneAllocation();
     statusLine.textContent = "Rune allocation reset.";
   });
-
-botConfigToggle?.addEventListener("click", () => {
-  unlockAudio();
-  playUiCue("click");
-  const hidden = botConfigCard?.classList.toggle("is-hidden");
-  if (botConfigToggle) botConfigToggle.textContent = hidden ? "Configure Bot" : "Close Bot Config";
-});
-
-/* Lab tab switching (LOADOUT / STYLE) */
-if (labTabLoadout && labTabStyle && labLoadout && labStyle) {
-  [labTabLoadout, labTabStyle].forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const panel = tab.dataset.lab;
-      labTabLoadout.classList.toggle("is-active", panel === "loadout");
-      labTabStyle.classList.toggle("is-active", panel === "style");
-      labLoadout.classList.toggle("lab-panel--active", panel === "loadout");
-      labStyle.classList.toggle("lab-panel--active", panel === "style");
-    });
-  });
-}
-
-libraryTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    const category = tab.dataset.library;
-    const targetSlot =
-      category === "weapon"
-        ? "weapon"
-        : category === "perk"
-          ? "perk-0"
-          : category === "ultimate"
-            ? "ultimate"
-            : uiState.selectedLoadoutSlot?.startsWith("ability")
-              ? uiState.selectedLoadoutSlot
-              : "ability-0";
-
-    goToBuildWizardStep(targetSlot);
-    uiState.selectedLoadoutSlot = targetSlot;
-    uiState.buildCategory = getSlotCategory(targetSlot);
-    const item = getLoadoutItemForSlot(targetSlot);
-    uiState.selectedDetail = { type: uiState.buildCategory, key: item?.key ?? null };
-    renderPrematch();
-  });
-});
-
-Object.entries(loadoutSlotButtons).forEach(([slotKey, button]) => {
-  if (!button) {
-    return;
-  }
-
-  const normalizedSlot =
-    slotKey === "ability0"
-      ? "ability-0"
-      : slotKey === "ability1"
-        ? "ability-1"
-        : slotKey === "ability2"
-          ? "ability-2"
-          : slotKey === "perk0"
-            ? "perk-0"
-            : slotKey;
-
-  button.addEventListener("click", () => {
-    goToBuildWizardStep(normalizedSlot);
-    uiState.selectedLoadoutSlot = normalizedSlot;
-    uiState.buildCategory = getSlotCategory(normalizedSlot);
-    const item = getLoadoutItemForSlot(normalizedSlot);
-    uiState.selectedDetail = { type: uiState.buildCategory, key: item?.key ?? null };
-    renderPrematch();
-  });
-});
-
-botModeRandom?.addEventListener("click", () => {
-  unlockAudio();
-  playUiCue("click");
-  setBotBuildMode("random");
-  statusLine.textContent = "Hunter bot set to randomized loadouts.";
-});
-
-botModeCustom?.addEventListener("click", () => {
-  unlockAudio();
-  playUiCue("click");
-  setBotBuildMode("custom");
-  statusLine.textContent = "Hunter bot locked to a custom build.";
-});
-
-// --- Difficulty buttons ---
-function setDifficulty(level) {
-  matchSettings.difficulty = level;
-  renderPrematch();
-}
-
-botDifficultyEasy?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click"); setDifficulty("easy");
-});
-botDifficultyNormal?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click"); setDifficulty("normal");
-});
-botDifficultyHard?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click"); setDifficulty("hard");
-});
-botDifficultyNightmare?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click"); setDifficulty("nightmare");
-});
-
-// --- Rule buttons ---
-ruleFormatBo3?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.format = "bo3";
-  renderPrematch();
-});
-ruleFormatBo5?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.format = "bo5";
-  renderPrematch();
-});
-
-ruleTimerOff?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.timer = 0;
-  renderPrematch();
-});
-ruleTimer60?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.timer = 60;
-  renderPrematch();
-});
-ruleTimer75?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.timer = 75;
-  renderPrematch();
-});
-
-ruleSuddendeathOff?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.suddenDeath = false;
-  renderPrematch();
-});
-ruleSuddendeathOn?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.suddenDeath = true;
-  renderPrematch();
-});
-
-ruleMirrorOff?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.mirror = false;
-  renderPrematch();
-});
-ruleMirrorOn?.addEventListener("click", () => {
-  unlockAudio(); playUiCue("click");
-  matchSettings.mirror = true;
-  renderPrematch();
-});
 
 trainingFireOff?.addEventListener("click", () => {
   unlockAudio();

@@ -30,6 +30,20 @@ export const uiState = {
   selectedDetail: { type: "weapon", key: weapons.pulse.key },
   previewSelection: null,
   selectedRuneDetail: { treeKey: "attack", nodeKey: "ultimate" },
+  matchmaking: {
+    active: false,
+    phase: "idle",
+    queueRemaining: 0,
+    queueSafetyRemaining: 0,
+    buildRemaining: 0,
+    lobbyRemaining: 0,
+    loadingRemaining: 0,
+    foundRemaining: 0,
+    accepted: false,
+    playerReady: false,
+    mapKey: "electroGallery",
+    roster: [],
+  },
 };
 
 export const botBuildState = {

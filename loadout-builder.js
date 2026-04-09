@@ -3,6 +3,8 @@
 // Step-by-step build ritual with mech silhouette animation
 // ================================================================
 
+import { content } from "./src/content.js";
+
 const BUILDER_STEPS = [
   { key: "weapon",  label: "WEAPON",   slotIndex: null, zone: "arms",  prompt: "Arm Your Killing Machine",  sub: "The instrument of absolute destruction" },
   { key: "ability0", label: "Q ABILITY", slotIndex: 0,    zone: "shoulderL", prompt: "Mount Primary System",    sub: "First strike — the opening move of annihilation" },
@@ -293,12 +295,10 @@ function createBuilderDOM() {
 
 // ── CONTENT ACCESS ────────────────────────────────────────────────
 function getContentForStep(step) {
-  // Dynamically read from window.__P0_CONTENT (set by the game) or fallback
-  const c = window.__P0_CONTENT || {};
-  const weapons = c.weapons || {};
-  const abilities = c.abilities || {};
-  const perks = c.perks || {};
-  const ultimates = c.ultimates || {};
+  const weapons = content.weapons || {};
+  const abilities = content.abilities || {};
+  const perks = content.perks || {};
+  const ultimates = content.ultimates || {};
 
   switch (step.key) {
     case "weapon":
@@ -327,6 +327,16 @@ function renderPanel(step) {
   subtitle.textContent = step.sub;
 
   const items = getContentForStep(step);
+
+  if (items.length === 0) {
+    list.innerHTML = `
+      <div class="builder-panel__empty">
+        No playable options available for ${escapeHtml(step.label)}.
+      </div>
+    `;
+    requestAnimationFrame(() => panel.classList.add("is-open"));
+    return;
+  }
 
   // Filter already-selected abilities to prevent duplicates
   const selectedAbilities = [
@@ -874,4 +884,4 @@ function hexToRgba(hex, alpha) {
 }
 
 // ── PUBLIC API ────────────────────────────────────────────────────
-window.__P0_BUILDER = { open: openBuilder, close: closeBuilder };
+export { openBuilder, closeBuilder };

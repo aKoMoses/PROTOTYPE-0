@@ -1,8 +1,12 @@
 import { createInitialRuneAllocation } from "../state/app-state.js";
-import { getStarterPresetTags, playerStarterPresets } from "./catalog.js";
+import { newSystemStarterTemplates } from "./catalog.js";
 
-export const LOADOUT_STORAGE_KEY = "p0-loadouts";
-const LOADOUT_STARTERS_SEEDED_KEY = "p0-loadouts-starters-seeded-v1";
+export const LOADOUT_STORAGE_KEY = "p0-loadouts-v2-custom";
+const LOADOUT_V2_STARTERS_SEEDED_KEY = "p0-loadouts-v2-starters-seeded-v2";
+const LEGACY_LOADOUT_STORAGE_KEYS = [
+  "p0-loadouts",
+  "p0-loadouts-starters-seeded-v1",
+];
 
 function canUseLocalStorage() {
   try {
@@ -36,6 +40,10 @@ function cloneRuneAllocation(source = null) {
   return next;
 }
 
+function normalizePresetUnlockLevel(value) {
+  return Math.max(1, Math.floor(Number(value) || 1));
+}
+
 export function normalizeStoredBuild(source = {}) {
   const safeSource = source && typeof source === "object" ? source : {};
   const sourceAbilities = Array.isArray(safeSource.abilities) ? safeSource.abilities : [];
@@ -58,7 +66,9 @@ export function createStoredLoadout(overrides = {}) {
     favorite: Boolean(overrides.favorite),
     tags: Array.isArray(overrides.tags) ? [...new Set(overrides.tags.filter(Boolean))] : [],
     source: overrides.source ?? "custom",
+    systemPreset: Boolean(overrides.systemPreset),
     presetKey: overrides.presetKey ?? null,
+    presetUnlockLevel: normalizePresetUnlockLevel(overrides.presetUnlockLevel),
     role: overrides.role ?? "",
     description: overrides.description ?? "",
     createdAt: overrides.createdAt ?? timestamp,
@@ -82,55 +92,6 @@ export function cloneStoredLoadout(entry, overrides = {}) {
   });
 }
 
-function createStarterSeedLoadouts() {
-  return playerStarterPresets.map((preset) => createStoredLoadout({
-    name: preset.name,
-    source: "starter",
-    presetKey: preset.key,
-    role: preset.role,
-    description: preset.description,
-    tags: getStarterPresetTags(preset.key),
-    build: preset.loadout,
-  }));
-}
-
-function readSeedFlag() {
-  if (!canUseLocalStorage()) {
-    return true;
-  }
-
-  try {
-    return window.localStorage.getItem(LOADOUT_STARTERS_SEEDED_KEY) === "1";
-  } catch {
-    return true;
-  }
-}
-
-function writeSeedFlag() {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(LOADOUT_STARTERS_SEEDED_KEY, "1");
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function seedStarterLoadoutsOnce(list) {
-  if (readSeedFlag()) {
-    return list;
-  }
-
-  const existingPresetKeys = new Set(list.map((entry) => entry.presetKey).filter(Boolean));
-  const starterEntries = createStarterSeedLoadouts().filter((entry) => !existingPresetKeys.has(entry.presetKey));
-  const seededList = [...starterEntries, ...list];
-
-  writeSeedFlag();
-  return seededList;
-}
-
 function emitLoadoutsChanged(list) {
   if (typeof window === "undefined") {
     return;
@@ -143,16 +104,79 @@ function emitLoadoutsChanged(list) {
   }));
 }
 
+function hasSeededV2Starters() {
+  if (!canUseLocalStorage()) {
+    return true;
+  }
+
+  try {
+    return window.localStorage.getItem(LOADOUT_V2_STARTERS_SEEDED_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markV2StartersSeeded() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LOADOUT_V2_STARTERS_SEEDED_KEY, "1");
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function createV2StarterLoadouts() {
+  return newSystemStarterTemplates.map((template) => createStoredLoadout({
+    name: template.name,
+    source: "system",
+    systemPreset: true,
+    presetKey: template.key,
+    presetUnlockLevel: template.unlockLevel,
+    role: template.role,
+    description: template.description,
+    tags: template.tags,
+    build: template.build,
+    favorite: true,
+  }));
+}
+
+function seedV2StartersOnce(list) {
+  const existingPresetKeys = new Set(list.map((entry) => entry.presetKey).filter(Boolean));
+  const starterEntries = createV2StarterLoadouts().filter((entry) => !existingPresetKeys.has(entry.presetKey));
+
+  if (!starterEntries.length) {
+    if (!hasSeededV2Starters()) {
+      markV2StartersSeeded();
+    }
+    return list;
+  }
+
+  const seededList = [...starterEntries, ...list];
+  markV2StartersSeeded();
+  return seededList;
+}
+
 export function readStoredLoadouts() {
   if (!canUseLocalStorage()) {
     return [];
   }
 
   try {
+    for (const legacyKey of LEGACY_LOADOUT_STORAGE_KEYS) {
+      window.localStorage.removeItem(legacyKey);
+    }
+
     const raw = window.localStorage.getItem(LOADOUT_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    const sanitizedList = Array.isArray(parsed) ? parsed.map((entry) => createStoredLoadout(entry)) : [];
-    const seededList = seedStarterLoadoutsOnce(sanitizedList);
+    const sanitizedList = Array.isArray(parsed)
+      ? parsed
+        .map((entry) => createStoredLoadout(entry))
+        .filter((entry) => entry.source === "custom" || entry.source === "system")
+      : [];
+    const seededList = seedV2StartersOnce(sanitizedList);
 
     if (seededList.length !== sanitizedList.length) {
       window.localStorage.setItem(LOADOUT_STORAGE_KEY, JSON.stringify(seededList));

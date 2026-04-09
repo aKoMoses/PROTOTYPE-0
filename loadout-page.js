@@ -4,8 +4,10 @@
 // ================================================================
 
 import { content } from "./src/content.js";
+import { openBuilder } from "./loadout-builder.js";
 import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "./src/loadouts/storage.js";
-import { PROGRESSION_CHANGED_EVENT, formatMissingUnlocks, getMissingUnlocksForBuild, getRequiredLevelForBuild } from "./src/progression.js";
+import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "./src/progression.js";
+import { hideClickTooltip, registerClickTooltip } from "./src/ui/tooltip-manager.js";
 
 const GAMEPLAY_TAGS = ["aggro", "control", "poke", "burst", "tank", "support", "hybrid", "cheese"];
 
@@ -18,6 +20,8 @@ const grid = document.getElementById("loadout-grid");
 const createBtn = document.getElementById("loadout-create-btn");
 const tagBar = document.getElementById("loadout-tag-bar");
 
+let activeModalId = null;
+
 if (root) {
   createBtn?.addEventListener("click", handleCreate);
   tagBar?.addEventListener("click", handleTagBarClick);
@@ -27,7 +31,28 @@ if (root) {
   window.addEventListener("builder-forge", handleBuilderForge);
   window.addEventListener("p0-loadouts-changed", syncStoredLoadouts);
   window.addEventListener(PROGRESSION_CHANGED_EVENT, render);
+  document.addEventListener("click", handleModalClick);
   render();
+}
+
+function handleModalClick(event) {
+  const modal = event.target.closest(".loadout-modal");
+  if (!modal) return;
+
+  const equipButton = event.target.closest(".loadout-modal__equip");
+  if (equipButton) {
+    event.preventDefault();
+    const id = modal.dataset.modalId;
+    if (id) {
+      handleEquip(id);
+    }
+    return;
+  }
+  
+  if (event.target === modal || event.target.classList.contains("loadout-modal__backdrop")) {
+    activeModalId = null;
+    render();
+  }
 }
 
 function setStatusMessage(message) {
@@ -35,6 +60,22 @@ function setStatusMessage(message) {
   if (statusLine) {
     statusLine.textContent = message;
   }
+}
+
+function getLockedStatusMessage(access) {
+  if (!access?.locked) {
+    return "";
+  }
+
+  if (access.lockedByPreset && access.missing.length > 0) {
+    return `Loadout locked. Preset unlocks at level ${access.presetUnlockLevel}. ${access.reason.replace(/^Preset unlocks at level \d+\.\s*/, "")}`;
+  }
+
+  if (access.lockedByPreset) {
+    return `Loadout locked. Preset unlocks at level ${access.presetUnlockLevel}.`;
+  }
+
+  return `Loadout locked. ${access.reason}`;
 }
 
 function handleBuilderForge(event) {
@@ -50,14 +91,7 @@ function syncStoredLoadouts() {
 }
 
 function handleCreate() {
-  if (window.__P0_BUILDER) {
-    window.__P0_BUILDER.open();
-    return;
-  }
-
-  const entry = createStoredLoadout({ name: `Loadout ${loadouts.length + 1}` });
-  loadouts.unshift(entry);
-  save();
+  openBuilder();
 }
 
 function handleDuplicate(id) {
@@ -134,19 +168,27 @@ function handleToggleTag(id, tag) {
   save();
 }
 
-function handleEquip(id) {
+async function handleEquip(id) {
   const entry = loadouts.find((item) => item.id === id);
   if (!entry?.build) {
-    return;
+    return false;
   }
 
-  const missing = getMissingUnlocksForBuild(entry.build);
-  if (missing.length > 0) {
-    setStatusMessage(`Loadout locked. ${formatMissingUnlocks(missing)}`);
-    return;
+  const access = getLoadoutAccessState(entry);
+  if (access.locked) {
+    setStatusMessage(getLockedStatusMessage(access));
+    return false;
   }
 
-  dispatchEquip(entry, `Loadout locked. ${formatMissingUnlocks(missing)}`);
+  await window.__P0_SHELL?.ensureViewModule?.("game");
+
+  const equipContext = dispatchEquip(entry);
+
+  // Close detail modal once the loadout is successfully equipped.
+  if (activeModalId === id) {
+    activeModalId = null;
+    render();
+  }
 
   const card = grid?.querySelector(`[data-loadout-id="${id}"]`);
   const button = card?.querySelector(".loadout-card__equip");
@@ -160,15 +202,32 @@ function handleEquip(id) {
     button.textContent = "EQUIP";
     button.classList.remove("is-equipped");
   }, 1500);
+  
+  // If in matchmaking build phase, advance to lobby
+  if (equipContext.matchmakingActive && equipContext.prematchStep === "build") {
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("p0-prematch-action", {
+        detail: { action: "start-session" },
+      }));
+
+      // Backward compatibility while migrating off globals.
+      window.handlePrematchAction?.("start-session");
+    }, 500);
+  }
+
+  return true;
 }
 
 function dispatchEquip(entry, message = "") {
-  window.dispatchEvent(new CustomEvent("loadout-equip", {
-    detail: {
-      loadout: entry,
-      message,
-    },
-  }));
+  const detail = {
+    loadout: entry,
+    message,
+    matchmakingActive: false,
+    prematchStep: null,
+  };
+
+  window.dispatchEvent(new CustomEvent("loadout-equip", { detail }));
+  return detail;
 }
 
 function handleTagBarClick(event) {
@@ -184,28 +243,27 @@ function handleTagBarClick(event) {
 
 function handleGridClick(event) {
   const button = event.target.closest("button");
-  if (!button) {
-    return;
-  }
+  const contentEditable = event.target.closest("[contenteditable]");
+  
+  if (contentEditable) return;
+  if (!button) return;
 
   const card = button.closest("[data-loadout-id]");
-  const id = card?.dataset.loadoutId;
-  if (!id) {
-    return;
-  }
+  const modal = button.closest(".loadout-modal");
+  const id = card?.dataset.loadoutId || modal?.dataset.modalId;
+  
+  if (!id) return;
 
-  if (button.classList.contains("loadout-card__fav")) return handleToggleFavorite(id);
-  if (button.dataset.action === "duplicate") return handleDuplicate(id);
-  if (button.dataset.action === "delete") return handleDelete(id);
+  if (button.dataset.action === "view-details" && !modal) return handleViewDetails(id);
+  if (button.classList.contains("loadout-card__content")) return handleViewDetails(id);
+  if (button.classList.contains("loadout-modal__equip")) return handleEquip(id);
   if (button.dataset.action === "cancel-delete") return handleCancelDelete();
   if (button.dataset.action === "confirm-delete") return handleDelete(id);
-  if (button.classList.contains("loadout-card__equip")) return handleEquip(id);
-  if (button.classList.contains("loadout-tag-option")) {
-    return handleToggleTag(id, button.dataset.tag);
-  }
-  if (button.dataset.action === "toggle-tags") {
-    card?.querySelector(".loadout-tag-picker")?.classList.toggle("is-open");
-  }
+}
+
+function handleViewDetails(id) {
+  activeModalId = id;
+  render();
 }
 
 function handleNameBlur(event) {
@@ -249,6 +307,11 @@ function render() {
     return;
   }
 
+  hideClickTooltip();
+
+  // Remove any previously injected modal before building the next UI state.
+  document.querySelectorAll(".loadout-modal").forEach((modal) => modal.remove());
+
   renderTagBar();
 
   const filtered = getFilteredLoadouts();
@@ -262,6 +325,21 @@ function render() {
   }
 
   grid.innerHTML = filtered.map((entry) => renderCard(entry)).join("");
+  
+  if (activeModalId) {
+    const modalEntry = loadouts.find((e) => e.id === activeModalId);
+    if (modalEntry) {
+      const modal = renderModal(modalEntry);
+      document.body.insertAdjacentHTML("beforeend", modal);
+      bindLoadoutModalTooltips();
+    }
+  }
+}
+
+function bindLoadoutModalTooltips() {
+  document.querySelectorAll(".loadout-modal .loadout-build-item[data-tooltip]").forEach((item) => {
+    registerClickTooltip(item, item.dataset.tooltip, { stopClick: true, maxWidth: 360 });
+  });
 }
 
 function renderTagBar() {
@@ -277,56 +355,214 @@ function renderTagBar() {
 function renderCard(entry) {
   const isFavorite = entry.favorite;
   const isConfirming = confirmingDeleteId === entry.id;
+  const access = getLoadoutAccessState(entry);
+  const isLocked = access.locked;
+  const lockLabel = isLocked ? `LOCKED LV ${access.requiredLevel}` : null;
+  const lockReason = isLocked
+    ? (access.lockedByPreset ? `Preset unlocks at level ${access.presetUnlockLevel}` : access.reason)
+    : "";
   const build = normalizeStoredBuild(entry.build);
   const age = formatAge(entry.updatedAt || entry.createdAt);
-  const missing = getMissingUnlocksForBuild(build);
-  const isLocked = missing.length > 0;
-  const requiredLevel = getRequiredLevelForBuild(build);
-  const footerMeta = isLocked
-    ? `Requires level ${requiredLevel}`
-    : entry.role ? `${escapeHtml(entry.role)} · ${age}` : age;
+
+  const slotKeys = [
+    { key: 'W', val: build.weapon, type: 'weapon' },
+    { key: 'Q', val: build.abilities[0], type: 'ability' },
+    { key: 'E', val: build.abilities[1], type: 'ability' },
+    { key: 'F', val: build.abilities[2], type: 'ability' },
+    { key: 'P', val: build.perks[0], type: 'perk' },
+    { key: 'R', val: build.ultimate, type: 'ultimate' },
+  ];
+
+  const previewSlots = slotKeys.map((s) => {
+    const filled = !!s.val;
+    return `<span class="loadout-card__slot${filled ? ' is-filled' : ''}" title="${filled ? escapeHtml(getContentName(s.type, s.val)) : 'Empty'}">${s.key}</span>`;
+  }).join('');
+
+  return `
+    <article class="loadout-card${isFavorite ? " is-favorite" : ""}${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-loadout-id="${entry.id}">
+      ${isConfirming ? renderDeleteConfirm() : ""}
+
+      <button class="loadout-card__content" data-action="view-details">
+        <div class="loadout-card__header">
+          <h3 class="loadout-card__name" contenteditable="true" spellcheck="false">${escapeHtml(entry.name)}</h3>
+          ${lockLabel ? `<span class="loadout-card__lock-tag">${lockLabel}</span>` : ""}
+        </div>
+        
+        ${entry.tags.length > 0 ? `<div class="loadout-card__tags">${entry.tags.slice(0, 3).map((tag) => `<span class="loadout-card__tag">${tag}</span>`).join("")}</div>` : ""}
+        ${lockReason ? `<p class="loadout-card__lock-reason">${escapeHtml(lockReason)}</p>` : ""}
+        <div class="loadout-card__preview">${previewSlots}</div>
+        ${age ? `<span class="loadout-card__age">${age}</span>` : ""}
+      </button>
+    </article>`;
+}
+
+function renderModal(entry) {
+  const build = normalizeStoredBuild(entry.build);
+  const access = getLoadoutAccessState(entry);
+  const isLocked = access.locked;
+  const requiredLevel = access.requiredLevel;
+  const lockDetails = access.reason;
   const copy = isLocked
-    ? formatMissingUnlocks(missing)
+    ? lockDetails
     : entry.description;
 
   return `
-    <article class="loadout-card${isFavorite ? " is-favorite" : ""}${isLocked ? " is-locked" : ""}" data-loadout-id="${entry.id}">
-      ${isConfirming ? renderDeleteConfirm() : ""}
-
-      <div class="loadout-card__header">
-        <button class="loadout-card__fav${isFavorite ? " is-active" : ""}" title="Favorite">★</button>
-        <h3 class="loadout-card__name" contenteditable="true" spellcheck="false">${escapeHtml(entry.name)}</h3>
-        <div class="loadout-card__actions">
-          <button class="loadout-card__action" data-action="toggle-tags" title="Tags">🏷</button>
-          <button class="loadout-card__action" data-action="duplicate" title="Duplicate">⧉</button>
-          <button class="loadout-card__action loadout-card__action--delete" data-action="delete" title="Delete">✕</button>
+    <div class="loadout-modal" data-modal-id="${entry.id}">
+      <div class="loadout-modal__backdrop"></div>
+      <div class="loadout-modal__content">
+        <div class="loadout-modal__header">
+          <h2 class="loadout-modal__title">${escapeHtml(entry.name)}</h2>
+          ${entry.tags.length > 0 ? `<div class="loadout-modal__tags">${entry.tags.map((tag) => `<span class="loadout-modal__tag">${tag}</span>`).join("")}</div>` : ""}
         </div>
-      </div>
 
-      <div class="loadout-card__tags">
-        ${entry.tags.map((tag) => `<span class="loadout-card__tag">${tag}</span>`).join("")}
-      </div>
+        ${copy ? `<p class="loadout-modal__desc">${escapeHtml(copy)}</p>` : ""}
 
-      ${copy ? `<p class="loadout-card__copy">${escapeHtml(copy)}</p>` : ""}
+        <div class="loadout-modal__build">
+          ${renderBuildRow("W", build.weapon, "weapon")}
+          ${renderBuildRow("Q", build.abilities[0], "ability")}
+          ${renderBuildRow("E", build.abilities[1], "ability")}
+          ${renderBuildRow("F", build.abilities[2], "ability")}
+          ${renderBuildRow("P", build.perks[0], "perk")}
+          ${renderBuildRow("R", build.ultimate, "ultimate")}
+        </div>
 
-      <div class="loadout-tag-picker">
-        ${GAMEPLAY_TAGS.map((tag) => `<button class="loadout-tag-option${entry.tags.includes(tag) ? " is-selected" : ""}" data-tag="${tag}">${tag}</button>`).join("")}
+        <button class="loadout-modal__equip${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-action="view-details" ${isLocked ? "disabled" : ""}>${isLocked ? `LOCKED LV ${requiredLevel}` : "EQUIP"}</button>
       </div>
+    </div>`;
+}
 
-      <div class="loadout-card__preview">
-        ${renderSlot("weapon", build.weapon, "W")}
-        ${renderSlot("ability", build.abilities[0], "Q")}
-        ${renderSlot("ability", build.abilities[1], "E")}
-        ${renderSlot("ability", build.abilities[2], "F")}
-        ${renderSlot("perk", build.perks[0], "P")}
-        ${renderSlot("ultimate", build.ultimate, "R")}
-      </div>
 
-      <div class="loadout-card__footer">
-        <span class="loadout-card__meta">${escapeHtml(footerMeta)}</span>
-        <button class="loadout-card__equip${isLocked ? " is-locked" : ""}">${isLocked ? `LOCKED LV ${requiredLevel}` : "EQUIP"}</button>
-      </div>
-    </article>`;
+function renderBuildRow(key, itemKey, type) {
+  const name = itemKey ? getContentName(type, itemKey) : null;
+  const desc = itemKey ? getContentDesc(type, itemKey) : null;
+  const tooltipText = buildItemTooltip(key, type, itemKey, name, desc);
+  const tooltip = tooltipText ? ` data-tooltip="${escapeHtml(tooltipText)}"` : "";
+  return `<div class="loadout-build-item"${tooltip}><span class="loadout-build-key">${key}</span><span class="loadout-build-label">${name || "—"}</span></div>`;
+}
+
+function buildItemTooltip(slotKey, type, itemKey, name, desc) {
+  if (!name) {
+    return `${slotKey}: Empty slot`;
+  }
+
+  const typeLabel = type === "weapon"
+    ? "Weapon"
+    : type === "ability"
+      ? "Ability"
+      : type === "perk"
+        ? "Perk"
+        : "Ultimate";
+
+  const item = getContentItem(type, itemKey);
+  const lines = [`${slotKey} · ${typeLabel}: ${name}`];
+
+  if (type === "weapon") {
+    if (item?.slotLabel) lines.push(`Profile: ${item.slotLabel}`);
+    if (item?.rhythm) lines.push(`Rhythm: ${item.rhythm}`);
+    if (item?.rangeProfile) lines.push(`Range: ${item.rangeProfile}`);
+    if (item?.commitment) lines.push(`Commitment: ${item.commitment}`);
+    if (typeof item?.cooldown === "number") lines.push(`Cadence: ${formatSeconds(item.cooldown)}s`);
+  }
+
+  if (type === "ability") {
+    if (item?.input) lines.push(`Input: ${item.input}`);
+    if (item?.role) lines.push(`Role: ${item.role}`);
+    if (item?.category) lines.push(`Category: ${formatLabel(item.category)}`);
+  }
+
+  if (item?.state) {
+    lines.push(`State: ${item.state === "playable" ? "Playable" : "Locked"}`);
+  }
+
+  if (desc) {
+    lines.push("");
+    lines.push(desc);
+  }
+
+  return lines.join("\n");
+}
+
+function getContentItem(type, key) {
+  const group = type === "weapon"
+    ? "weapons"
+    : type === "ability"
+      ? "abilities"
+      : type === "perk"
+        ? "perks"
+        : "ultimates";
+
+  return content[group]?.[key] ?? null;
+}
+
+function formatLabel(value) {
+  return String(value ?? "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatAge(timestamp) {
+  if (!timestamp) {
+    return "";
+  }
+
+  const time = new Date(timestamp);
+  if (Number.isNaN(time.getTime())) {
+    return "";
+  }
+
+  const diffMs = Date.now() - time.getTime();
+  if (!Number.isFinite(diffMs)) {
+    return "";
+  }
+
+  if (diffMs < 60 * 1000) {
+    return "just now";
+  }
+
+  const minutes = Math.floor(diffMs / (60 * 1000));
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(diffMs / (60 * 60 * 1000));
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) {
+    return `${weeks}w ago`;
+  }
+
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return `${months}mo ago`;
+  }
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
+
+function formatSeconds(value) {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function getContentDesc(type, key) {
+  const group = type === "weapon"
+    ? "weapons"
+    : type === "ability"
+      ? "abilities"
+      : type === "perk"
+        ? "perks"
+        : "ultimates";
+
+  return content[group]?.[key]?.description ?? "";
 }
 
 function renderSlot(type, key, fallback) {
@@ -365,19 +601,4 @@ function escapeHtml(value) {
   const element = document.createElement("div");
   element.textContent = value ?? "";
   return element.innerHTML;
-}
-
-function formatAge(iso) {
-  if (!iso) {
-    return "";
-  }
-
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }

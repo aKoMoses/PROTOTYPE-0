@@ -1,0 +1,218 @@
+/* ============================================
+   PHASE-SPECIFIC STYLES & ANIMATIONS
+   ============================================ */
+
+/* MODE PHASE: Purple mystical theme */
+.prematch-shell[data-prematch-phase="mode"] .screen-header h2 {
+  color: var(--gothic-purple-bright);
+  text-shadow: 0 0 20px rgba(120, 71, 199, 0.4);
+  animation: slide-in-top 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.prematch-shell[data-prematch-phase="mode"] .phase-panel {
+  border-color: rgba(120, 71, 199, 0.35);
+  background:
+    linear-gradient(168deg, rgba(15, 21, 35, 0.95), rgba(10, 14, 28, 0.98)),
+    radial-gradient(circle at 24% 0%, rgba(120, 71, 199, 0.12), transparent 44%);
+}
+
+/* QUEUE PHASE: Orange intense summoning energy */
+.prematch-shell[data-prematch-phase="queue"] .matchmaking-card {
+  background:
+    linear-gradient(140deg, rgba(25, 18, 12, 0.94), rgba(15, 10, 8, 0.98)),
+    radial-gradient(circle at 20% 0%, rgba(255, 107, 53, 0.18), transparent 46%);
+  border-color: rgba(255, 107, 53, 0.4);
+  animation: queue-pulse-epic 2s ease-in-out infinite;
+}
+
+.prematch-shell[data-prematch-phase="queue"] .matchmaking-card__timer {
+  animation: glow-brighten 1.4s ease-in-out infinite;
+}
+
+.prematch-shell[data-prematch-phase="queue"] .screen-header h2 {
+  color: var(--gothic-orange-bright);
+  text-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+}
+
+/* FOUND PHASE: War alarm red/gold alert! */
+.prematch-shell[data-prematch-phase="found"] .matchmaking-card {
+  background:
+    linear-gradient(140deg, rgba(30, 22, 12, 0.96), rgba(15, 12, 8, 0.99)),
+    radial-gradient(circle at 20% 0%, rgba(255, 184, 61, 0.2), transparent 44%);
+  border-color: rgba(255, 184, 61, 0.5);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 184, 61, 0.25),
+    0 0 20px rgba(255, 184, 61, 0.2);
+  animation: found-alert-pulse 0.8s ease-in-out infinite;
+}
+
+.prematch-shell[data-prematch-phase="found"] .matchmaking-card__timer {
+  color: var(--gothic-danger);
+  animation: glow-brighten-red 0.6s ease-in-out infinite;
+}
+
+.prematch-shell[data-prematch-phase="found"] .screen-header h2 {
+  color: var(--gothic-danger);
+  text-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+  animation: slide-in-top 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* MAP PHASE: Tactical cyan theme */
+.prematch-shell[data-prematch-phase="map"] .screen-header h2 {
+  color: var(--phase-mode-a);
+  text-shadow: 0 0 18px rgba(119, 216, 255, 0.3);
+}
+
+.prematch-shell[data-prematch-phase="map"] .phase-panel {
+  border-color: rgba(119, 216, 255, 0.3);
+}
+
+.prematch-shell[data-prematch-phase="map"] .mode-card {
+  border-color: rgba(119, 216, 255, 0.25);
+}
+
+.prematch-shell[data-prematch-phase="map"] .mode-card:hover,
+.prematch-shell[data-prematch-phase="map"] .mode-card:focus-visible {
+  border-color: rgba(119, 216, 255, 0.5);
+}
+
+/* BUILD & RUNES PHASES: Forge energy theme */
+.prematch-shell[data-prematch-phase="build"] .screen-header h2,
+.prematch-shell[data-prematch-phase="runes"] .screen-header h2 {
+  color: var(--gothic-gold-bright);
+  text-shadow: 0 0 18px rgba(201, 162, 39, 0.35);
+}
+
+.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer,
+.prematch-shell[data-prematch-phase="runes"] .prematch-phase-timer {
+  border-color: rgba(255, 70, 50, 0.35);
+}
+
+.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer .phase-timer__digit,
+.prematch-shell[data-prematch-phase="runes"] .prematch-phase-timer .phase-timer__digit {
+  color: #ff6b35;
+  text-shadow:
+    0 0 14px rgba(255, 80, 40, 0.7),
+    0 0 40px rgba(255, 50, 30, 0.3);
+}
+
+.prematch-shell[data-prematch-phase="runes"] .screen-header h2 {
+  color: var(--gothic-purple-bright);
+  text-shadow: 0 0 18px rgba(120, 71, 199, 0.35);
+}
+
+/* LOBBY PHASE: Green success cooperative gathering */
+.prematch-shell[data-prematch-phase="lobby"] .matchmaking-card {
+  background:
+    linear-gradient(140deg, rgba(10, 22, 18, 0.94), rgba(8, 14, 12, 0.98)),
+    radial-gradient(circle at 18% 0%, rgba(0, 217, 126, 0.15), transparent 46%);
+  border-color: rgba(0, 217, 126, 0.3);
+}
+
+.prematch-shell[data-prematch-phase="lobby"] .screen-header h2 {
+  color: var(--gothic-success);
+  text-shadow: 0 0 18px rgba(0, 217, 126, 0.35);
+  animation: slide-in-top 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.prematch-shell[data-prematch-phase="lobby"] .lobby-card {
+  animation: slide-in-bottom 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.prematch-shell[data-prematch-phase="lobby"] .lobby-card.is-ready {
+  border-color: rgba(0, 217, 126, 0.4);
+  box-shadow: var(--shadow-medium), inset 0 0 12px rgba(0, 217, 126, 0.08), 0 0 14px rgba(0, 217, 126, 0.2);
+}
+
+/* LOADING PHASE: Cyan sci-fi deployment cinematic */
+.prematch-shell[data-prematch-phase="loading"] .matchmaking-card {
+  background:
+    linear-gradient(140deg, rgba(9, 18, 26, 0.96), rgba(7, 12, 18, 0.98)),
+    radial-gradient(circle at 16% 0%, rgba(119, 223, 255, 0.15), transparent 46%);
+  border-color: rgba(119, 223, 255, 0.35);
+  animation: loading-shimmer-epic 1.2s linear infinite;
+}
+
+.prematch-shell[data-prematch-phase="loading"] .matchmaking-card__timer {
+  color: var(--phase-loading-b);
+  animation: glitch-flicker 0.5s ease-in-out infinite;
+}
+
+.prematch-shell[data-prematch-phase="loading"] .screen-header h2 {
+  color: var(--gothic-orange-bright);
+  text-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+  animation: slide-in-top 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ============================================
+   PHASE-SPECIFIC ANIMATIONS
+   ============================================ */
+
+@keyframes queue-pulse-epic {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 12px 28px rgba(0, 0, 0, 0.4),
+      inset 0 0 0 1px rgba(255, 107, 53, 0.2),
+      0 0 12px rgba(255, 107, 53, 0.15);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow:
+      0 16px 36px rgba(0, 0, 0, 0.45),
+      inset 0 0 0 1px rgba(255, 107, 53, 0.35),
+      0 0 24px rgba(255, 107, 53, 0.3);
+  }
+}
+
+@keyframes found-alert-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow:
+      0 12px 28px rgba(0, 0, 0, 0.4),
+      inset 0 0 0 1px rgba(255, 184, 61, 0.25),
+      0 0 16px rgba(255, 184, 61, 0.15);
+  }
+  50% {
+    transform: scale(1.015);
+    opacity: 0.98;
+    box-shadow:
+      0 14px 32px rgba(0, 0, 0, 0.45),
+      inset 0 0 0 1.5px rgba(255, 184, 61, 0.4),
+      0 0 28px rgba(255, 184, 61, 0.3);
+  }
+}
+
+@keyframes loading-shimmer-epic {
+  0% {
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    filter: brightness(1.06) saturate(1.05);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY: Respect motion preferences
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .prematch-shell[data-prematch-phase="queue"] .matchmaking-card,
+  .prematch-shell[data-prematch-phase="found"] .matchmaking-card,
+  .prematch-shell[data-prematch-phase="loading"] .matchmaking-card,
+  .prematch-shell[data-prematch-phase="queue"] .matchmaking-card__timer,
+  .prematch-shell[data-prematch-phase="found"] .matchmaking-card__timer,
+  .prematch-shell[data-prematch-phase="loading"] .matchmaking-card__timer,
+  .prematch-shell[data-prematch-phase="mode"] .screen-header h2,
+  .prematch-shell[data-prematch-phase="loading"] .screen-header h2,
+  .prematch-shell[data-prematch-phase="lobby"] .screen-header h2 {
+    animation: none !important;
+  }
+}

@@ -1,7 +1,7 @@
 // HUD updates
 import { config, sandboxModes, abilityConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, sandbox, matchState, survivalState, input } from "../state.js";
+import { player, enemy, abilityState, sandbox, matchState, survivalState, input, allyBot, teamEnemies } from "../state.js";
 import { loadout } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { clamp } from "../utils.js";
@@ -65,23 +65,34 @@ export function updateHud() {
   const buildStats = getBuildStats();
   const slotAbilities = [getAbilityBySlot(0), getAbilityBySlot(1), getAbilityBySlot(2)];
   const selectedUltimate = content.ultimates[loadout.ultimate] ?? content.ultimates.phantomSplit;
+  const activeEnemies = sandbox.mode === sandboxModes.teamDuel.key ? teamEnemies.filter(Boolean) : [];
+  const livingEnemies = activeEnemies.filter((bot) => bot.alive);
+  const teamEnemyRatio = activeEnemies.length
+    ? activeEnemies.reduce((sum, bot) => sum + Math.max(0, bot.hp) / Math.max(1, bot.maxHp), 0) / activeEnemies.length
+    : 0;
   mapName.textContent = activeLayout.name ?? activeMode.name;
   mapStatus.textContent = activeLayout.subtitle ?? activeMode.subtitle;
   roundLabel.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? `Round ${matchState.roundNumber}`
+      : sandbox.mode === sandboxModes.teamDuel.key
+        ? `Squad Round ${matchState.roundNumber}`
       : sandbox.mode === sandboxModes.survival.key
         ? `Wave ${survivalState.wave}`
         : "Practice";
   matchScore.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
+      : sandbox.mode === sandboxModes.teamDuel.key
+        ? `${matchState.playerRounds} - ${matchState.enemyRounds}`
       : sandbox.mode === sandboxModes.survival.key
         ? `${survivalState.waveKills}/${Math.max(1, survivalState.waveTargetKills)}`
         : `${getAllBots().filter((bot) => bot.alive).length} targets`;
   matchFormat.textContent =
     sandbox.mode === sandboxModes.duel.key
       ? "BO3"
+      : sandbox.mode === sandboxModes.teamDuel.key
+        ? "2V2"
       : sandbox.mode === sandboxModes.survival.key
         ? `${survivalState.totalKills} KOs`
         : "Training";
@@ -213,17 +224,25 @@ export function updateHud() {
         ? "0 0 14px rgba(255, 177, 106, 0.24)"
       : "0 0 14px rgba(119, 216, 255, 0.25)";
   playerHealthFill.style.width = `${(player.hp / buildStats.maxHp) * 100}%`;
-  enemyHealthFill.style.width = primaryBot
-    ? `${(Math.max(0, primaryBot.hp) / primaryBot.maxHp) * 100}%`
+  enemyHealthFill.style.width = sandbox.mode === sandboxModes.teamDuel.key
+    ? `${teamEnemyRatio * 100}%`
+    : primaryBot
+      ? `${(Math.max(0, primaryBot.hp) / primaryBot.maxHp) * 100}%`
       : "0%";
-  playerHealthText.textContent = player.lastStandTime > 0
-    ? `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
-    : `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""}`;
-  enemyHealthText.textContent = primaryBot
-    ? primaryBot.alive
-      ? `${Math.ceil(primaryBot.hp)} / ${primaryBot.maxHp}`
-      : "Down"
-    : "--";
+  playerHealthText.textContent = sandbox.mode === sandboxModes.teamDuel.key
+    ? `You ${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""} | Ally ${allyBot?.alive ? `${Math.ceil(allyBot.hp)} / ${Math.ceil(allyBot.maxHp)}` : "Down"}`
+    : player.lastStandTime > 0
+      ? `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
+      : `${Math.ceil(player.hp)} / ${Math.ceil(buildStats.maxHp)}${player.shield > 0 ? ` +${Math.ceil(player.shield)}` : ""}`;
+  enemyHealthText.textContent = sandbox.mode === sandboxModes.teamDuel.key
+    ? activeEnemies.length
+      ? activeEnemies.map((bot, index) => `E${index + 1} ${bot.alive ? `${Math.ceil(bot.hp)} / ${Math.ceil(bot.maxHp)}` : "Down"}`).join(" | ")
+      : "--"
+    : primaryBot
+      ? primaryBot.alive
+        ? `${Math.ceil(primaryBot.hp)} / ${primaryBot.maxHp}`
+        : "Down"
+      : "--";
 
   setHudSlotPresentation(slotDashIcon, slotDashName, { icon: "ability-dash", name: "Dash" });
   setHudSlotPresentation(slotAbility1Icon, slotAbility1Name, slotAbilities[0] ?? content.abilities.shockJavelin);

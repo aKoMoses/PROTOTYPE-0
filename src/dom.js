@@ -66,14 +66,20 @@ export const ultimateSlotName = ultimateSlot.querySelector(".ability-slot__name"
 export const ultimateSlotOverlay = document.getElementById("slot-ultimate-overlay");
 export const ultimateSlotTimer = document.getElementById("slot-ultimate-timer");
 export const prematchOverlay = document.getElementById("prematch-overlay");
+export const prematchShell = document.querySelector(".prematch-shell");
 export const modeScreen = document.getElementById("mode-screen");
 export const mapScreen = document.getElementById("map-screen");
 export const buildScreen = document.getElementById("build-screen");
+export const queueScreen = document.getElementById("queue-screen");
+export const gameFoundScreen = document.getElementById("game-found-screen");
+export const lobbyScreen = document.getElementById("lobby-screen");
+export const loadingScreen = document.getElementById("loading-screen");
 export const stepMode = document.getElementById("step-mode");
 export const stepMap = document.getElementById("step-map");
 export const stepBuild = document.getElementById("step-build");
 export const modeDuel = document.getElementById("mode-duel");
 export const modeSurvival = document.getElementById("mode-survival");
+export const modeTeamDuel = document.getElementById("mode-team-duel");
 export const modeTraining = document.getElementById("mode-training");
 export const mapGrid = document.getElementById("map-grid");
 export const continueMap = document.getElementById("continue-map");
@@ -110,12 +116,6 @@ export const cosmeticAvatarPreview = document.getElementById("cosmetic-avatar-pr
 export const cosmeticWeaponIcon = document.getElementById("cosmetic-weapon-icon");
 export const cosmeticWeaponName = document.getElementById("cosmetic-weapon-name");
 export const cosmeticWeaponCopy = document.getElementById("cosmetic-weapon-copy");
-export const labTabLoadout = document.getElementById("lab-tab-loadout");
-export const labTabStyle = document.getElementById("lab-tab-style");
-export const labLoadout = document.getElementById("lab-loadout");
-export const labStyle = document.getElementById("lab-style");
-export const runePanel = document.getElementById("rune-panel");
-export const botConfigToggle = document.getElementById("bot-config-toggle");
 export const botConfigCard = document.getElementById("bot-config-card");
 export const botConfigLabel = document.getElementById("bot-config-label");
 export const botConfigTitle = document.getElementById("bot-config-title");
@@ -146,21 +146,42 @@ export const playerPresetGrid = document.getElementById("player-preset-grid");
 export const trainingFireOff = document.getElementById("training-fire-off");
 export const trainingFireOn = document.getElementById("training-fire-on");
 export const trainingBuildSummary = document.getElementById("training-build-summary");
-export const buildStepPrev = document.getElementById("build-step-prev");
-export const buildStepNext = document.getElementById("build-step-next");
 export const runeScreen = document.getElementById("rune-screen");
 export const continueRunes = document.getElementById("continue-runes");
 export const backBuild = document.getElementById("back-build");
 export const runeResetButton = document.getElementById("rune-reset-btn");
 export const runeNodeDetail = document.getElementById("rune-node-detail");
 export const trainingBuildButton = document.getElementById("training-build-button");
-export const libraryTabs = Array.from(document.querySelectorAll("[data-library]"));
-export const loadoutSlotButtons = {
-  weapon: document.getElementById("loadout-slot-weapon"),
-  ability0: document.getElementById("loadout-slot-ability-0"),
-  ability1: document.getElementById("loadout-slot-ability-1"),
-  ability2: document.getElementById("loadout-slot-ability-2"),
-  perk0: document.getElementById("loadout-slot-perk-0"),
-  ultimate: document.getElementById("loadout-slot-ultimate"),
+export const queueTimer = document.getElementById("queue-timer");
+export const foundTimer = document.getElementById("found-timer");
+export const gameFoundMapLabel = document.getElementById("game-found-map-label");
+export const acceptMatchButton = document.getElementById("accept-match");
+export const buildPhaseTimer = document.getElementById("build-phase-timer");
+export const runePhaseTimer = document.getElementById("rune-phase-timer");
+export const lobbyTimer = document.getElementById("lobby-timer");
+export const loadingTimer = document.getElementById("loading-timer");
+export const lobbyRoster = document.getElementById("lobby-roster");
+export const loadingRoster = document.getElementById("loading-roster");
+export const loadingMapName = document.getElementById("loading-map-name");
+export const queueCard = document.getElementById("queue-card");
+export const gameFoundCard = document.getElementById("game-found-card");
+export const lobbyCard = document.getElementById("lobby-card");
+export const loadingCard = document.getElementById("loading-card");
+export const matchmakingDom = {
+  queueScreen,
+  gameFoundScreen,
+  lobbyScreen,
+  loadingScreen,
+  queueTimer,
+  foundTimer,
+  gameFoundMapLabel,
+  lobbyTimer,
+  loadingTimer,
+  lobbyRoster,
+  loadingRoster,
+  queueCard,
+  gameFoundCard,
+  lobbyCard,
+  loadingCard,
 };
 

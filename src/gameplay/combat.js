@@ -6,13 +6,13 @@ import { player, playerClone, enemy, trainingBots, bots, abilityState, sandbox, 
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
   abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
-  mapEffects, mapState, globals, survivalEnemies, survivalState } from "../state.js";
+  mapEffects, mapState, globals, survivalEnemies, survivalState, allyBot, teamEnemies, createTeamDuelEntities } from "../state.js";
 import { loadout, botBuildState, trainingToolState } from "../state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
-import { finishDuelRound } from "./match.js";
+import { finishDuelRound, finishTeamDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playAbilityCue } from "../audio.js";
 import { applyPhantomDamage, resetPhantomClone } from "./phantom.js";
@@ -28,11 +28,15 @@ export function getAllBots() {
   if (sandbox.mode === sandboxModes.survival.key) {
     return survivalEnemies;
   }
+  if (sandbox.mode === sandboxModes.teamDuel.key) {
+    return [allyBot, ...teamEnemies].filter(Boolean);
+  }
   return bots.filter((bot) => bot.modes.includes(sandbox.mode));
 }
 
 export function getPrimaryBot() {
   if (sandbox.mode === sandboxModes.duel.key) return enemy.alive ? enemy : null;
+  if (sandbox.mode === sandboxModes.teamDuel.key) return teamEnemies.find((bot) => bot?.alive) ?? teamEnemies[0] ?? null;
   if (sandbox.mode === sandboxModes.survival.key) return survivalEnemies.find((bot) => bot.alive) ?? null;
   return trainingBots.find((bot) => bot.alive) ?? null;
 }
@@ -40,6 +44,11 @@ export function getPrimaryBot() {
 export function isCombatLive() {
   if (sandbox.mode === sandboxModes.duel.key) {
     return player.alive && enemy.alive && matchState.phase === "active";
+  }
+  if (sandbox.mode === sandboxModes.teamDuel.key) {
+    const playerTeamAlive = player.alive || Boolean(allyBot?.alive) || (playerClone.active && playerClone.alive);
+    const enemyTeamAlive = teamEnemies.some((bot) => bot?.alive);
+    return playerTeamAlive && enemyTeamAlive && matchState.phase === "active";
   }
   if (sandbox.mode === sandboxModes.survival.key) {
     return player.alive && survivalState.phase === "active";
@@ -97,6 +106,9 @@ function getFriendlyCombatTargets() {
   if (playerClone.active && playerClone.alive) {
     targets.push(playerClone);
   }
+  if (allyBot?.alive) {
+    targets.push(allyBot);
+  }
   if (player.alive) {
     targets.push(player);
   }
@@ -134,7 +146,7 @@ function releasePulseBurstProjectile(projectile) {
 
 function getProjectileTargetsForTeam(team) {
   if (team === "player") {
-    return getAllBots().filter((bot) => bot.alive);
+    return getAllBots().filter((bot) => bot.alive && (bot.team ?? "enemy") === "enemy");
   }
   return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && abilityState.phaseShift.time > 0));
 }
@@ -1071,6 +1083,8 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
 
     if (sandbox.mode === sandboxModes.duel.key && bot.role === "hunter") {
       finishDuelRound("player");
+    } else if (sandbox.mode === sandboxModes.teamDuel.key && (bot.team ?? "enemy") === "enemy" && teamEnemies.every((candidate) => !candidate?.alive)) {
+      finishTeamDuelRound("player");
     }
   }
 
@@ -1199,15 +1213,21 @@ export function applyProjectileEffectToPlayer(projectile, target = player) {
     return;
   }
 
+  const projectileOwner = projectile.ownerRef ?? enemy;
+
   if (effect.kind === "staff") {
-    healEntity(enemy, effect.heal ?? 0);
-    addImpact(enemy.x, enemy.y, "#b8ffd8", 16);
+    if (projectileOwner?.alive) {
+      healEntity(projectileOwner, effect.heal ?? 0);
+      addImpact(projectileOwner.x, projectileOwner.y, "#b8ffd8", 16);
+    }
   } else if (effect.kind === "injector") {
     applyInjectorMark(target, effect.markDuration ?? 4, effect.markMax ?? 3);
     if ((target.injectorMarks ?? 0) >= 3) {
       target.injectorMarks = 0;
       target.injectorMarkTime = 0;
-      healEntity(enemy, effect.healOnConsume ?? 10);
+      if (projectileOwner?.alive) {
+        healEntity(projectileOwner, effect.healOnConsume ?? 10);
+      }
       addImpact(target.x, target.y, "#f0b8ff", 20);
     }
   } else if (effect.kind === "rail") {
@@ -1831,6 +1851,72 @@ export function resetBotsForMode(mode = sandbox.mode) {
 
   if (mode === sandboxModes.duel.key) {
     refreshHunterLoadout();
+  } else if (mode === sandboxModes.teamDuel.key) {
+    const layout = getMapLayout(mode, sandbox.mapKey);
+    createTeamDuelEntities(layout);
+    enemy.spawnX = layout.enemySpawn.x;
+    enemy.spawnY = layout.enemySpawn.y;
+
+    const participants = [allyBot, ...teamEnemies].filter(Boolean);
+    for (const [index, bot] of participants.entries()) {
+      bot.maxHp = config.enemyMaxHp;
+      bot.armor = 0;
+      bot.tenacity = 0;
+      bot.weapon = weapons.pulse.key;
+      bot.loadout = {
+        weapon: weapons.pulse.key,
+        abilities: ["shockJavelin", "magneticField", "energyShield"],
+      };
+      bot.spawnX = bot.x;
+      bot.spawnY = bot.y;
+      bot.x = bot.spawnX;
+      bot.y = bot.spawnY;
+      bot.hp = bot.maxHp;
+      bot.alive = true;
+      bot.flash = 0;
+      bot.facing = bot.team === "player" ? 0 : Math.PI;
+      bot.velocityX = 0;
+      bot.velocityY = 0;
+      bot.shootCooldown = bot.team === "player" ? 0.28 : 0.5 + index * 0.08;
+      bot.cadence = bot.team === "player" ? 0.22 : 0.3;
+      bot.strafeTimer = index * 0.7;
+      bot.dodgeCooldown = 0.6;
+      bot.dodgeTime = 0;
+      bot.dodgeVectorX = 0;
+      bot.dodgeVectorY = 0;
+      bot.burstShots = 0;
+      bot.shotSpread = 0;
+      bot.reloadTime = 0;
+      bot.ammo = getPulseMagazineSize();
+      bot.shield = 0;
+      bot.shieldTime = 0;
+      bot.shieldGuardTime = 0;
+      bot.shieldBreakRefundReady = false;
+      bot.hasteTime = 0;
+      bot.comboStep = 0;
+      bot.comboTimer = 0;
+      bot.meleeWindupTime = 0;
+      bot.pendingMeleeStrike = null;
+      bot.attackCommitTime = 0;
+      bot.attackCommitX = 0;
+      bot.attackCommitY = 0;
+      bot.attackCommitSpeed = 0;
+      bot.activeMeleeStrike = null;
+      bot.injectorMarks = 0;
+      bot.injectorMarkTime = 0;
+      bot.castTime = 0;
+      bot.totalCastTime = 0;
+      bot.castingAbility = null;
+      bot.castParams = null;
+      bot.visualCastTime = 0;
+      bot.totalVisualCastTime = 0;
+      bot.visualCastingAbility = null;
+      bot.weaponChargeTime = 0;
+      bot.totalWeaponChargeTime = 0;
+      bot.weaponCasting = null;
+      clearStatusEffects(bot);
+    }
+    return;
   }
 
   const layout = getMapLayout(mode, sandbox.mapKey);

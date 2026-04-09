@@ -341,7 +341,6 @@ body {
   align-items: flex-start;
   justify-content: center;
   padding: 28px;
-  background: linear-gradient(180deg, rgba(4, 8, 12, 0.72), rgba(4, 8, 12, 0.84));
   pointer-events: auto;
   overflow-y: auto;
 }
@@ -355,13 +354,13 @@ body {
 }
 
 .prematch-shell {
+  position: relative;
   width: min(1240px, 100%);
   min-height: calc(100vh - 56px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   padding: 18px;
-  border-radius: 24px;
   overflow: visible;
   pointer-events: auto;
   margin: auto 0;
@@ -372,10 +371,6 @@ body {
   align-content: start;
   gap: 16px;
   padding: 18px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top, rgba(119, 216, 255, 0.22), transparent 34%),
-    linear-gradient(180deg, rgba(12, 23, 33, 0.92), rgba(7, 13, 20, 0.96));
 }
 
 .prematch-sidebar h1,
@@ -396,10 +391,10 @@ body {
 
 .step-chip {
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
+  border: 1px solid var(--border-gold-alpha, rgba(201, 162, 39, 0.3));
+  border-radius: 2px;
+  background: rgba(15, 21, 32, 0.6);
+  color: var(--gothic-cream, #e8e1d7);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -407,15 +402,15 @@ body {
 }
 
 .step-chip.is-active {
-  border-color: rgba(119, 216, 255, 0.38);
-  background: rgba(119, 216, 255, 0.1);
+  border-color: var(--border-gold-bright, rgba(201, 162, 39, 0.6));
+  background: rgba(201, 162, 39, 0.1);
 }
 
 .step-chip:hover,
 .step-chip:focus-visible {
-  border-color: rgba(169, 242, 255, 0.48);
-  background: rgba(119, 216, 255, 0.16);
-  box-shadow: 0 0 18px rgba(119, 216, 255, 0.14);
+  border-color: var(--border-gold-bright, rgba(201, 162, 39, 0.6));
+  background: rgba(201, 162, 39, 0.12);
+  box-shadow: 0 0 18px rgba(201, 162, 39, 0.14);
   outline: none;
 }
 
@@ -444,21 +439,28 @@ body {
   display: grid;
 }
 
+.prematch-phase-timer {
+  justify-self: center;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .prematch-overlay::-webkit-scrollbar,
 .prematch-screen::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
 }
 
 .prematch-overlay::-webkit-scrollbar-track,
 .prematch-screen::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
+  background: rgba(201, 162, 39, 0.04);
 }
 
 .prematch-overlay::-webkit-scrollbar-thumb,
 .prematch-screen::-webkit-scrollbar-thumb {
-  background: rgba(119, 216, 255, 0.34);
-  border-radius: 999px;
+  background: rgba(201, 162, 39, 0.25);
+  border-radius: 1px;
 }
 
 .screen-header {
@@ -497,8 +499,8 @@ body {
 .mode-card.is-selected,
 .selection-card.is-selected,
 .selection-card.is-active {
-  border-color: rgba(119, 216, 255, 0.42);
-  box-shadow: 0 0 22px rgba(119, 216, 255, 0.12);
+  border-color: var(--border-gold-bright, rgba(201, 162, 39, 0.6));
+  box-shadow: 0 0 22px rgba(201, 162, 39, 0.2);
 }
 
 .mode-card:hover,
@@ -506,11 +508,6 @@ body {
 .selection-card:hover,
 .selection-card:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(169, 242, 255, 0.52);
-  background: linear-gradient(180deg, rgba(32, 49, 66, 0.96), rgba(12, 20, 29, 0.98));
-  box-shadow:
-    0 0 0 1px rgba(169, 242, 255, 0.16),
-    0 0 24px rgba(119, 216, 255, 0.16);
   outline: none;
 }
 
@@ -1374,9 +1371,9 @@ body {
 .secondary-button:focus-visible,
 .help-toggle:hover,
 .help-toggle:focus-visible {
-  border-color: rgba(169, 242, 255, 0.5);
-  box-shadow: 0 0 18px rgba(119, 216, 255, 0.16);
-  filter: brightness(1.08);
+  border-color: var(--border-gold-bright, rgba(201, 162, 39, 0.6));
+  box-shadow: 0 0 20px rgba(201, 162, 39, 0.25);
+  filter: brightness(1.12);
   outline: none;
 }
 
@@ -1839,18 +1836,26 @@ body {
 .secondary-button {
   min-height: 42px;
   padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text);
+  border-radius: 2px;
+  border: 1.5px solid var(--border-gold-alpha, rgba(201, 162, 39, 0.3));
+  color: var(--gothic-cream, #e8e1d7);
   pointer-events: auto;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
 .primary-button {
-  background: linear-gradient(180deg, rgba(119, 216, 255, 0.3), rgba(59, 132, 170, 0.82));
+  background: linear-gradient(180deg, rgba(201, 162, 39, 0.35), rgba(140, 110, 25, 0.7));
+  border-color: var(--border-gold-bright, rgba(201, 162, 39, 0.6));
+  box-shadow: 0 0 12px rgba(201, 162, 39, 0.15);
 }
 
 .secondary-button {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 21, 32, 0.6);
 }
 
 .session-actions {
@@ -2212,52 +2217,22 @@ body {
   --cat-runes: #c88dff;
 }
 
-/* ──────────────────── LAB TABS (LOADOUT | STYLE) ──────────────────── */
-.lab-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  width: fit-content;
-}
-
-.lab-tab {
-  padding: 8px 20px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 120ms ease;
-}
-
-.lab-tab.is-active {
-  color: var(--text);
-  background: rgba(119, 216, 255, 0.12);
-  border-color: rgba(119, 216, 255, 0.32);
-  box-shadow: 0 0 16px rgba(119, 216, 255, 0.1);
-}
-
-.lab-tab:hover:not(.is-active) {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-/* ──────────────────── LAB PANELS ──────────────────── */
-.lab-panel {
+/* ──────────────────── PREMATCH LOADOUT SURFACE ──────────────────── */
+.prematch-loadout-shell {
   display: none;
-  gap: 14px;
 }
 
-.lab-panel--active {
-  display: grid;
+.prematch-loadout-host {
+  min-height: 0;
+}
+
+.prematch-loadout-host #loadout-root {
+  width: 100%;
+  margin: 0;
+}
+
+.prematch-screen.prematch-build--loadout .prematch-loadout-shell {
+  display: block;
 }
 
 /* ──────────────────── SLOT BAR (horizontal) ──────────────────── */
@@ -2361,486 +2336,6 @@ body {
   box-shadow: 0 0 18px rgba(255, 211, 117, 0.15);
 }
 .slot-bar__slot--ultimate .slot-bar__cat { color: var(--cat-ultimate); }
-
-/* ──────────────────── ROBOT WIZARD ──────────────────── */
-.robot-wizard {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 8px 0 4px;
-}
-
-.robot-wizard__frame {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 10px;
-}
-
-/* ── WIZARD FOCUS LAYOUT: full-pane immersive step view ── */
-/* On the build screen, the normal lab-loadout becomes a focus wizard */
-#lab-loadout {
-  /* override the default lab-panel--active grid gap */
-  gap: 0 !important;
-}
-
-/* Focus container wrapping robot + picker */
-.wizard-focus {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 0;
-  min-height: 0;
-}
-
-/* Step header above the robot */
-.wizard-focus__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 0 6px;
-  gap: 4px;
-}
-
-.wizard-focus__eyebrow {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.wizard-focus__title {
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--text);
-  margin: 0;
-}
-
-.wizard-focus__hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  text-align: center;
-  max-width: 340px;
-}
-
-/* Two-column: robot left, item list right */
-.wizard-focus__body {
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 16px;
-  align-items: start;
-  min-height: 0;
-}
-
-/* Robot column */
-.wizard-focus__robot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  position: sticky;
-  top: 0;
-}
-
-.wizard-focus__robot .robot-svg {
-  width: 160px;
-  height: auto;
-}
-
-/* Item picker column */
-.wizard-focus__picker {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-}
-
-/* Rune panel inside focus layout */
-.wizard-focus__picker .rune-panel {
-  margin-top: 0;
-}
-
-/* Hide all the non-wizard clutter when in focus mode */
-.wizard-focus ~ .power-mini,
-.wizard-focus ~ .cat-tabs,
-.wizard-focus ~ .build-step-nav,
-.wizard-focus ~ #build-library-grid,
-.wizard-focus ~ #rune-panel,
-.wizard-focus ~ .detail-float,
-.wizard-focus ~ #bot-config-card {
-  display: none !important;
-}
-
-/* Step nav inside wizard-focus header */
-.wizard-focus .build-step-nav {
-  width: 100%;
-  max-width: 480px;
-  padding: 6px 0 2px;
-}
-
-/* Progress pips inside wizard-focus */
-.wizard-focus .robot-wizard__progress {
-  gap: 6px;
-}
-
-/* Slot summary strip below robot showing filled slots */
-.wizard-summary-strip {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-}
-
-.wizard-summary-chip {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 7px;
-  row-gap: 1px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  font-size: 0.65rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
-}
-
-.wizard-summary-chip.is-filled {
-  color: var(--text);
-}
-
-.wizard-summary-chip.is-active {
-  border-color: rgba(119, 216, 255, 0.72);
-  background: linear-gradient(90deg, rgba(119, 216, 255, 0.16), rgba(119, 216, 255, 0.04));
-  box-shadow: 
-    -4px 0 0 var(--accent),
-    0 0 20px rgba(119, 216, 255, 0.24);
-  animation: active-slot-pulse 1.8s ease-in-out infinite;
-  z-index: 2;
-}
-
-@keyframes active-slot-pulse {
-  0%, 100% { filter: brightness(1); transform: translateX(0); }
-  50% { filter: brightness(1.15); transform: translateX(2px); }
-}
-
-.wizard-summary-chip.is-previewing {
-  border-color: rgba(255, 211, 117, 0.42);
-  background: rgba(255, 211, 117, 0.08);
-  box-shadow: 0 0 18px rgba(255, 211, 117, 0.12);
-}
-
-.wizard-summary-chip--weapon.is-filled  { border-color: rgba(255,107,91,0.35); }
-.wizard-summary-chip--ability.is-filled { border-color: rgba(91,232,255,0.35); }
-.wizard-summary-chip--perk.is-filled    { border-color: rgba(125,255,155,0.35); }
-.wizard-summary-chip--ultimate.is-filled { border-color: rgba(255,211,117,0.35); }
-
-.wizard-summary-chip .content-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  flex-shrink: 0;
-}
-
-.wizard-summary-chip__label {
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  min-width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  align-self: center;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 2px 0 rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  color: var(--muted);
-  font-family: var(--font-mono);
-}
-
-.is-active .wizard-summary-chip__label {
-  border-color: var(--accent);
-  background: var(--accent-30);
-  color: #fff;
-  box-shadow: 0 0 10px var(--accent-20);
-}
-
-.wizard-summary-chip--weapon.is-filled   .wizard-summary-chip__label { color: var(--cat-weapon); }
-.wizard-summary-chip--ability.is-filled  .wizard-summary-chip__label { color: var(--cat-ability); }
-.wizard-summary-chip--perk.is-filled     .wizard-summary-chip__label { color: var(--cat-perk); }
-.wizard-summary-chip--ultimate.is-filled .wizard-summary-chip__label { color: var(--cat-ultimate); }
-
-.wizard-summary-chip .content-icon {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-}
-
-.wizard-summary-chip .robot-slot__name {
-  grid-column: 3;
-  grid-row: 1;
-}
-
-.wizard-summary-chip .robot-slot__meta {
-  display: block;
-  grid-column: 3;
-  grid-row: 2;
-  line-height: 1.25;
-  white-space: normal;
-}
-
-/* Larger item-list in focus mode (no height cap) */
-.wizard-focus__picker .item-list {
-  max-height: none;
-  overflow-y: visible;
-}
-
-/* Category-color accent on the step nav label */
-.wizard-focus .step-nav-label.c-weapon   { color: var(--cat-weapon); }
-.wizard-focus .step-nav-label.c-ability  { color: var(--cat-ability); }
-.wizard-focus .step-nav-label.c-perk     { color: var(--cat-perk); }
-.wizard-focus .step-nav-label.c-ultimate { color: var(--cat-ultimate); }
-.wizard-focus .step-nav-label.c-runes    { color: #c88dff; }
-
-/* SVG robot */
-.robot-svg {
-  width: 140px;
-  height: auto;
-  display: block;
-}
-
-/* Zone defaults — dim/unlit state */
-.robot-zone {
-  color: rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: color 250ms ease, filter 250ms ease, opacity 250ms ease;
-}
-.robot-zone text.robot-zone-label {
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  fill: currentColor;
-  font-family: inherit;
-  opacity: 0.6;
-}
-.robot-connector {
-  color: rgba(255, 255, 255, 0.1);
-}
-
-/* Zone hover */
-.robot-zone:hover {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-/* Active zone — highlight current selected slot */
-.robot-zone.is-active {
-  filter: url(#robot-glow);
-}
-
-/* Filled zones — colored by category */
-.robot-zone--weapon.is-filled  { color: var(--cat-weapon); }
-.robot-zone--ability.is-filled { color: var(--cat-ability); }
-.robot-zone--perk.is-filled    { color: var(--cat-perk); }
-.robot-zone--ultimate.is-filled { color: var(--cat-ultimate); }
-
-/* Locked zone (not yet reached in sequence) */
-.robot-zone.is-locked {
-  color: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
-}
-
-/* Active zone glow by category */
-.robot-zone--weapon.is-active   { color: var(--cat-weapon); filter: drop-shadow(0 0 8px rgba(255, 107, 91, 0.6)); }
-.robot-zone--ability.is-active  { color: var(--cat-ability); filter: drop-shadow(0 0 8px rgba(91, 232, 255, 0.6)); }
-.robot-zone--ability-0.is-active { color: var(--cat-ability); filter: drop-shadow(0 0 8px rgba(91, 232, 255, 0.6)); }
-.robot-zone--ability-1.is-active { color: var(--cat-ability); filter: drop-shadow(0 0 8px rgba(91, 232, 255, 0.6)); }
-.robot-zone--ability-2.is-active { color: var(--cat-ability); filter: drop-shadow(0 0 8px rgba(91, 232, 255, 0.6)); }
-.robot-zone--perk.is-active     { color: var(--cat-perk); filter: drop-shadow(0 0 8px rgba(125, 255, 155, 0.6)); }
-.robot-zone--ultimate.is-active { color: var(--cat-ultimate); filter: drop-shadow(0 0 8px rgba(255, 211, 117, 0.7)) drop-shadow(0 0 16px rgba(255, 211, 117, 0.35)); }
-
-/* All zones filled = robot fully lit */
-.robot-svg.is-complete .robot-zone { filter: url(#robot-glow-strong); }
-
-/* ── WIZARD FOCUS: when a step is active, all non-active zones dim way down ─────────── */
-.robot-svg.wizard-spotlight .robot-zone:not(.is-active):not(.is-filled) {
-  color: rgba(255, 255, 255, 0.07);
-  opacity: 0.4;
-  filter: none;
-  pointer-events: none;
-}
-.robot-svg.wizard-spotlight .robot-zone.is-filled:not(.is-active) {
-  opacity: 0.85;
-}
-.robot-svg.wizard-spotlight .robot-zone.is-active {
-  opacity: 1;
-}
-/* Pumped-up glow for the spotlight zone */
-.robot-svg.wizard-spotlight .robot-zone--weapon.is-active   {
-  color: var(--cat-weapon);
-  filter:
-    drop-shadow(0 0 6px rgba(255, 107, 91, 0.9))
-    drop-shadow(0 0 18px rgba(255, 107, 91, 0.5))
-    drop-shadow(0 0 32px rgba(255, 107, 91, 0.2));
-}
-.robot-svg.wizard-spotlight .robot-zone--ability-0.is-active,
-.robot-svg.wizard-spotlight .robot-zone--ability-1.is-active,
-.robot-svg.wizard-spotlight .robot-zone--ability-2.is-active {
-  color: var(--cat-ability);
-  filter:
-    drop-shadow(0 0 6px rgba(91, 232, 255, 0.9))
-    drop-shadow(0 0 18px rgba(91, 232, 255, 0.5))
-    drop-shadow(0 0 32px rgba(91, 232, 255, 0.2));
-}
-.robot-svg.wizard-spotlight .robot-zone--perk.is-active {
-  color: var(--cat-perk);
-  filter:
-    drop-shadow(0 0 6px rgba(125, 255, 155, 0.9))
-    drop-shadow(0 0 18px rgba(125, 255, 155, 0.5))
-    drop-shadow(0 0 32px rgba(125, 255, 155, 0.2));
-}
-.robot-svg.wizard-spotlight .robot-zone--ultimate.is-active {
-  color: var(--cat-ultimate);
-  filter:
-    drop-shadow(0 0 6px rgba(255, 211, 117, 1))
-    drop-shadow(0 0 18px rgba(255, 211, 117, 0.6))
-    drop-shadow(0 0 36px rgba(255, 211, 117, 0.3));
-  animation: ult-pulse 1.8s ease-in-out infinite;
-}
-@keyframes ult-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
-}
-
-/* Progress pip row */
-.robot-wizard__progress {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-.robot-wizard__step {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: background 200ms ease, box-shadow 200ms ease;
-}
-.robot-wizard__step--weapon.is-filled  { background: var(--cat-weapon);   box-shadow: 0 0 6px var(--cat-weapon); }
-.robot-wizard__step--ability.is-filled { background: var(--cat-ability);  box-shadow: 0 0 6px var(--cat-ability); }
-.robot-wizard__step--perk.is-filled    { background: var(--cat-perk);     box-shadow: 0 0 6px var(--cat-perk); }
-.robot-wizard__step--ultimate.is-filled { background: var(--cat-ultimate); box-shadow: 0 0 6px var(--cat-ultimate); }
-.robot-wizard__step.is-active {
-  width: 10px;
-  height: 10px;
-  border-color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
-}
-
-/* Slot list (right side) */
-.robot-wizard__slots {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  flex: 1;
-  min-width: 0;
-}
-
-.robot-slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: 1.5px solid transparent;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  transition: all 150ms ease;
-  text-align: left;
-  position: relative;
-  overflow: hidden;
-}
-.robot-slot::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-.robot-slot:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateX(3px);
-}
-.robot-slot .content-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-.robot-slot__cat {
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-  min-width: 22px;
-  text-transform: uppercase;
-}
-.robot-slot__info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  overflow: hidden;
-}
-.robot-slot__name {
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.robot-slot__meta {
-  font-size: 0.6rem;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Robot slot active state */
-.robot-slot.is-active {
-  background: rgba(255, 255, 255, 0.05);
-}
-.robot-slot--weapon.is-active  { border-color: rgba(255, 107, 91, 0.55);  box-shadow: 0 0 14px rgba(255, 107, 91, 0.12); }
-.robot-slot--ability.is-active { border-color: rgba(91, 232, 255, 0.55);  box-shadow: 0 0 14px rgba(91, 232, 255, 0.12); }
-.robot-slot--perk.is-active    { border-color: rgba(125, 255, 155, 0.55); box-shadow: 0 0 14px rgba(125, 255, 155, 0.12); }
-.robot-slot--ultimate.is-active { border-color: rgba(255, 211, 117, 0.55); box-shadow: 0 0 14px rgba(255, 211, 117, 0.12); }
-
-/* Robot slot filled */
-.robot-slot--weapon.is-filled  .robot-slot__cat { color: var(--cat-weapon); }
-.robot-slot--ability.is-filled .robot-slot__cat { color: var(--cat-ability); }
-.robot-slot--perk.is-filled    .robot-slot__cat { color: var(--cat-perk); }
-.robot-slot--ultimate.is-filled .robot-slot__cat { color: var(--cat-ultimate); }
-
-/* Robot slot locked */
-.robot-slot.is-locked {
-  opacity: 0.35;
-  pointer-events: none;
-  cursor: not-allowed;
-}
 
 /* ──────────────────── POWER MINI BARS ──────────────────── */
 .power-mini {
@@ -3398,6 +2893,28 @@ body {
   transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
+.preset-chip[data-tooltip] {
+  position: relative;
+}
+
+.preset-chip[data-tooltip]::after {
+  content: "i";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid rgba(200, 155, 60, 0.28);
+  color: rgba(200, 155, 60, 0.85);
+  font-size: 0.58rem;
+  line-height: 14px;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(18, 18, 18, 0.45);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.18);
+}
+
 .preset-chip:hover {
   transform: translateY(-1px);
   border-color: rgba(119, 216, 255, 0.3);
@@ -3412,7 +2929,7 @@ body {
 
 .preset-chip.is-disabled {
   opacity: 0.58;
-  cursor: default;
+  cursor: help;
   border-color: rgba(255, 255, 255, 0.05);
   box-shadow: none;
 }
@@ -3448,6 +2965,65 @@ body {
   color: var(--muted);
   font-size: 0.72rem;
   line-height: 1.4;
+}
+
+.has-click-tooltip {
+  outline: none;
+}
+
+.p0-click-tooltip {
+  position: fixed;
+  z-index: 12000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.985);
+  transition: opacity 120ms ease, transform 140ms ease;
+}
+
+.p0-click-tooltip.is-hidden {
+  visibility: hidden;
+}
+
+.p0-click-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.p0-click-tooltip__content {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 155, 60, 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(200, 155, 60, 0.13), transparent 42%),
+    linear-gradient(175deg, rgba(15, 19, 28, 0.98), rgba(8, 11, 16, 0.98));
+  color: rgba(247, 240, 224, 0.95);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  white-space: pre-line;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+}
+
+.p0-click-tooltip::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  left: 20px;
+  background: rgba(11, 14, 20, 0.98);
+  border-left: 1px solid rgba(200, 155, 60, 0.34);
+  border-top: 1px solid rgba(200, 155, 60, 0.34);
+}
+
+.p0-click-tooltip[data-placement="bottom"]::after {
+  top: -6px;
+  transform: rotate(45deg);
+}
+
+.p0-click-tooltip[data-placement="top"]::after {
+  bottom: -6px;
+  transform: rotate(225deg);
 }
 
 /* ──────────────────── STYLE PANEL (cosmetics) ──────────────────── */

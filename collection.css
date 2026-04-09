@@ -1329,3 +1329,200 @@
     text-align: left;
   }
 }
+
+/* ── COLLECTION LAYOUT V3 (2 columns, desktop focus) ───────────── */
+
+.collection-layout {
+  width: min(70vw, 1440px);
+  max-width: none;
+}
+
+.bp-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.bp-rail-panel,
+.bp-side-panel {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(160deg, rgba(9, 14, 25, 0.96), rgba(4, 7, 12, 0.98)),
+    radial-gradient(circle at top left, rgba(11, 196, 227, 0.08), transparent 30%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.bp-rail-panel {
+  padding: 18px 20px 24px;
+}
+
+.bp-rail-panel .bp-track {
+  min-width: 980px;
+}
+
+.bp-side-panel {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.bp-current-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--collection-accent, #0bc4e3) 24%, rgba(255, 255, 255, 0.07));
+  background:
+    linear-gradient(150deg, rgba(12, 18, 32, 0.94), rgba(5, 8, 14, 0.98)),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--collection-accent, #0bc4e3) 14%, transparent), transparent 40%);
+}
+
+.bp-current-card__eyebrow {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c89b3c;
+}
+
+.bp-current-card__title {
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fff3dc;
+}
+
+.bp-current-card__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.bp-current-card__icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--collection-accent, #0bc4e3) 38%, rgba(255, 255, 255, 0.1));
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--collection-accent, #0bc4e3) 22%, transparent), transparent 64%),
+    rgba(5, 8, 16, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bp-current-card__icon-wrap .content-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 34px;
+}
+
+.bp-current-card__item-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.bp-current-card__item-state {
+  font-size: 0.52rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #9a93ab;
+}
+
+.bp-current-card__item-name {
+  color: #f5ebd8;
+  line-height: 1.2;
+}
+
+.bp-current-card__item-meta {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b2aabc;
+}
+
+.bp-current-card__copy {
+  margin: 0;
+  color: #9e97ab;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.bp-current-card__open {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid rgba(11, 196, 227, 0.32);
+  background: linear-gradient(180deg, rgba(11, 196, 227, 0.15), rgba(11, 196, 227, 0.05));
+  color: #dffbff;
+  font: inherit;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.bp-current-card__open:hover {
+  border-color: rgba(11, 196, 227, 0.54);
+  box-shadow: 0 0 22px rgba(11, 196, 227, 0.16);
+}
+
+.bp-side-panel .bp-detail[aria-hidden="true"] {
+  display: none;
+}
+
+.bp-side-panel .bp-card {
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 16px;
+}
+
+.bp-side-panel .bp-card__visual {
+  align-items: start;
+  flex-direction: row;
+}
+
+.bp-side-panel .bp-card__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+@media (max-width: 1320px) {
+  .collection-layout {
+    width: min(82vw, 1360px);
+  }
+
+  .bp-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bp-side-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .bp-side-panel .bp-detail {
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .collection-layout {
+    width: 100%;
+  }
+
+  .bp-rail-panel {
+    padding: 14px;
+  }
+
+  .bp-rail-panel .bp-track {
+    min-width: 820px;
+  }
+
+  .bp-side-panel {
+    grid-template-columns: 1fr;
+  }
+}

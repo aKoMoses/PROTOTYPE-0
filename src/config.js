@@ -167,6 +167,11 @@ export const sandboxModes = {
     name: "Arena (1v1)",
     subtitle: "One hunter bot, fair spawns, full duel behavior.",
   },
+  teamDuel: {
+    key: "teamDuel",
+    name: "Arena (2v2)",
+    subtitle: "Two allies versus two enemies. Team-based round combat.",
+  },
   survival: {
     key: "survival",
     name: "Survival Mode",

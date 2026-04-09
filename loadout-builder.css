@@ -450,6 +450,20 @@
   gap: 8px;
 }
 
+.builder-panel__empty {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid rgba(198, 40, 40, 0.28);
+  border-radius: 6px;
+  background: rgba(198, 40, 40, 0.08);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 /* Scrollbar */
 .builder-panel__list::-webkit-scrollbar { width: 4px; }
 .builder-panel__list::-webkit-scrollbar-track { background: transparent; }

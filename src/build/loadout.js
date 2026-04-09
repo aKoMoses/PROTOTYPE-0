@@ -7,7 +7,7 @@ import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getStatusState } from "../gameplay/combat.js";
 import { renderPrematch } from "./ui.js";
-import { createPresetRunes, playerStarterPresets } from "../loadouts/catalog.js";
+import { createPresetRunes } from "../loadouts/catalog.js";
 import { normalizeStoredBuild } from "../loadouts/storage.js";
 import { canEquipStoredLoadout, getMissingUnlocksForBuild, getVisibleUnlockedKeys, isContentUnlocked } from "../progression.js";
 
@@ -273,29 +273,6 @@ export function getCurrentBotBuildPreview() {
   return botBuildState.mode === "custom"
     ? ensureBotLoadoutFilled(botBuildState.custom)
     : ensureBotLoadoutFilled(botBuildState.current);
-}
-
-export function getPlayerStarterPresets() {
-  return playerStarterPresets;
-}
-
-export function applyPlayerStarterPreset(presetKey) {
-  const preset = playerStarterPresets.find((entry) => entry.key === presetKey);
-  if (!preset) {
-    return { ok: false, missing: [] };
-  }
-
-  const missing = getMissingUnlocksForBuild(preset.loadout);
-  if (missing.length > 0) {
-    return { ok: false, missing };
-  }
-
-  loadout.weapon = preset.loadout.weapon;
-  loadout.abilities = [...preset.loadout.abilities];
-  loadout.perks = [...preset.loadout.perks];
-  loadout.ultimate = preset.loadout.ultimate;
-  loadout.runes = cloneRuneAllocation(preset.loadout.runes);
-  return { ok: true, missing: [] };
 }
 
 export function applySavedPlayerLoadout(savedLoadout) {

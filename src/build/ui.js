@@ -10,41 +10,111 @@ import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoad
   hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
   setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration,
-  getPlayerStarterPresets, applyPlayerStarterPreset, applySavedPlayerLoadout, getBotPresets, applyBotPreset } from "./loadout.js";
+  applySavedPlayerLoadout, getBotPresets, applyBotPreset } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
 import { getAxeComboProfile } from "../gameplay/weapons.js";
 import { playUiCue, unlockAudio } from "../audio.js";
 import { normalizeStoredBuild, readStoredLoadouts } from "../loadouts/storage.js";
-import { formatMissingUnlocks, getMissingUnlocksForBuild, isContentUnlocked } from "../progression.js";
+import { formatMissingUnlocks, getLoadoutAccessState, isContentUnlocked } from "../progression.js";
+import { registerClickTooltip } from "../ui/tooltip-manager.js";
 
 // Forward declarations
 let _resetPlayer = null;
 let _startDuelRound = null;
+let _startTeamDuelRound = null;
 let _showRoundBanner = null;
 let _releaseDashInput = null;
 let _restartSurvivalRun = null;
+let loadoutRootHomeParent = null;
+let loadoutRootHomeNextSibling = null;
 
-export function bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, releaseDashInput, restartSurvivalRun }) {
+export function bindUIDeps({ resetPlayer, startDuelRound, startTeamDuelRound, showRoundBanner, releaseDashInput, restartSurvivalRun }) {
   _resetPlayer = resetPlayer;
   _startDuelRound = startDuelRound;
+  _startTeamDuelRound = startTeamDuelRound;
   _showRoundBanner = showRoundBanner;
   _releaseDashInput = releaseDashInput;
   _restartSurvivalRun = restartSurvivalRun;
 }
 
+function cacheLoadoutRootHome(rootNode) {
+  if (!rootNode || loadoutRootHomeParent) {
+    return;
+  }
+  loadoutRootHomeParent = rootNode.parentElement;
+  loadoutRootHomeNextSibling = rootNode.nextSibling;
+}
+
+function moveLoadoutRootToPrematchHost() {
+  const host = document.getElementById("prematch-loadout-host");
+  const rootNode = document.getElementById("loadout-root");
+  if (!host || !rootNode) {
+    return;
+  }
+
+  cacheLoadoutRootHome(rootNode);
+  if (rootNode.parentElement !== host) {
+    host.appendChild(rootNode);
+  }
+}
+
+function restoreLoadoutRootToShellView() {
+  const rootNode = document.getElementById("loadout-root");
+  if (!rootNode || !loadoutRootHomeParent) {
+    return;
+  }
+  if (rootNode.parentElement === loadoutRootHomeParent) {
+    return;
+  }
+
+  if (loadoutRootHomeNextSibling && loadoutRootHomeNextSibling.parentNode === loadoutRootHomeParent) {
+    loadoutRootHomeParent.insertBefore(rootNode, loadoutRootHomeNextSibling);
+    return;
+  }
+
+  loadoutRootHomeParent.appendChild(rootNode);
+}
+
+function syncPrematchLoadoutSurface() {
+  const shouldUsePrematchLoadout = uiState.prematchStep === "build";
+  const shell = document.getElementById("prematch-loadout-shell");
+
+  dom.buildScreen?.classList.toggle("prematch-build--loadout", shouldUsePrematchLoadout);
+  shell?.classList.toggle("is-hidden", !shouldUsePrematchLoadout);
+
+  if (shouldUsePrematchLoadout) {
+    moveLoadoutRootToPrematchHost();
+    window.__P0_SHELL?.ensureViewModule?.("loadouts")
+      ?.catch?.((error) => {
+        console.error("[prematch] Failed to load loadouts shell module", error);
+      });
+    return;
+  }
+
+  restoreLoadoutRootToShellView();
+}
+
 export function setPrematchStep(step) {
   uiState.prematchStep = step;
+  if (dom.prematchShell) {
+    dom.prematchShell.dataset.prematchPhase =
+      step === "game-found" ? "found" : step;
+  }
   if (step === "build") {
     dom.botConfigCard?.classList.add("is-hidden");
-    if (dom.botConfigToggle) dom.botConfigToggle.textContent = "Configure Bot";
   }
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
+  dom.queueScreen?.classList.toggle("prematch-screen--active", step === "queue");
+  dom.gameFoundScreen?.classList.toggle("prematch-screen--active", step === "game-found");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
   dom.runeScreen?.classList.toggle("prematch-screen--active", step === "runes");
+  dom.lobbyScreen?.classList.toggle("prematch-screen--active", step === "lobby");
+  dom.loadingScreen?.classList.toggle("prematch-screen--active", step === "loading");
   dom.stepMode?.classList.toggle("is-active", step === "mode");
   dom.stepMap?.classList.toggle("is-active", step === "map");
-  dom.stepBuild?.classList.toggle("is-active", step === "build");
+  dom.stepBuild?.classList.toggle("is-active", step === "build" || step === "runes");
+  syncPrematchLoadoutSurface();
 }
 
 export function syncPrematchState() {
@@ -61,6 +131,19 @@ export function updateTrainingBuildButton() {
 
 export function openPrematch(step = "mode") {
   uiState.prematchOpen = true;
+  if (step === "mode" && uiState.matchmaking?.active) {
+    uiState.matchmaking.active = false;
+    uiState.matchmaking.phase = "idle";
+    uiState.matchmaking.queueRemaining = 0;
+    uiState.matchmaking.queueSafetyRemaining = 0;
+    uiState.matchmaking.buildRemaining = 0;
+    uiState.matchmaking.lobbyRemaining = 0;
+    uiState.matchmaking.loadingRemaining = 0;
+    uiState.matchmaking.foundRemaining = 0;
+    uiState.matchmaking.accepted = false;
+    uiState.matchmaking.playerReady = false;
+    uiState.matchmaking.roster = [];
+  }
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
   }
@@ -78,6 +161,19 @@ export function openPrematch(step = "mode") {
 }
 
 export function closePrematch() {
+  if (uiState.matchmaking?.active) {
+    uiState.matchmaking.active = false;
+    uiState.matchmaking.phase = "idle";
+    uiState.matchmaking.queueRemaining = 0;
+    uiState.matchmaking.queueSafetyRemaining = 0;
+    uiState.matchmaking.buildRemaining = 0;
+    uiState.matchmaking.lobbyRemaining = 0;
+    uiState.matchmaking.loadingRemaining = 0;
+    uiState.matchmaking.foundRemaining = 0;
+    uiState.matchmaking.accepted = false;
+    uiState.matchmaking.playerReady = false;
+    uiState.matchmaking.roster = [];
+  }
   uiState.prematchOpen = false;
   dom.prematchOverlay.classList.add("is-hidden");
   if (document.activeElement instanceof HTMLElement) {
@@ -97,6 +193,12 @@ export function relaunchCurrentSession() {
   if (sandbox.mode === sandboxModes.survival.key) {
     _restartSurvivalRun?.({ resetProgress: true });
     dom.statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} survival gauntlet reset. New wave one, same build.`;
+    return;
+  }
+
+  if (sandbox.mode === sandboxModes.teamDuel.key) {
+    _startTeamDuelRound?.({ resetScore: true });
+    dom.statusLine.textContent = `${getMapLayout(sandbox.mode, sandbox.mapKey).name} squad duel reset. Fresh round one, same lineup.`;
     return;
   }
 
@@ -139,7 +241,23 @@ export function updatePrematchSummary() {
     dom.continueRunes.textContent = isBuildComplete() ? "Continue to Runes ->" : "Lock all build slots first";
   }
   if (dom.startSession) {
+    const matchmakingBuildFlow =
+      uiState.matchmaking?.active &&
+      (uiState.prematchStep === "build" || uiState.prematchStep === "runes");
     dom.startSession.disabled = !isBuildComplete();
+    dom.startSession.textContent = matchmakingBuildFlow ? "Ready" : "Deploy Unit";
+  }
+  if (dom.continueMap) {
+    dom.continueMap.textContent =
+      uiState.selectedMode === sandboxModes.duel.key || uiState.selectedMode === sandboxModes.teamDuel.key
+        ? "Queue for Match"
+        : "Continue to Map";
+  }
+  if (dom.backMap) {
+    dom.backMap.textContent =
+      uiState.selectedMode === sandboxModes.duel.key || uiState.selectedMode === sandboxModes.teamDuel.key
+        ? "Back to Mode Select"
+        : "Back to Map Select";
   }
   if (dom.prematchDescription) {
     dom.prematchDescription.textContent =
@@ -147,6 +265,8 @@ export function updatePrematchSummary() {
         ? "Training mode loads a clean firing lane with static bots so you can lab timing, spacing, and projectile denial."
         : uiState.selectedMode === sandboxModes.survival.key
           ? `${selectedMap.name}: escalating solo waves against adaptive arena hunters.`
+          : uiState.selectedMode === sandboxModes.teamDuel.key
+            ? `${selectedMap.name}: coordinated 2v2 rounds with an allied hunter on your side.`
         : `${selectedMap.name}: ${selectedMap.subtitle}`;
   }
   if (dom.cosmeticPreviewName) {
@@ -234,7 +354,7 @@ export function renderMapSelection() {
       card.classList.add("is-selected");
     }
     card.innerHTML = `
-      <span class="mode-card__tag">${uiState.selectedMode === sandboxModes.training.key ? "Training" : uiState.selectedMode === sandboxModes.survival.key ? (mapChoice.key === "randomMap" ? "Random Survival" : "Survival Arena") : mapChoice.key === "randomMap" ? "Random" : "Duel Map"}</span>
+      <span class="mode-card__tag">${uiState.selectedMode === sandboxModes.training.key ? "Training" : uiState.selectedMode === sandboxModes.survival.key ? (mapChoice.key === "randomMap" ? "Random Survival" : "Survival Arena") : uiState.selectedMode === sandboxModes.teamDuel.key ? (mapChoice.key === "randomMap" ? "Random 2v2" : "Squad Arena") : mapChoice.key === "randomMap" ? "Random" : "Duel Map"}</span>
       <strong>${mapChoice.name}</strong>
       <span>${mapChoice.subtitle}</span>
     `;
@@ -932,106 +1052,28 @@ export function renderValidationChips(container, items, type) {
   });
 }
 
-export function updateLoadoutSummaryPanels() {
-  const selectedWeapon = getContentItem("weapons", loadout.weapon);
-  const selectedAbilities = loadout.abilities.map((key) => getContentItem("abilities", key)).filter(Boolean);
-  const selectedPerks = loadout.perks.slice(0, 1).map((key) => getContentItem("perks", key)).filter(Boolean);
-
-  const offense = Math.min(100, 30 + (selectedWeapon?.category === "offense" ? 24 : 10) + selectedAbilities.filter((item) => item.category === "offense").length * 14 + getRuneValue("attack", "secondary") * 6);
-  const defense = Math.min(100, 24 + selectedAbilities.filter((item) => item.category === "defense").length * 20 + selectedPerks.filter((item) => item.category === "defense").length * 18 + getRuneValue("defense", "secondary") * 8);
-  const utility = Math.min(100, 20 + selectedAbilities.filter((item) => item.category === "utility" || item.category === "mobility").length * 18 + selectedPerks.filter((item) => item.category === "utility").length * 12 + getRuneValue("support", "secondary") * 8);
-  const control = Math.min(100, 16 + selectedAbilities.filter((item) => item.category === "control").length * 22 + getRuneValue("spells", "primary") * 10);
-
-  dom.powerOffense.style.width = `${offense}%`;
-  dom.powerDefense.style.width = `${defense}%`;
-  dom.powerUtility.style.width = `${utility}%`;
-  dom.powerControl.style.width = `${control}%`;
-}
-
-// Step-by-step wizard order: weapon → abilities → perk → ultimate → runes
-const BUILD_WIZARD_STEPS = [
-  {
-    slotKey: "weapon",    category: "weapon",
-    title: "Choose your Weapon",
-    hint: "The weapon defines your pacing and commitment level for the whole run.",
-    colorClass: "c-weapon",
-  },
-  {
-    slotKey: "ability-0", category: "ability",
-    title: "Ability Slot 1 [Q]",
-    hint: "Choose the tool locked to your [Q] key. This defines your primary utility.",
-    colorClass: "c-ability",
-  },
-  {
-    slotKey: "ability-1", category: "ability",
-    title: "Ability Slot 2 [F]",
-    hint: "Assign a second tool to your [F] key. Great for mobility or denial.",
-    colorClass: "c-ability",
-  },
-  {
-    slotKey: "ability-2", category: "ability",
-    title: "Ability Slot 3 [E]",
-    hint: "Your third and final active tool on [E]. Round out your strategy.",
-    colorClass: "c-ability",
-  },
-  {
-    slotKey: "perk-0",    category: "perk",
-    title: "Passive Perk",
-    hint: "Lock one passive that amplifies your playstyle without cluttering your reads.",
-    colorClass: "c-perk",
-  },
-  {
-    slotKey: "ultimate",  category: "ultimate",
-    title: "Ultimate",
-    hint: "Your round-deciding spike. Pick the capstone that fits your win condition.",
-    colorClass: "c-ultimate",
-  },
-];
 const STEP_LABELS = {
-  weapon:      "Weapon",
+  weapon: "Weapon",
   "ability-0": "Ability 1 [Q]",
   "ability-1": "Ability 2 [F]",
   "ability-2": "Ability 3 [E]",
-  "perk-0":    "Passive Perk",
-  ultimate:    "Ultimate",
+  "perk-0": "Passive Perk",
+  ultimate: "Ultimate",
 };
-const WIZARD_SEQUENCE = BUILD_WIZARD_STEPS.map((s) => s.slotKey);
+
+const WIZARD_SEQUENCE = ["weapon", "ability-0", "ability-1", "ability-2", "perk-0", "ultimate"];
 
 function clearPreviewSelection() {
   uiState.previewSelection = null;
 }
 
-export function resetBuildWizard() {
-  uiState.buildWizardStep = 0;
-  clearPreviewSelection();
-}
-
-export function advanceBuildWizard() {
-  const next = uiState.buildWizardStep + 1;
-  if (next < BUILD_WIZARD_STEPS.length) {
-    uiState.buildWizardStep = next;
-    clearPreviewSelection();
-  }
-}
-
-export function prevBuildWizardStep() {
-  const prev = uiState.buildWizardStep - 1;
-  if (prev >= 0) {
-    uiState.buildWizardStep = prev;
-    clearPreviewSelection();
-  }
-}
-
-export function goToBuildWizardStep(slotKey) {
-  const idx = BUILD_WIZARD_STEPS.findIndex((s) => s.slotKey === slotKey);
-  if (idx >= 0) {
-    uiState.buildWizardStep = idx;
-    clearPreviewSelection();
-  }
-}
-
 function getCurrentBuildStep() {
-  return BUILD_WIZARD_STEPS[uiState.buildWizardStep] ?? BUILD_WIZARD_STEPS[BUILD_WIZARD_STEPS.length - 1];
+  const safeIndex = Math.max(0, Math.min(uiState.buildWizardStep ?? 0, WIZARD_SEQUENCE.length - 1));
+  const slotKey = WIZARD_SEQUENCE[safeIndex];
+  return {
+    slotKey,
+    category: getSlotCategory(slotKey),
+  };
 }
 
 function getPreviewSelectionForSlot(slotKey) {
@@ -1047,233 +1089,6 @@ function isPreviewPendingForSlot(slotKey) {
     return false;
   }
   return getLoadoutItemForSlot(slotKey)?.key !== preview.key;
-}
-
-function updateBuildStepNav() {
-  const labelEl = document.getElementById("build-step-label");
-  const prevBtn = document.getElementById("build-step-prev");
-  const nextBtn = document.getElementById("build-step-next");
-  const eyebrow = document.getElementById("wizard-eyebrow");
-  const titleEl = document.getElementById("wizard-title");
-  const hintEl  = document.getElementById("wizard-hint");
-  if (!labelEl) return;
-  const total = BUILD_WIZARD_STEPS.length;
-  const idx = uiState.buildWizardStep;
-  const step = getCurrentBuildStep();
-  const pendingPreview = isPreviewPendingForSlot(step.slotKey);
-  const slotFilled = Boolean(getLoadoutItemForSlot(step.slotKey));
-  if (eyebrow) eyebrow.textContent = `Step ${idx + 1} of ${total}`;
-  if (titleEl) titleEl.textContent = step.title;
-  if (hintEl)  hintEl.textContent  = step.hint;
-  labelEl.textContent = `${idx + 1} / ${total} \u2014 ${STEP_LABELS[step.slotKey]}`;
-  // Swap color class
-  const allColorClasses = ["c-weapon", "c-ability", "c-perk", "c-ultimate"];
-  labelEl.classList.remove(...allColorClasses);
-  if (step.colorClass) labelEl.classList.add(step.colorClass);
-  if (prevBtn) prevBtn.disabled = idx === 0;
-  if (nextBtn) {
-    nextBtn.disabled = !pendingPreview && !slotFilled;
-    nextBtn.textContent = idx >= total - 1
-      ? pendingPreview ? "Validate & Runes \u2192" : "Continue to Runes \u2192"
-      : pendingPreview ? "Validate & Next \u2192" : slotFilled ? "Next Slot \u2192" : "Lock a choice first";
-  }
-}
-
-function getZoneIdForSlot(slotKey) {
-  // SVG zone data-zone mapping
-  const map = {
-    weapon: "weapon",
-    "ability-0": "ability-0",
-    "ability-1": "ability-1",
-    "ability-2": "ability-2",
-    "perk-0": "perk-0",
-    ultimate: "ultimate",
-  };
-  return map[slotKey] ?? slotKey;
-}
-
-export function updateRobotWizard() {
-  const robotSvg = document.querySelector(".robot-svg");
-  if (!robotSvg) return;
-
-  // Always in spotlight mode during build wizard
-  robotSvg.classList.add("wizard-spotlight");
-
-  // Determine which slots are "filled" (have a real item)
-  const filled = new Set(
-    WIZARD_SEQUENCE.filter((slotKey) => !!getLoadoutItemForSlot(slotKey)),
-  );
-
-  // Determine first unfilled slot = current wizard step
-  const firstUnfilled = WIZARD_SEQUENCE.find((s) => !filled.has(s)) ?? null;
-
-  // Unlock up to and including the first unfilled slot
-  const unlockedUntil = firstUnfilled
-    ? WIZARD_SEQUENCE.indexOf(firstUnfilled)
-    : WIZARD_SEQUENCE.length - 1;
-
-  WIZARD_SEQUENCE.forEach((slotKey, idx) => {
-    const zoneId = getZoneIdForSlot(slotKey);
-    const zones = robotSvg.querySelectorAll(`[data-zone="${zoneId}"]`);
-    const isFilled = filled.has(slotKey);
-    const isActive = uiState.selectedLoadoutSlot === slotKey;
-    const isLocked = idx > unlockedUntil + 1;
-
-    zones.forEach((zone) => {
-      zone.classList.toggle("is-filled", isFilled);
-      zone.classList.toggle("is-active", isActive);
-      zone.classList.toggle("is-locked", isLocked);
-    });
-
-    // Sync summary chip state
-    const slotBtn = document.getElementById(`loadout-slot-${slotKey}`);
-    if (slotBtn) {
-      slotBtn.classList.toggle("is-filled", isFilled);
-      slotBtn.classList.toggle("is-locked", isLocked);
-      slotBtn.classList.toggle("is-active", uiState.selectedLoadoutSlot === slotKey);
-    }
-
-    // Sync progress pip
-    const pip = document.querySelector(`.robot-wizard__step[data-step="${slotKey}"]`);
-    if (pip) {
-      pip.classList.toggle("is-filled", isFilled);
-      pip.classList.toggle("is-active", isActive && !isFilled);
-    }
-  });
-
-  // Full robot glow when all slots filled
-  robotSvg.classList.toggle("is-complete", filled.size === WIZARD_SEQUENCE.length);
-}
-
-export function initRobotWizardZoneClicks() {
-  const robotSvg = document.querySelector(".robot-svg");
-  if (!robotSvg) return;
-
-  WIZARD_SEQUENCE.forEach((slotKey) => {
-    const zoneId = getZoneIdForSlot(slotKey);
-    const zones = robotSvg.querySelectorAll(`[data-zone="${zoneId}"]`);
-    zones.forEach((zone) => {
-      zone.setAttribute("role", "button");
-      zone.setAttribute("aria-label", slotKey);
-      zone.style.cursor = "pointer";
-      zone.addEventListener("click", () => {
-        const btn = document.getElementById(`loadout-slot-${slotKey}`);
-        if (btn) btn.click();
-      });
-    });
-  });
-}
-
-export function updateLoadoutSlots() {
-  const slotDescriptors = [
-    { key: "weapon", type: "weapon" },
-    { key: "ability-0", type: "ability" },
-    { key: "ability-1", type: "ability" },
-    { key: "ability-2", type: "ability" },
-    { key: "perk-0", type: "perk" },
-    { key: "ultimate", type: "ultimate" },
-  ];
-
-  const compatibleSlots = getPrematchCategoryConfig(uiState.buildCategory)?.compatibleSlots ?? [];
-
-  slotDescriptors.forEach(({ key, type }) => {
-    const lockedItem = getLoadoutItemForSlot(key);
-    const preview = getPreviewSelectionForSlot(key);
-    const previewItem = preview
-      ? getContentItem(
-          type === "ability"
-            ? "abilities"
-            : type === "perk"
-              ? "perks"
-              : type === "ultimate"
-                ? "ultimates"
-                : "weapons",
-          preview.key,
-        )
-      : null;
-    const item = previewItem ?? lockedItem;
-    const icon = document.getElementById(`loadout-slot-${key}-icon`);
-    const name = document.getElementById(`loadout-slot-${key}-name`);
-    const meta = document.getElementById(`loadout-slot-${key}-meta`);
-    const buttonNode = document.getElementById(`loadout-slot-${key}`);
-
-    if (!buttonNode || !icon || !name) {
-      return;
-    }
-
-    const previewPending = Boolean(preview && lockedItem?.key !== preview.key);
-    const isActive = uiState.selectedLoadoutSlot === key;
-
-    buttonNode.classList.remove("is-hidden-by-wizard");
-    buttonNode.classList.toggle("is-active", isActive);
-    buttonNode.classList.toggle("is-compatible", compatibleSlots.includes(key));
-    buttonNode.classList.toggle("is-previewing", previewPending);
-    buttonNode.classList.toggle("is-filled", Boolean(lockedItem));
-    if (item) {
-      icon.className = `content-icon content-icon--${sanitizeIconClass(item.icon ?? `${type}-${item.key}`)}`;
-      if (item.category) {
-        icon.classList.add(`content-icon--${item.category}`);
-      }
-    } else {
-      icon.className = "content-icon content-icon--empty-slot";
-    }
-    name.textContent = item?.name ?? getEmptySlotLabel(key);
-    if (meta) {
-      meta.classList.remove("is-hidden");
-      meta.textContent = previewPending
-        ? "Preview pending. Lock it in or cancel the preview."
-        : lockedItem
-          ? lockedItem.role ?? lockedItem.description
-          : "Click an item, preview it, then lock it in.";
-    }
-  });
-
-  updateRobotWizard();
-}
-
-export function getCategoryTargetSlot(category) {
-  const compatibleSlots = getPrematchCategoryConfig(category)?.compatibleSlots ?? [];
-  if (compatibleSlots.includes(uiState.selectedLoadoutSlot)) {
-    return uiState.selectedLoadoutSlot;
-  }
-
-  if (category === "ability") {
-    return compatibleSlots.find((slot) => !getLoadoutItemForSlot(slot)) ?? compatibleSlots[0];
-  }
-  if (category === "perk") {
-    return "perk-0";
-  }
-
-  return compatibleSlots[0] ?? "weapon";
-}
-
-export function assignLoadoutItem(category, slotKey, itemKey) {
-  const item = getContentItem(
-    category === "ability"
-      ? "abilities"
-      : category === "perk"
-        ? "perks"
-        : category === "ultimate"
-          ? "ultimates"
-          : "weapons",
-    itemKey,
-  );
-
-  if (!item || item.state !== "playable") {
-    uiState.selectedDetail = { type: category, key: itemKey };
-    renderPrematch();
-    return;
-  }
-
-  uiState.selectedLoadoutSlot = slotKey;
-  uiState.selectedDetail = { type: category, key: itemKey };
-  if (getLoadoutItemForSlot(slotKey)?.key === itemKey) {
-    clearPreviewSelection();
-    renderPrematch();
-    return;
-  }
-  uiState.previewSelection = { category, slotKey, key: itemKey };
-  renderPrematch();
 }
 
 function applyLoadoutItemSelection(category, slotKey, itemKey) {
@@ -1316,6 +1131,33 @@ function applyLoadoutItemSelection(category, slotKey, itemKey) {
   return true;
 }
 
+export function resetBuildWizard() {
+  uiState.buildWizardStep = 0;
+  clearPreviewSelection();
+}
+
+function advanceBuildWizard() {
+  const next = (uiState.buildWizardStep ?? 0) + 1;
+  uiState.buildWizardStep = Math.min(next, WIZARD_SEQUENCE.length - 1);
+  clearPreviewSelection();
+}
+
+export function prevBuildWizardStep() {
+  const prev = (uiState.buildWizardStep ?? 0) - 1;
+  uiState.buildWizardStep = Math.max(prev, 0);
+  clearPreviewSelection();
+}
+
+export function goToBuildWizardStep(slotKey) {
+  const idx = WIZARD_SEQUENCE.indexOf(slotKey);
+  if (idx >= 0) {
+    uiState.buildWizardStep = idx;
+    uiState.selectedLoadoutSlot = slotKey;
+    uiState.buildCategory = getSlotCategory(slotKey);
+    clearPreviewSelection();
+  }
+}
+
 export function commitBuildStepSelection() {
   const step = getCurrentBuildStep();
   const preview = getPreviewSelectionForSlot(step.slotKey);
@@ -1327,11 +1169,8 @@ export function commitBuildStepSelection() {
     return "blocked";
   }
 
-  if (uiState.buildWizardStep >= BUILD_WIZARD_STEPS.length - 1) {
-    if (!isBuildComplete()) {
-      return "incomplete";
-    }
-    return "runes";
+  if ((uiState.buildWizardStep ?? 0) >= WIZARD_SEQUENCE.length - 1) {
+    return isBuildComplete() ? "runes" : "incomplete";
   }
 
   advanceBuildWizard();
@@ -1347,94 +1186,13 @@ export function commitActivePreviewSelection() {
   return applyLoadoutItemSelection(category, slotKey, key);
 }
 
-export function renderBuildLibrary() {
-  const wizardStep = getCurrentBuildStep();
-  uiState.buildCategory = wizardStep.category;
-  uiState.selectedLoadoutSlot = wizardStep.slotKey;
-  updateBuildStepNav();
-  dom.buildLibraryGrid.style.display = "";
-
-  dom.libraryTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.library === uiState.buildCategory);
-  });
-
-  const config = getPrematchCategoryConfig(uiState.buildCategory);
-  const items = getPrematchCategoryItems(uiState.buildCategory);
-  const targetSlot = getCategoryTargetSlot(uiState.buildCategory);
-  const previewKey = getPreviewSelectionForSlot(targetSlot)?.key ?? null;
-
-  // Crucial fix: only highlight the key assigned to the CURRENT active slot
-  // to avoid seeing multiple blue highlights when choosing for a specific key.
-  const currentSlotItem = getLoadoutItemForSlot(targetSlot);
-  const filteredSelectedKeys = currentSlotItem ? [currentSlotItem.key] : [];
-
-  // Identify keys equipped in OTHER slots of the same category
-  // This prevents dual-equipping the same ability across Q, F, or E.
-  const equippedKeys = [];
-  const compatibleSlots = getPrematchCategoryConfig(uiState.buildCategory)?.compatibleSlots ?? [];
-  compatibleSlots.forEach(slot => {
-    if (slot !== targetSlot) {
-      const equipped = getLoadoutItemForSlot(slot);
-      if (equipped) equippedKeys.push(equipped.key);
-    }
-  });
-
-  renderSelectionGrid(
-    dom.buildLibraryGrid,
-    items,
-    filteredSelectedKeys,
-    (itemKey) => {
-      assignLoadoutItem(uiState.buildCategory, targetSlot, itemKey);
-    },
-    {
-      activeKeys: filteredSelectedKeys,
-      equippedKeys: equippedKeys,
-      iconType: config.iconType,
-      previewKey,
-    },
-  );
-}
-
-export function renderCosmetics() {
-  renderSelectionGrid(
-    dom.avatarOptions,
-    Object.values(content.avatars),
-    [loadout.avatar],
-    (avatarKey) => {
-      loadout.avatar = avatarKey;
-      uiState.selectedDetail = { type: "avatar", key: avatarKey };
-      renderPrematch();
-    },
-    { iconType: "avatar" },
-  );
-
-  renderSelectionGrid(
-    dom.weaponSkinOptions,
-    Object.values(content.weaponSkins),
-    [loadout.weaponSkin],
-    (skinKey) => {
-      loadout.weaponSkin = skinKey;
-      uiState.selectedDetail = { type: "skin", key: skinKey };
-      renderPrematch();
-    },
-    { iconType: "skin" },
-  );
-
-  const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
-  const skin = content.weaponSkins[loadout.weaponSkin] ?? content.weaponSkins.stock;
-  setPreviewAvatar(dom.cosmeticAvatarPreview, avatar);
-  dom.cosmeticWeaponIcon.className = `content-icon content-icon--${sanitizeIconClass(skin.icon)}`;
-  dom.cosmeticWeaponName.textContent = skin.name;
-  dom.cosmeticWeaponCopy.textContent = skin.description;
-}
-
 export function renderTrainingBotPanel() {
   if (!dom.botConfigCard || !dom.botConfigCopy) {
     return;
   }
 
   // Match rules card — visible only in duel mode
-  const isDuel = uiState.selectedMode === sandboxModes.duel.key;
+  const isDuel = uiState.selectedMode === sandboxModes.duel.key || uiState.selectedMode === sandboxModes.teamDuel.key;
   dom.matchRulesCard?.classList.toggle("is-hidden", !isDuel);
 
   if (isDuel) {
@@ -1546,6 +1304,14 @@ function renderPresetButtons(container, presets, activeKey, onApply, options = {
 
   const eyebrowFor = options.getEyebrow ?? ((preset) => preset.role);
   const copyFor = options.getCopy ?? ((preset) => preset.description);
+  const tooltipFor = options.getTooltip ?? ((preset) => {
+    const eyebrow = eyebrowFor(preset);
+    const copy = copyFor(preset);
+    const lines = [preset.name];
+    if (eyebrow) lines.push(eyebrow);
+    if (copy) lines.push(copy);
+    return lines.join("\n");
+  });
   const disabledFor = options.isDisabled ?? (() => false);
   const disabledCopyFor = options.getDisabledCopy ?? (() => "Locked");
 
@@ -1555,12 +1321,18 @@ function renderPresetButtons(container, presets, activeKey, onApply, options = {
     button.type = "button";
     button.className = "preset-chip";
     const isDisabled = disabledFor(preset);
+    const tooltip = tooltipFor(preset);
+    if (tooltip) {
+      button.dataset.tooltip = tooltip;
+      button.setAttribute("aria-label", tooltip.replace(/\n+/g, " - "));
+      registerClickTooltip(button, tooltip, { stopClick: isDisabled, maxWidth: 420 });
+    }
     if (preset.key === activeKey) {
       button.classList.add("is-active");
     }
     if (isDisabled) {
       button.classList.add("is-disabled");
-      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
     }
     button.innerHTML = `
       <span class="preset-chip__eyebrow">${eyebrowFor(preset)}</span>
@@ -1569,6 +1341,10 @@ function renderPresetButtons(container, presets, activeKey, onApply, options = {
     `;
     if (!isDisabled) {
       button.addEventListener("click", () => {
+        // First click reveals the tooltip; second click confirms preset apply.
+        if (button.classList.contains("is-tooltip-open")) {
+          return;
+        }
         unlockAudio();
         playUiCue("confirm");
         onApply(preset.key);
@@ -1593,6 +1369,97 @@ function getSavedLoadoutSummary(entry) {
   }
 
   return `${weaponName} · ${perkName}`;
+}
+
+function getSavedLoadoutTooltip(entry) {
+  const build = normalizeStoredBuild(entry.build);
+  const weaponName = content.weapons[build.weapon]?.name ?? "Unknown weapon";
+  const weaponDesc = content.weapons[build.weapon]?.description ?? "";
+
+  const abilityNames = build.abilities.map((abilityKey) => content.abilities[abilityKey]?.name ?? "None");
+  const abilityDescs = build.abilities.map((abilityKey) => content.abilities[abilityKey]?.description ?? "");
+
+  const perkKey = build.perks[0] ?? null;
+  const perkName = perkKey ? (content.perks[perkKey]?.name ?? "None") : "None";
+  const perkDesc = perkKey ? (content.perks[perkKey]?.description ?? "") : "";
+
+  const ultimateKey = build.ultimate ?? null;
+  const ultimateName = ultimateKey ? (content.ultimates[ultimateKey]?.name ?? "None") : "None";
+  const ultimateDesc = ultimateKey ? (content.ultimates[ultimateKey]?.description ?? "") : "";
+
+  const lines = [entry.name ?? "Loadout", ""];
+
+  appendTooltipSection(lines, "W", weaponName, buildTooltipMeta("weapon", build.weapon), weaponDesc);
+  appendTooltipSection(lines, "Q", abilityNames[0] ?? "None", buildTooltipMeta("ability", build.abilities[0]), abilityDescs[0] ?? "");
+  appendTooltipSection(lines, "E", abilityNames[1] ?? "None", buildTooltipMeta("ability", build.abilities[1]), abilityDescs[1] ?? "");
+  appendTooltipSection(lines, "F", abilityNames[2] ?? "None", buildTooltipMeta("ability", build.abilities[2]), abilityDescs[2] ?? "");
+  appendTooltipSection(lines, "P", perkName, buildTooltipMeta("perk", perkKey), perkDesc);
+  appendTooltipSection(lines, "R", ultimateName, buildTooltipMeta("ultimate", ultimateKey), ultimateDesc);
+
+  while (lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  return lines.join("\n");
+}
+
+function appendTooltipSection(lines, slotKey, name, metaLines, desc) {
+  lines.push(`${slotKey} ${name}`);
+  metaLines.forEach((line) => lines.push(`- ${line}`));
+  if (desc) {
+    lines.push(desc);
+  }
+  lines.push("");
+}
+
+function buildTooltipMeta(type, key) {
+  const item = key ? getContentItemByType(type, key) : null;
+  if (!item) {
+    return [];
+  }
+
+  const lines = [];
+  if (type === "weapon") {
+    if (item.slotLabel) lines.push(`Profile: ${item.slotLabel}`);
+    if (item.rhythm) lines.push(`Rhythm: ${item.rhythm}`);
+    if (item.rangeProfile) lines.push(`Range: ${item.rangeProfile}`);
+    if (item.commitment) lines.push(`Commitment: ${item.commitment}`);
+    if (typeof item.cooldown === "number") lines.push(`Cadence: ${formatSecondsTooltip(item.cooldown)}s`);
+  }
+
+  if (type === "ability") {
+    if (item.input) lines.push(`Input: ${item.input}`);
+    if (item.role) lines.push(`Role: ${item.role}`);
+    if (item.category) lines.push(`Category: ${formatTooltipLabel(item.category)}`);
+  }
+
+  if (item.state) {
+    lines.push(`State: ${item.state === "playable" ? "Playable" : "Locked"}`);
+  }
+
+  return lines;
+}
+
+function getContentItemByType(type, key) {
+  const group = type === "weapon"
+    ? "weapons"
+    : type === "ability"
+      ? "abilities"
+      : type === "perk"
+        ? "perks"
+        : "ultimates";
+  return content[group]?.[key] ?? null;
+}
+
+function formatTooltipLabel(value) {
+  return String(value ?? "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatSecondsTooltip(value) {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function findActiveSavedLoadoutKey(savedLoadouts) {
@@ -1622,7 +1489,10 @@ function renderBuildPresets() {
 
       const result = applySavedPlayerLoadout(selectedLoadout);
       if (!result.ok) {
-        dom.statusLine.textContent = `Loadout locked. ${formatMissingUnlocks(result.missing)}`;
+        const access = getLoadoutAccessState(selectedLoadout);
+        dom.statusLine.textContent = access.reason
+          ? `Loadout locked. ${access.reason}`
+          : "Loadout locked.";
         return;
       }
 
@@ -1638,8 +1508,15 @@ function renderBuildPresets() {
       emptyMessage: "No loadouts yet. Forge one from the Loadouts page.",
       getEyebrow: (entry) => entry.tags.length ? entry.tags.join(" / ") : (entry.role || "Loadout"),
       getCopy: (entry) => getSavedLoadoutSummary(entry),
-      isDisabled: (entry) => getMissingUnlocksForBuild(entry).length > 0,
-      getDisabledCopy: (entry) => formatMissingUnlocks(getMissingUnlocksForBuild(entry), { short: true }),
+      getTooltip: (entry) => getSavedLoadoutTooltip(entry),
+      isDisabled: (entry) => getLoadoutAccessState(entry).locked,
+      getDisabledCopy: (entry) => {
+        const access = getLoadoutAccessState(entry);
+        if (access.lockedByPreset) {
+          return `Unlock at level ${access.requiredLevel}`;
+        }
+        return formatMissingUnlocks(access.missing, { short: true });
+      },
     },
   );
 
@@ -2010,6 +1887,7 @@ export function resetRuneAllocation() {
 }
 
 export function renderPrematch() {
+  syncPrematchLoadoutSurface();
   normalizeLoadoutSelections({ preserveEmptySlots: true });
   if (
     uiState.selectedDetail &&
@@ -2025,17 +1903,13 @@ export function renderPrematch() {
     };
   }
   dom.modeDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.duel.key);
+  dom.modeSurvival.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.survival.key);
+  dom.modeTeamDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.teamDuel.key);
   dom.modeTraining.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.training.key);
   const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
   setPreviewAvatar(dom.cosmeticAvatarPreview, avatar);
   renderMapSelection();
-  renderBuildLibrary();
-  renderCosmetics();
-  renderBuildPresets();
-  updateLoadoutSlots();
-  updateLoadoutSummaryPanels();
-  updateDetailPanel();
   renderTrainingBotPanel();
   renderRuneTrees();
   updatePrematchSummary();

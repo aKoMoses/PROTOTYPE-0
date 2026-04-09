@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="./profile.css" />
     <link rel="stylesheet" href="./loadout.css" />
     <link rel="stylesheet" href="./loadout-builder.css" />
-    <link rel="stylesheet" href="./profile.css" />
   </head>
   <body class="app-shell-page">
     <div class="app-shell">
@@ -52,43 +51,104 @@
         </div>
       </aside>
 
-      <main class="app-workspace" data-shell-default-view="game">
-        <section class="shell-view shell-view--landing is-active" id="shell-view-landing" data-shell-panel="landing">
-          <div class="landing-view">
-            <section class="landing-hero">
-              <div class="landing-hero__copy">
-                <p class="landing-eyebrow">Prototype-0</p>
-                <h1>Une entrée propre pour jouer ou piloter le prototype.</h1>
-                <p class="landing-hero__lede">Choisis la vue. Pas de bruit. Juste l'arène et l'état du projet.</p>
-              </div>
-              <div class="landing-hero__actions">
-                <button class="landing-primary" type="button" data-shell-view="game">Lancer le jeu</button>
-                <button class="landing-secondary" type="button" data-shell-view="dev">Ouvrir Dev Status</button>
-              </div>
-            </section>
+      <main class="app-workspace" data-shell-default-view="landing">
+        <div class="shell-floating-nav" aria-label="Navigation rapide">
+          <button class="shell-floating-nav__button" type="button" data-shell-view="landing">Home</button>
+        </div>
 
-            <section class="landing-card-grid">
-              <button class="landing-card" type="button" data-shell-view="game">
-                <span class="landing-card__tag">Main Game</span>
-                <strong>Interface actuelle</strong>
-                <p>Duel, Build Lab, HUD, match flow.</p>
+        <section class="shell-view shell-view--landing is-active" id="shell-view-landing" data-shell-panel="landing">
+          <!-- ═══ PREMIUM HOME — fullscreen launcher ═══ -->
+          <canvas class="home-particles" id="home-particles"></canvas>
+          <div class="home-bg-orb home-bg-orb--gold"></div>
+          <div class="home-bg-orb home-bg-orb--cyan"></div>
+
+          <div class="home-layout">
+            <!-- Top bar -->
+            <header class="home-topbar">
+              <div class="home-topbar__brand">
+                <span class="home-topbar__eyebrow">Prototype-0</span>
+                <strong class="home-topbar__title">Arena Shell</strong>
+              </div>
+              <button class="home-play" id="home-play-btn" type="button" data-shell-view="game">
+                <span class="home-play__ring"></span>
+                <span class="home-play__ring home-play__ring--2"></span>
+                <span class="home-play__ring home-play__ring--3"></span>
+                <span class="home-play__shimmer"></span>
+                <span class="home-play__text">PLAY</span>
               </button>
-              <button class="landing-card" type="button" data-shell-view="profile">
-                <span class="landing-card__tag">Profile</span>
-                <strong>War Record</strong>
-                <p>Identity, badges, match history.</p>
+              <button class="home-portrait-btn" id="home-portrait" type="button" data-shell-view="profile">
+                <div class="home-portrait-btn__avatar" id="home-portrait-avatar"></div>
+                <span class="home-portrait-btn__name" id="home-portrait-name">SaA_BOT</span>
               </button>
-              <button class="landing-card" type="button" data-shell-view="collection">
-                <span class="landing-card__tag">Collection</span>
-                <strong>Unlock Table</strong>
-                <p>Progression, level test buttons, locked build content.</p>
-              </button>
-              <button class="landing-card" type="button" data-shell-view="dev">
-                <span class="landing-card__tag">Dev Status</span>
-                <strong>Vue projet</strong>
-                <p>Architecture, updates, flow, principes.</p>
-              </button>
-            </section>
+            </header>
+
+            <!-- Center stage — Loadout focus -->
+            <div class="home-center">
+              <div class="home-tile-group home-tile-group--loadout">
+                <button class="home-tile home-tile--loadout" type="button" data-shell-view="loadouts" aria-label="Loadouts">
+                  <img class="home-tile__loadout-img" src="./assets/loadout_icon.png" alt="" />
+                </button>
+                <div class="home-tile-label">
+                  <div class="home-tile-label__rule"></div>
+                  <span class="home-tile-label__name">LOADOUT</span>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom zone — utility buttons -->
+            <div class="home-bottom">
+              <div class="home-tile-group home-tile-group--collection">
+                <button class="home-tile home-tile--collection" type="button" data-shell-view="collection" aria-label="Collection">
+                  <div class="home-tile__corner home-tile__corner--tl"></div>
+                  <div class="home-tile__corner home-tile__corner--br"></div>
+                  <div class="home-tile__icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="4" y="4" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                      <rect x="22" y="4" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                      <rect x="4" y="22" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                      <rect x="22" y="22" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                      <circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.4"/>
+                      <circle cx="29" cy="11" r="3" fill="currentColor" opacity="0.4"/>
+                      <circle cx="11" cy="29" r="3" fill="currentColor" opacity="0.4"/>
+                    </svg>
+                  </div>
+                </button>
+                <div class="home-tile-label">
+                  <div class="home-tile-label__rule"></div>
+                  <span class="home-tile-label__name">COLLECTION</span>
+                  <span class="home-tile-label__sub">Unlocks &amp; Catalog</span>
+                </div>
+              </div>
+
+              <div class="home-tile-group home-tile-group--dev">
+                <button class="home-tile home-tile--dev" type="button" data-shell-view="dev" aria-label="Dev Board">
+                  <div class="home-tile__corner home-tile__corner--tl"></div>
+                  <div class="home-tile__corner home-tile__corner--br"></div>
+                  <div class="home-tile__icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="3" y="6" width="34" height="24" rx="3" stroke="currentColor" stroke-width="1.6"/>
+                      <line x1="3" y1="12" x2="37" y2="12" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+                      <circle cx="8" cy="9" r="1.5" fill="#ff5252" opacity="0.7"/>
+                      <circle cx="13" cy="9" r="1.5" fill="#ffd54f" opacity="0.7"/>
+                      <circle cx="18" cy="9" r="1.5" fill="#69f0ae" opacity="0.7"/>
+                      <line x1="8" y1="17" x2="18" y2="17" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+                      <line x1="8" y1="21" x2="24" y2="21" stroke="currentColor" stroke-width="1.2" opacity="0.3"/>
+                      <line x1="8" y1="25" x2="20" y2="25" stroke="currentColor" stroke-width="1.2" opacity="0.3"/>
+                    </svg>
+                  </div>
+                </button>
+                <div class="home-tile-label">
+                  <div class="home-tile-label__rule"></div>
+                  <span class="home-tile-label__name">DEV BOARD</span>
+                  <span class="home-tile-label__sub">Status &amp; Logs</span>
+                </div>
+              </div>
+            </div>
+
+            <footer class="home-footer">
+              <span>Scrap-tech duel prototype — v0.1</span>
+            </footer>
           </div>
         </section>
 
@@ -200,38 +260,81 @@
         <div class="prematch-shell">
           <section class="prematch-main">
             <div class="prematch-screen prematch-screen--active" id="mode-screen">
-              <div class="screen-header">
-                <span class="eyebrow">Mode Select</span>
-                <h2>Choose the sandbox</h2>
-              </div>
-              <div class="mode-grid">
-                <button class="mode-card is-selected" id="mode-duel" type="button">
-                  <span class="mode-card__tag">1v1 Bot Duel</span>
-                  <strong>Duel Map</strong>
-                  <span>Best-of-3 rounds against the hunter bot.</span>
-                </button>
-                <button class="mode-card" id="mode-survival" type="button">
-                  <span class="mode-card__tag">Survival</span>
-                  <strong>Wave Gauntlet</strong>
-                  <span>Endurance test against escalating solo waves and stronger bot builds.</span>
-                </button>
-                <button class="mode-card" id="mode-training" type="button">
-                  <span class="mode-card__tag">Training</span>
-                  <strong>Training Map</strong>
-                  <span>Five static bots lined up for range, cleave, and status tests.</span>
-                </button>
+              <div class="phase-panel phase-panel--mode">
+                <div class="screen-header phase-panel__header">
+                  <h2 class="title-slab title-slab--purple">Select Mode</h2>
+                </div>
+                <div class="mode-grid">
+                  <button class="mode-card is-selected" id="mode-duel" type="button">
+                    <span class="mode-card__tag">1v1 Bot Duel</span>
+                    <strong>Duel Map</strong>
+                    <span>Best-of-3 rounds against the hunter bot.</span>
+                  </button>
+                  <button class="mode-card" id="mode-survival" type="button">
+                    <span class="mode-card__tag">Survival</span>
+                    <strong>Wave Gauntlet</strong>
+                    <span>Endurance test against escalating solo waves and stronger bot builds.</span>
+                  </button>
+                  <button class="mode-card" id="mode-team-duel" type="button">
+                    <span class="mode-card__tag">2v2 Arena</span>
+                    <strong>Squad Duel</strong>
+                    <span>Fight with an allied hunter against two enemy bots in round-based team combat.</span>
+                  </button>
+                  <button class="mode-card" id="mode-training" type="button">
+                    <span class="mode-card__tag">Training</span>
+                    <strong>Training Map</strong>
+                    <span>Five static bots lined up for range, cleave, and status tests.</span>
+                  </button>
+                </div>
               </div>
               <div class="screen-actions">
                 <button class="primary-button" id="continue-map" type="button">Continue to Map</button>
               </div>
             </div>
 
-            <div class="prematch-screen" id="map-screen">
-              <div class="screen-header">
-                <span class="eyebrow">Map Select</span>
-                <h2>Choose the arena</h2>
+            <div class="prematch-screen" id="queue-screen">
+              <div class="screen-header phase-panel__header">
+                <h2 class="title-slab title-slab--orange">Searching...</h2>
               </div>
-              <div class="map-grid" id="map-grid"></div>
+              <div class="matchmaking-shell">
+                <div class="matchmaking-card is-searching" id="queue-card">
+                  <div class="matchmaking-card__head">
+                    <span class="phase-pill phase-pill--queue">Queue</span>
+                  </div>
+                  <div>
+                    <strong class="matchmaking-card__timer timer-large" id="queue-timer">5s</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="prematch-screen" id="game-found-screen">
+              <div class="screen-header phase-panel__header">
+                <h2 class="title-slab">Match Found</h2>
+              </div>
+              <div class="matchmaking-shell">
+                <div class="matchmaking-card" id="game-found-card">
+                  <div class="matchmaking-card__head">
+                    <span class="phase-pill phase-pill--found">Alert</span>
+                  </div>
+                  <div>
+                    <strong class="matchmaking-card__timer timer-large danger" id="found-timer">8s</strong>
+                  </div>
+                  <span class="matchmaking-card__copy" id="game-found-map-label"></span>
+                  <div class="screen-actions">
+                    <button class="primary-button" id="accept-match" type="button">Accept</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="prematch-screen" id="map-screen">
+              <div class="phase-panel phase-panel--map">
+                <div class="screen-header phase-panel__header">
+                  <h2 class="title-slab">Select Map</h2>
+                </div>
+                <div class="map-grid" id="map-grid"></div>
+              </div>
               <div class="screen-actions screen-actions--split">
                 <button class="secondary-button" id="back-mode" type="button">Back to Mode Select</button>
                 <button class="primary-button" id="continue-build" type="button">Continue to Build</button>
@@ -239,309 +342,11 @@
             </div>
 
             <div class="prematch-screen" id="build-screen">
-              <div class="lab-tabs">
-                <button class="lab-tab is-active" id="lab-tab-loadout" type="button" data-lab="loadout">LOADOUT</button>
-                <button class="lab-tab" id="lab-tab-style" type="button" data-lab="style">COSMETICS</button>
-              </div>
+              <div class="prematch-phase-timer timer-large" id="build-phase-timer"><span class="phase-timer__digit">6</span><span class="phase-timer__digit">0</span></div>
 
-              <section class="build-card build-card--match-rules is-hidden" id="match-rules-card">
-                <div class="bot-config-group">
-                  <span class="label">Difficulty</span>
-                  <div class="toggle-strip">
-                    <button class="toggle-chip" id="bot-difficulty-easy" type="button">Easy</button>
-                    <button class="toggle-chip is-active" id="bot-difficulty-normal" type="button">Normal</button>
-                    <button class="toggle-chip" id="bot-difficulty-hard" type="button">Hard</button>
-                    <button class="toggle-chip" id="bot-difficulty-nightmare" type="button">Nightmare</button>
-                  </div>
-                </div>
-                <div class="bot-config-group">
-                  <span class="label">Rules</span>
-                  <div class="toggle-strip">
-                    <button class="toggle-chip is-active" id="rule-format-bo3" type="button">BO3</button>
-                    <button class="toggle-chip" id="rule-format-bo5" type="button">BO5</button>
-                    <button class="toggle-chip" id="rule-timer-off" type="button">No Timer</button>
-                    <button class="toggle-chip is-active" id="rule-timer-60" type="button">60s</button>
-                    <button class="toggle-chip" id="rule-timer-75" type="button">75s</button>
-                  </div>
-                  <div class="toggle-strip">
-                    <button class="toggle-chip" id="rule-suddendeath-off" type="button">No Sudden Death</button>
-                    <button class="toggle-chip is-active" id="rule-suddendeath-on" type="button">Sudden Death</button>
-                    <button class="toggle-chip" id="rule-mirror-off" type="button">Open Matchups</button>
-                    <button class="toggle-chip" id="rule-mirror-on" type="button">Mirror Match</button>
-                  </div>
-                </div>
+              <section class="prematch-loadout-shell" id="prematch-loadout-shell" aria-label="Prematch loadout picker">
+                <div class="prematch-loadout-host" id="prematch-loadout-host"></div>
               </section>
-
-              <div class="lab-panel lab-panel--active" id="lab-loadout">
-
-                <!-- ═══ WIZARD FOCUS LAYOUT ═══ -->
-                <div class="wizard-focus">
-
-                  <!-- Step header -->
-                  <div class="wizard-focus__header">
-                    <span class="wizard-focus__eyebrow" id="wizard-eyebrow">Step 1 of 7</span>
-                    <h2 class="wizard-focus__title" id="wizard-title">Choose your Weapon</h2>
-                    <p class="wizard-focus__hint" id="wizard-hint">The weapon defines your pacing and commitment level for the whole run.</p>
-                    <div class="build-step-nav" id="build-step-nav">
-                      <button class="step-nav-btn" id="build-step-prev" type="button" onclick="handlePrematchAction('build-step-prev')">← Back</button>
-                      <span class="step-nav-label" id="build-step-label">1 / 7 — Weapon</span>
-                      <button class="step-nav-btn" id="build-step-next" type="button" onclick="handlePrematchAction('build-step-next')">Skip →</button>
-                    </div>
-                    <!-- Progress pips -->
-                    <div class="robot-wizard__progress">
-                      <span class="robot-wizard__step robot-wizard__step--weapon" data-step="weapon"></span>
-                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-0"></span>
-                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-1"></span>
-                      <span class="robot-wizard__step robot-wizard__step--ability" data-step="ability-2"></span>
-                      <span class="robot-wizard__step robot-wizard__step--perk" data-step="perk-0"></span>
-                      <span class="robot-wizard__step robot-wizard__step--ultimate" data-step="ultimate"></span>
-                    </div>
-                  </div>
-
-                  <!-- Body: robot left | picker right -->
-                  <div class="wizard-focus__body">
-
-                    <!-- Robot column -->
-                    <div class="wizard-focus__robot">
-                      <svg class="robot-svg" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <defs>
-                          <filter id="robot-glow" x="-40%" y="-40%" width="180%" height="180%">
-                            <feGaussianBlur stdDeviation="4" result="blur"/>
-                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                          </filter>
-                          <filter id="robot-glow-strong" x="-60%" y="-60%" width="220%" height="220%">
-                            <feGaussianBlur stdDeviation="7" result="blur"/>
-                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                          </filter>
-                        </defs>
-                        <!-- HEAD (Ultimate) -->
-                        <g class="robot-zone robot-zone--ultimate" data-zone="ultimate">
-                          <line x1="100" y1="4" x2="100" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                          <circle cx="100" cy="4" r="3" fill="currentColor"/>
-                          <rect x="68" y="18" width="64" height="50" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="76" y="29" width="48" height="18" rx="4" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1"/>
-                          <line x1="78" y1="38" x2="122" y2="38" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.5"/>
-                          <circle cx="89" cy="38" r="3.5" fill="currentColor" fill-opacity="0.5"/>
-                          <circle cx="111" cy="38" r="3.5" fill="currentColor" fill-opacity="0.5"/>
-                          <line x1="84" y1="55" x2="116" y2="55" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
-                          <line x1="88" y1="60" x2="112" y2="60" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
-                          <text x="100" y="73" text-anchor="middle" class="robot-zone-label">ULT</text>
-                        </g>
-                        <rect x="90" y="68" width="20" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" class="robot-connector"/>
-                        <!-- TORSO (Weapon) -->
-                        <g class="robot-zone robot-zone--weapon" data-zone="weapon">
-                          <rect x="56" y="78" width="88" height="76" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <line x1="100" y1="82" x2="100" y2="150" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.3"/>
-                          <circle cx="100" cy="116" r="18" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.2"/>
-                          <circle cx="100" cy="116" r="10" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1"/>
-                          <circle cx="100" cy="116" r="4" fill="currentColor" fill-opacity="0.6"/>
-                          <circle cx="64" cy="86" r="2" fill="currentColor" fill-opacity="0.4"/>
-                          <circle cx="136" cy="86" r="2" fill="currentColor" fill-opacity="0.4"/>
-                          <circle cx="64" cy="144" r="2" fill="currentColor" fill-opacity="0.4"/>
-                          <circle cx="136" cy="144" r="2" fill="currentColor" fill-opacity="0.4"/>
-                          <circle cx="56" cy="96" r="7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.6"/>
-                          <circle cx="144" cy="96" r="7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.6"/>
-                          <text x="100" y="158" text-anchor="middle" class="robot-zone-label">WPN</text>
-                        </g>
-                        <!-- LEFT ARM (Ability 0) -->
-                        <g class="robot-zone robot-zone--ability robot-zone--ability-0" data-zone="ability-0">
-                          <rect x="24" y="90" width="24" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <ellipse cx="36" cy="136" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
-                          <rect x="22" y="140" width="28" height="38" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <line x1="36" y1="98" x2="36" y2="128" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.4"/>
-                          <text x="36" y="188" text-anchor="middle" class="robot-zone-label">A1</text>
-                        </g>
-                        <!-- RIGHT ARM (Ability 1) -->
-                        <g class="robot-zone robot-zone--ability robot-zone--ability-1" data-zone="ability-1">
-                          <rect x="152" y="90" width="24" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <ellipse cx="164" cy="136" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
-                          <rect x="150" y="140" width="28" height="38" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <line x1="164" y1="98" x2="164" y2="128" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.4"/>
-                          <text x="164" y="188" text-anchor="middle" class="robot-zone-label">F</text>
-                        </g>
-                        <rect x="70" y="154" width="60" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.3" class="robot-connector"/>
-                        <!-- CENTER MODULE (Ability 2) -->
-                        <g class="robot-zone robot-zone--ability robot-zone--ability-2" data-zone="ability-2">
-                          <rect x="82" y="166" width="36" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <circle cx="100" cy="179" r="6" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="1"/>
-                          <text x="100" y="203" text-anchor="middle" class="robot-zone-label">E</text>
-                        </g>
-                        <!-- LEGS (Perk) -->
-                        <g class="robot-zone robot-zone--perk" data-zone="perk-0">
-                          <rect x="64" y="205" width="30" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <ellipse cx="79" cy="251" rx="10" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
-                          <rect x="64" y="254" width="30" height="36" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="60" y="288" width="38" height="12" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                          <rect x="106" y="205" width="30" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <ellipse cx="121" cy="251" rx="10" ry="5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.6"/>
-                          <rect x="106" y="254" width="30" height="36" rx="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                          <rect x="102" y="288" width="38" height="12" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                          <line x1="79" y1="212" x2="79" y2="242" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.35"/>
-                          <line x1="121" y1="212" x2="121" y2="242" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.35"/>
-                          <text x="100" y="316" text-anchor="middle" class="robot-zone-label">PERK</text>
-                        </g>
-                      </svg>
-
-                      <!-- Filled slots summary strip -->
-                      <div class="wizard-summary-strip" id="wizard-summary-strip">
-                        <button class="wizard-summary-chip wizard-summary-chip--weapon" id="loadout-slot-weapon" type="button" data-slot="weapon" data-zone="weapon">
-                          <span class="wizard-summary-chip__label">WPN</span>
-                          <div class="content-icon content-icon--weapon-pulse" id="loadout-slot-weapon-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-weapon-name">Pulse Rifle</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-weapon-meta"></span>
-                        </button>
-                        <button class="wizard-summary-chip wizard-summary-chip--ability" id="loadout-slot-ability-0" type="button" data-slot="ability-0" data-zone="ability-0">
-                          <span class="wizard-summary-chip__label">Q</span>
-                          <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-0-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-ability-0-name">Shock Javelin</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-ability-0-meta"></span>
-                        </button>
-                        <button class="wizard-summary-chip wizard-summary-chip--ability" id="loadout-slot-ability-1" type="button" data-slot="ability-1" data-zone="ability-1">
-                          <span class="wizard-summary-chip__label">F</span>
-                          <div class="content-icon content-icon--ability-javelin" id="loadout-slot-ability-1-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-ability-1-name">Magnetic Field</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-ability-1-meta"></span>
-                        </button>
-                        <button class="wizard-summary-chip wizard-summary-chip--ability" id="loadout-slot-ability-2" type="button" data-slot="ability-2" data-zone="ability-2">
-                          <span class="wizard-summary-chip__label">E</span>
-                          <div class="content-icon content-icon--ability-shield" id="loadout-slot-ability-2-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-ability-2-name">Energy Shield</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-ability-2-meta"></span>
-                        </button>
-                        <button class="wizard-summary-chip wizard-summary-chip--perk" id="loadout-slot-perk-0" type="button" data-slot="perk-0" data-zone="perk-0">
-                          <span class="wizard-summary-chip__label">P1</span>
-                          <div class="content-icon content-icon--perk-armor" id="loadout-slot-perk-0-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-perk-0-name">Scavenger Plates</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-perk-0-meta"></span>
-                        </button>
-                        <button class="wizard-summary-chip wizard-summary-chip--ultimate" id="loadout-slot-ultimate" type="button" data-slot="ultimate" data-zone="ultimate">
-                          <span class="wizard-summary-chip__label">ULT</span>
-                          <div class="content-icon content-icon--ultimate-phantom" id="loadout-slot-ultimate-icon"></div>
-                          <strong class="robot-slot__name" id="loadout-slot-ultimate-name">Phantom Split</strong>
-                          <span class="robot-slot__meta is-hidden" id="loadout-slot-ultimate-meta"></span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- Item picker column -->
-                    <div class="wizard-focus__picker">
-                      <!-- cat-tabs kept for JS compat, visually hidden -->
-                      <div class="cat-tabs">
-                        <button class="cat-tab cat-tab--weapon is-active" id="library-tab-weapon" type="button" data-library="weapon">Weapon</button>
-                        <button class="cat-tab cat-tab--ability" id="library-tab-ability" type="button" data-library="ability">Abilities</button>
-                        <button class="cat-tab cat-tab--perk" id="library-tab-perk" type="button" data-library="perk">Perks</button>
-                        <button class="cat-tab cat-tab--ultimate" id="library-tab-ultimate" type="button" data-library="ultimate">Ultimate</button>
-                      </div>
-
-                      <div class="item-list" id="build-library-grid"></div>
-
-                      <div class="detail-float" id="detail-float">
-                        <div class="detail-float__head">
-                          <div class="content-icon content-icon--weapon-pulse" id="detail-icon"></div>
-                          <div>
-                            <strong id="detail-name">Pulse Rifle</strong>
-                            <span id="detail-meta">Weapon / ranged baseline</span>
-                          </div>
-                        </div>
-                        <p id="detail-description">Reliable mid-long range pressure with clean pacing and low commitment.</p>
-                        <div class="detail-values" id="detail-values"></div>
-                        <div class="detail-actions" id="detail-actions">
-                          <button class="secondary-button" id="detail-secondary-button" type="button">Unlock Slot</button>
-                          <button class="primary-button" id="detail-lock-button" type="button">Lock In</button>
-                        </div>
-                      </div>
-
-                      <section class="build-card build-card--presets">
-                        <div class="build-card__header">
-                          <span class="label">Loadouts</span>
-                          <strong>Load a coherent fighter</strong>
-                        </div>
-                        <span class="builder-copy">All your loadouts live here now, including the starter builds shipped with the game.</span>
-                        <div class="preset-grid" id="player-preset-grid"></div>
-                      </section>
-                    </div>
-                  </div>
-                </div>
-                <!-- End wizard-focus -->
-
-                <!-- Power mini (hidden by CSS during wizard) -->
-                <div class="power-mini">
-                  <div class="power-mini__stat"><span>OFF</span><div class="power-mini__track"><div id="power-offense"></div></div></div>
-                  <div class="power-mini__stat"><span>DEF</span><div class="power-mini__track"><div id="power-defense"></div></div></div>
-                  <div class="power-mini__stat"><span>UTL</span><div class="power-mini__track"><div id="power-utility"></div></div></div>
-                  <div class="power-mini__stat"><span>CTR</span><div class="power-mini__track"><div id="power-control"></div></div></div>
-                </div>
-
-                <section class="build-card" id="bot-config-card">
-                  <div class="build-card__header">
-                    <span class="label" id="bot-config-label">Duel Tool</span>
-                    <strong id="bot-config-title">Hunter Bot Loadout</strong>
-                  </div>
-                  <span class="builder-copy" id="bot-config-copy">Hunter bot randomizes a full playable loadout on each duel reset so every spar feels different.</span>
-                  <div id="bot-config-duel">
-                    <div class="toggle-strip">
-                      <button class="toggle-chip is-active" id="bot-mode-random" type="button">Randomized</button>
-                      <button class="toggle-chip" id="bot-mode-custom" type="button">Custom</button>
-                    </div>
-                    <div class="bot-config-group">
-                      <span class="label">Bot Presets</span>
-                      <div class="preset-grid preset-grid--compact" id="bot-preset-grid"></div>
-                    </div>
-                    <div class="bot-config-group">
-                      <span class="label">Weapon</span>
-                      <div class="selection-grid selection-grid--compact" id="bot-weapon-grid"></div>
-                    </div>
-                    <div class="bot-config-group">
-                      <span class="label">Abilities</span>
-                      <div class="selection-grid selection-grid--compact" id="bot-ability-grid"></div>
-                    </div>
-                    <div class="validation-row validation-row--stack">
-                      <span>Active Bot Kit</span>
-                      <div class="validation-chip-list" id="bot-build-summary"></div>
-                    </div>
-                  </div>
-                  <div class="is-hidden" id="bot-config-training">
-                    <div class="toggle-strip">
-                      <button class="toggle-chip is-active" id="training-fire-off" type="button">Bots Silent</button>
-                      <button class="toggle-chip" id="training-fire-on" type="button">Bots Firing</button>
-                    </div>
-                    <div class="validation-row validation-row--stack">
-                      <span>Training Setup</span>
-                      <div class="validation-chip-list" id="training-build-summary"></div>
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              <div class="lab-panel" id="lab-style">
-                <div class="style-layout">
-                  <section class="style-preview">
-                    <div class="gladiator-core__frame">
-                      <div class="gladiator-core__body" id="cosmetic-avatar-preview">
-                        <span class="gladiator-core__eye"></span>
-                      </div>
-                    </div>
-                    <strong id="cosmetic-preview-name">Drifter Shell</strong>
-                    <div class="style-preview__weapon">
-                      <div class="content-icon content-icon--skin-stock" id="cosmetic-weapon-icon"></div>
-                      <div>
-                        <strong id="cosmetic-weapon-name">Stock Finish</strong>
-                        <span id="cosmetic-weapon-copy">Scrap-tech skin for your equipped weapon.</span>
-                      </div>
-                    </div>
-                  </section>
-                  <section class="style-grids">
-                    <div class="style-section">
-                      <span class="label">Avatar Skin</span>
-                      <div class="selection-grid selection-grid--compact" id="avatar-options"></div>
-                    </div>
-                    <div class="style-section">
-                      <span class="label">Weapon Finish</span>
-                      <div class="selection-grid selection-grid--compact" id="weapon-skin-options"></div>
-                    </div>
-                  </section>
-                </div>
-              </div>
 
               <div class="screen-actions screen-actions--split">
                 <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
@@ -552,9 +357,9 @@
             <!-- ═══ RUNE SCREEN ═══ -->
             <div class="prematch-screen" id="rune-screen">
               <div class="screen-header">
-                <span class="eyebrow">Neural Augmentation</span>
-                <h2>Calibrate the combat core</h2>
+                <h2 class="title-slab title-slab--purple">Runes</h2>
               </div>
+              <div class="prematch-phase-timer timer-large" id="rune-phase-timer" style="display:none"></div>
 
               <div class="rune-holo-layout">
                 <div class="rune-holo-tree">
@@ -574,6 +379,40 @@
                 <button class="secondary-button" id="back-build" type="button" onclick="handlePrematchAction('back-build')">← Back to Build</button>
                 <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Deploy Unit</button>
               </div>
+            </div>
+
+            <div class="prematch-screen" id="lobby-screen">
+              <div class="screen-header phase-panel__header">
+                <h2 class="title-slab">Lobby</h2>
+              </div>
+              <div class="matchmaking-shell">
+                <div class="matchmaking-card" id="lobby-card">
+                  <div class="matchmaking-card__head">
+                    <span class="phase-pill phase-pill--lobby">Ready</span>
+                  </div>
+                  <div>
+                    <strong class="matchmaking-card__timer timer-large" id="lobby-timer">5s</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="lobby-roster" id="lobby-roster"></div>
+            </div>
+
+            <div class="prematch-screen" id="loading-screen">
+              <div class="screen-header phase-panel__header">
+                <h2 class="title-slab title-slab--orange" id="loading-map-name">Loading...</h2>
+              </div>
+              <div class="matchmaking-shell">
+                <div class="matchmaking-card" id="loading-card">
+                  <div class="matchmaking-card__head">
+                    <span class="phase-pill phase-pill--loading">Deploy</span>
+                  </div>
+                  <div>
+                    <strong class="matchmaking-card__timer timer-large" id="loading-timer">20s</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="lobby-roster" id="loading-roster"></div>
             </div>
           </section>
         </div>
@@ -784,13 +623,6 @@
       </main>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
-    <script type="module" src="./src/gameplay/training-ui.js"></script>
-    <script type="module" src="./dev-status.js"></script>
-    <script type="module" src="./profile.js"></script>
-    <script type="module" src="./collection.js"></script>
-    <script type="module" src="./loadout-page.js"></script>
-    <script type="module" src="./loadout-builder.js"></script>
     <script type="module" src="./shell-ui.js"></script>
     <script type="module" src="./auth.js"></script>
 

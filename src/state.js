@@ -243,10 +243,12 @@ export function createBot({
   color,
   accent,
   modes,
+  team = "enemy",
 }) {
   return {
     kind,
     role,
+    team,
     x,
     y,
     spawnX: x,
@@ -341,8 +343,8 @@ export const enemy = createBot({
   color: "#ff8a77",
   accent: "#ffa596",
   modes: [sandboxModes.duel.key],
+  team: "enemy",
 });
-enemy.team = "enemy";
 enemy.dashCooldown = 0;
 enemy.javelinCooldown = 1.2;
 enemy.fieldCooldown = 2.4;
@@ -360,12 +362,74 @@ export const trainingBots = Array.from({ length: 8 }, (_, index) =>
     color: "#74d6ff",
     accent: "#c9f2ff",
     modes: [sandboxModes.training.key],
+    team: "enemy",
   }),
 );
-for (const bot of trainingBots) {
-  bot.team = "enemy";
+
+
+export let allyBot = null;
+export let teamEnemies = [];
+
+export function createTeamDuelEntities(layout) {
+  allyBot = createBot({
+    kind: "ally",
+    role: "hunter",
+    x: layout.allySpawn?.x ?? layout.playerSpawn.x,
+    y: layout.allySpawn?.y ?? (layout.playerSpawn.y + 120),
+    hp: config.enemyMaxHp,
+    radius: config.enemyRadius,
+    color: "#77d8ff",
+    accent: "#b8efff",
+    modes: [sandboxModes.teamDuel.key],
+    team: "player",
+  });
+  allyBot.dashCooldown = 0;
+  allyBot.javelinCooldown = 1.4;
+  allyBot.fieldCooldown = 2.6;
+  allyBot.postAttackMoveTime = 0;
+  allyBot.lastSeenMissTime = 0;
+
+  const e1 = createBot({
+    kind: "hunter-t1",
+    role: "hunter",
+    x: layout.enemySpawn.x,
+    y: layout.enemySpawn.y - 60,
+    hp: config.enemyMaxHp,
+    radius: config.enemyRadius,
+    color: "#ff8a77",
+    accent: "#ffa596",
+    modes: [sandboxModes.teamDuel.key],
+    team: "enemy",
+  });
+  e1.dashCooldown = 0;
+  e1.javelinCooldown = 1.2;
+  e1.fieldCooldown = 2.4;
+  e1.postAttackMoveTime = 0;
+  e1.lastSeenMissTime = 0;
+
+  const e2 = createBot({
+    kind: "hunter-t2",
+    role: "hunter",
+    x: layout.enemy2Spawn?.x ?? layout.enemySpawn.x,
+    y: layout.enemy2Spawn?.y ?? (layout.enemySpawn.y + 120),
+    hp: config.enemyMaxHp,
+    radius: config.enemyRadius,
+    color: "#ff7766",
+    accent: "#ff9988",
+    modes: [sandboxModes.teamDuel.key],
+    team: "enemy",
+  });
+  e2.dashCooldown = 0;
+  e2.javelinCooldown = 1.6;
+  e2.fieldCooldown = 2.8;
+  e2.postAttackMoveTime = 0;
+  e2.lastSeenMissTime = 0;
+
+  teamEnemies = [e1, e2];
 }
 
+export function setAllyBot(bot) { allyBot = bot; }
+export function setTeamEnemies(arr) { teamEnemies = arr; }
 
 export const bots = [enemy, ...trainingBots];
 

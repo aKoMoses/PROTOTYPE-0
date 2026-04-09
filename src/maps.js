@@ -96,7 +96,9 @@ const mapLayouts = {
     height: 2000,
     scrollable: true,
     playerSpawn: { x: 400, y: 1000 },
+    allySpawn: { x: 400, y: 700 },
     enemySpawn: { x: 2800, y: 1000 },
+    enemy2Spawn: { x: 2800, y: 700 },
     trainingSpawn: { x: 400, y: 1000 },
     survivalSpawns: [
       { x: 400, y: 400 },
@@ -147,7 +149,9 @@ const mapLayouts = {
     height: 2000,
     scrollable: true,
     playerSpawn: { x: 400, y: 1000 },
+    allySpawn: { x: 400, y: 700 },
     enemySpawn: { x: 2800, y: 1000 },
+    enemy2Spawn: { x: 2800, y: 700 },
     trainingSpawn: { x: 400, y: 1000 },
     survivalSpawns: [
       { x: 400, y: 400 },
@@ -198,7 +202,9 @@ const mapLayouts = {
     height: 2800,
     scrollable: true,
     playerSpawn: { x: 420, y: 1400 },
+    allySpawn: { x: 420, y: 1100 },
     enemySpawn: { x: 4780, y: 1400 },
+    enemy2Spawn: { x: 4780, y: 1100 },
     trainingSpawn: { x: 420, y: 1400 },
     survivalSpawns: [],
     arenaDecor: [

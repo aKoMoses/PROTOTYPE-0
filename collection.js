@@ -61,6 +61,11 @@ function renderCollection() {
       .map((e) => ({ ...e, group })),
   ).sort((a, b) => a.unlockLevel - b.unlockLevel);
 
+  const featuredEntry = getFeaturedEntry(bpEntries, snapshot.level);
+  if (!activeCard && featuredEntry) {
+    activeCard = { group: featuredEntry.group, key: featuredEntry.key };
+  }
+
   const fillPct = maxLevel > 1 ? Math.round(((snapshot.level - 1) / (maxLevel - 1)) * 100) : 100;
 
   root.innerHTML = `
@@ -86,24 +91,93 @@ function renderCollection() {
     </div>
 
     <div class="bp-track-wrap">
-      <div class="bp-track">
-        <div class="bp-track__rail">
-          <div class="bp-track__fill" style="width: ${fillPct}%;"></div>
-        </div>
+      <div class="bp-main-grid">
+        <section class="bp-rail-panel" aria-label="Progression par niveau">
+          <div class="bp-track-wrap">
+            <div class="bp-track">
+              <div class="bp-track__rail">
+                <div class="bp-track__fill" style="width: ${fillPct}%;"></div>
+              </div>
+              <div class="bp-track__nodes">
+                ${renderStartNode(snapshot.level)}
+                ${bpEntries.map((entry) => renderBpNode(entry, snapshot.level)).join("")}
+              </div>
+            </div>
         <div class="bp-track__nodes">
-          ${renderStartNode(snapshot.level)}
-          ${bpEntries.map((entry) => renderBpNode(entry, snapshot.level)).join("")}
-        </div>
+        </section>
+
+        <aside class="bp-side-panel">
+          ${renderCurrentLevelCard(snapshot.level, maxLevel, featuredEntry)}
+          <div class="bp-detail" id="bp-detail" aria-hidden="true"></div>
+        </aside>
       </div>
-    </div>
 
-    <div class="bp-detail" id="bp-detail" aria-hidden="true"></div>
-  `;
+    `;
 
-  if (activeCard) {
-    openCard(activeCard.group, activeCard.key);
+    if (activeCard) {
+      openCard(activeCard.group, activeCard.key);
+    }
   }
-}
+
+  function getFeaturedEntry(entries, currentLevel) {
+    const exact = entries.find((entry) => entry.unlockLevel === currentLevel);
+    if (exact) return exact;
+
+    const previous = entries.filter((entry) => entry.unlockLevel <= currentLevel).at(-1);
+    if (previous) return previous;
+
+    return entries[0] ?? null;
+  }
+
+  function renderCurrentLevelCard(currentLevel, maxLevel, featuredEntry) {
+    const nextUnlock = getNextUnlockEntry();
+
+    if (!featuredEntry) {
+      return `
+        <section class="bp-current-card" aria-label="Niveau actuel">
+          <span class="bp-current-card__eyebrow">Niveau actuel</span>
+          <strong class="bp-current-card__title">Niveau ${currentLevel}</strong>
+          <p class="bp-current-card__copy">Aucune recompense definie pour ce palier.</p>
+        </section>
+      `;
+    }
+
+    const meta = CATEGORY_META[featuredEntry.group];
+    const iconType = meta.iconType ?? "weapon";
+    const iconClass = sanitizeIconClass(featuredEntry.item.icon ?? `${iconType}-${featuredEntry.key}`);
+    const categoryClass = featuredEntry.item.category ? ` content-icon--${featuredEntry.item.category}` : "";
+    const stateLabel = featuredEntry.unlocked ? "Debloque" : `Niveau ${featuredEntry.unlockLevel}`;
+    const nextLabel = nextUnlock
+      ? `Prochain objectif: niveau ${nextUnlock.unlockLevel}`
+      : `Palier maximum atteint (${maxLevel})`;
+
+    return `
+      <section class="bp-current-card" aria-label="Niveau actuel" style="--collection-accent: ${escapeAttr(meta.accent)};">
+        <span class="bp-current-card__eyebrow">Niveau actuel</span>
+        <strong class="bp-current-card__title">Niveau ${currentLevel}</strong>
+        <div class="bp-current-card__item">
+          <div class="bp-current-card__icon-wrap">
+            <div class="content-icon content-icon--${iconClass}${categoryClass}"></div>
+      </div>
+          <div class="bp-current-card__item-copy">
+            <span class="bp-current-card__item-state">${escapeHtml(stateLabel)}</span>
+            <strong class="bp-current-card__item-name">${escapeHtml(featuredEntry.item.name)}</strong>
+            <span class="bp-current-card__item-meta">${escapeHtml(meta.label)} · ${escapeHtml(getMetaLabel(featuredEntry.group, featuredEntry.item))}</span>
+          </div>
+        </div>
+        <p class="bp-current-card__copy">${escapeHtml(nextLabel)}</p>
+        <button
+          class="bp-current-card__open"
+          type="button"
+          data-action="open-card"
+          data-group="${escapeAttr(featuredEntry.group)}"
+          data-key="${escapeAttr(featuredEntry.key)}"
+        >
+          Voir la carte
+        </button>
+      </section>
+    `;
+  }
 
 function renderStartNode(currentLevel) {
   const isCurrent = currentLevel === 1;

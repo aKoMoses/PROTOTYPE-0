@@ -84,6 +84,17 @@ function createSafeBotLoadout(source, fallback = null) {
   return createRandomBotLoadout();
 }
 
+export function clearGameSession() {
+  if (!canUseSessionStorage()) {
+    return;
+  }
+  try {
+    window.sessionStorage.removeItem(GAME_SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures
+  }
+}
+
 export function saveSessionSnapshot() {
   if (!canUseSessionStorage()) {
     return null;

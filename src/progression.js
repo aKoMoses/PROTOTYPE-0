@@ -234,6 +234,10 @@ function normalizeBuildLike(source = {}) {
   };
 }
 
+function normalizePresetUnlockLevel(value) {
+  return Math.max(1, Math.floor(Number(value) || 1));
+}
+
 export function getMissingUnlocksForBuild(source = {}) {
   const normalized = normalizeBuildLike(source?.build ?? source);
   const missing = [];
@@ -286,7 +290,7 @@ export function getMissingUnlocksForBuild(source = {}) {
 }
 
 export function canEquipStoredLoadout(source = {}) {
-  return getMissingUnlocksForBuild(source).length === 0;
+  return !getLoadoutAccessState(source).locked;
 }
 
 export function getRequiredLevelForBuild(source = {}) {
@@ -294,6 +298,37 @@ export function getRequiredLevelForBuild(source = {}) {
     (highest, entry) => Math.max(highest, entry.requiredLevel ?? 1),
     1,
   );
+}
+
+export function getLoadoutAccessState(source = {}) {
+  const currentLevel = progressionState.level;
+  const normalized = normalizeBuildLike(source?.build ?? source);
+  const missing = getMissingUnlocksForBuild(normalized);
+  const buildRequiredLevel = missing.reduce((highest, entry) => Math.max(highest, entry.requiredLevel ?? 1), 1);
+  const presetUnlockLevel = normalizePresetUnlockLevel(source?.presetUnlockLevel);
+  const lockedByPreset = currentLevel < presetUnlockLevel;
+  const requiredLevel = Math.max(1, buildRequiredLevel, presetUnlockLevel);
+  const locked = missing.length > 0 || lockedByPreset;
+
+  let reason = "";
+  if (lockedByPreset && missing.length > 0) {
+    reason = `Preset unlocks at level ${presetUnlockLevel}. ${formatMissingUnlocks(missing)}`;
+  } else if (lockedByPreset) {
+    reason = `Preset unlocks at level ${presetUnlockLevel}.`;
+  } else if (missing.length > 0) {
+    reason = formatMissingUnlocks(missing);
+  }
+
+  return {
+    locked,
+    lockedByPreset,
+    currentLevel,
+    presetUnlockLevel,
+    buildRequiredLevel,
+    requiredLevel,
+    missing,
+    reason,
+  };
 }
 
 export function formatMissingUnlocks(missing = [], { short = false } = {}) {

@@ -1251,6 +1251,12 @@ export function drawBot(bot) {
   const visibleToPlayer = canSeeTarget(player, bot);
   const hiddenAlpha = bot.role === "training" ? 0.42 : 0.18;
   const hitOffset = getHitReactionOffset(bot);
+  const isAlly = bot.team === "player";
+  const detailColor = bot.role === "training" ? "#355868" : isAlly ? "#274b63" : "#4f2f2f";
+  const variant = bot.role === "training" ? "ghostwire" : "warhound";
+  const weaponDetail = bot.role === "training" ? "#355868" : isAlly ? "#274b63" : "#4f2f2f";
+  const weaponAccent = bot.role === "training" ? "#bdefff" : isAlly ? "#7fe7ff" : bot.accent;
+  const weaponGlow = bot.role === "training" ? "#e9fbff" : isAlly ? "#d9fbff" : "#ffd5be";
 
   // Apply cast jitter
   let castJitterX = 0;
@@ -1276,16 +1282,16 @@ export function drawBot(bot) {
     {
       body: bot.flash > 0 ? "#f7fbff" : bot.color,
       accent: bot.accent,
-      detail: bot.role === "training" ? "#355868" : "#4f2f2f",
-      variant: bot.role === "training" ? "ghostwire" : "warhound",
+      detail: detailColor,
+      variant,
     },
     { scale: bot.role === "training" ? 0.84 : 0.9 },
   );
   drawEquippedWeapon(
     bot.weapon,
-    bot.role === "training" ? "#355868" : "#4f2f2f",
-    bot.role === "training" ? "#bdefff" : bot.accent,
-    bot.role === "training" ? "#e9fbff" : "#ffd5be",
+    weaponDetail,
+    weaponAccent,
+    weaponGlow,
     bot.flash,
     0,
   );
@@ -1307,6 +1313,17 @@ export function drawBot(bot) {
   }
 
   if (visibleToPlayer) {
+    if (isAlly) {
+      ctx.save();
+      ctx.font = "bold 11px Trebuchet MS";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#c8fbff";
+      ctx.strokeStyle = "rgba(6, 12, 18, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.strokeText("ALLY", bot.x, bot.y - bot.radius - 34);
+      ctx.fillText("ALLY", bot.x, bot.y - bot.radius - 34);
+      ctx.restore();
+    }
     drawOverheadHealthBar(bot, bot.accent);
     drawStatusReadout(bot);
   }

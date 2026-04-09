@@ -21,11 +21,26 @@ function writeAuth(identity) {
   }
 }
 
+function requestFullscreen() {
+  const el = document.documentElement;
+  const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (rfs) {
+    rfs.call(el).catch(() => { /* user may deny — that's fine */ });
+  }
+}
+
 function dismissAuthScreen() {
+  requestFullscreen();
+  // Clear stale shell view so user lands on the home page
+  try { sessionStorage.removeItem("prototype0.shell-view"); } catch { /* ignore */ }
   screen.classList.add("is-fading");
   screen.addEventListener(
     "transitionend",
-    () => screen.classList.add("is-hidden"),
+    () => {
+      screen.classList.add("is-hidden");
+      // Re-trigger shell to go to landing after auth
+      window.dispatchEvent(new CustomEvent("auth-complete"));
+    },
     { once: true }
   );
 }
