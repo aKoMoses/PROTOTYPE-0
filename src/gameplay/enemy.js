@@ -8,7 +8,7 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getPulseMagazineSize, enemyHasAbility, getDifficultyProfile } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyMagneticField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
@@ -955,9 +955,12 @@ export function updateEnemy(dt) {
     return;
   }
 
+  const diffProfile = getDifficultyProfile();
   const enemyStatus = getStatusState(enemy);
   const previousX = enemy.x;
   const previousY = enemy.y;
+
+  // Decrease Cooldowns
   enemy.reloadTime = Math.max(0, enemy.reloadTime - dt);
   enemy.javelinCooldown = Math.max(0, enemy.javelinCooldown - dt);
   enemy.fieldCooldown = Math.max(0, enemy.fieldCooldown - dt);
@@ -1000,6 +1003,7 @@ export function updateEnemy(dt) {
     finalizePulseReload(enemy);
   }
 
+  // AI Context
   const focusTargetEntity = getEnemyFocusTarget();
   const targetX = focusTargetEntity.x;
   const targetY = focusTargetEntity.y;
@@ -1010,32 +1014,25 @@ export function updateEnemy(dt) {
   const distance = length(dx, dy);
   const forward = normalize(dx, dy);
   const side = { x: -forward.y, y: forward.x };
+  
   const enemyFieldModifier = getFieldInfluence(enemy);
   const enemyZoneEffects = getZoneEffectsForEntity(enemy, dt);
+  
   const playerLow = player.hp <= 38;
   const enemyLow = enemy.hp <= 72;
   const targetOnAxe = focusTargetEntity.weapon === weapons.axe.key;
-  const enemyOnAxe = enemy.weapon === weapons.axe.key;
-  const enemyOnShotgun = enemy.weapon === weapons.shotgun.key;
-  const enemyOnPulse = enemy.weapon === weapons.pulse.key;
-  const enemyOnSniper = enemy.weapon === weapons.sniper.key;
-  const enemyOnStaff = enemy.weapon === weapons.staff.key;
-  const enemyOnInjector = enemy.weapon === weapons.injector.key;
-  const enemyOnLance = enemy.weapon === weapons.lance.key;
-  const enemyOnCannon = enemy.weapon === weapons.cannon.key;
-  const playerExposed =
-    focusTargetEntity === playerClone
-      ? playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04
-      : (player.lastMissTime ?? 0) > 0 ||
-        player.fireCooldown > 0.16 ||
-        player.attackStartupTime > 0 ||
-        player.attackCommitTime > 0 ||
-        player.activeAxeStrike !== null ||
-        player.pendingAxeStrike !== null;
-  const targetRange = getEnemyTargetRange();
-  const shouldPunish = playerExposed || playerLow || (focusTargetEntity !== player && focusTargetEntity.hp <= focusTargetEntity.maxHp * 0.42);
+  
+  // Punish Awareness: Human-like detection of openings
+  const playerInStartup = player.attackStartupTime > 0 || player.castingAbility !== null;
+  const playerInRecovery = player.attackCommitTime > 0 || (player.lastMissTime ?? 0) > 0;
+  const playerReloading = player.reloadTime > 0 || (player.weapon === weapons.pulse.key && player.ammo <= 0);
+  
+  const punishWindow = playerInStartup || playerInRecovery || playerReloading || playerLow;
+  const shouldPunish = (punishWindow && Math.random() < diffProfile.punishAwareness) || (focusTargetEntity !== player && focusTargetEntity.hp <= focusTargetEntity.maxHp * 0.42);
+  
+  const targetRange = getEnemyTargetRange() * (0.9 + Math.random() * 0.2 * (1 - diffProfile.spacingAwareness));
   const behaviorProfile = getEnemyBehaviorProfile(distance, shouldPunish);
-  const shouldKite = enemyLow || (targetOnAxe && distance < 332) || (enemyOnPulse && distance < 210);
+  const shouldKite = (enemyLow || (targetOnAxe && distance < 332) || (enemy.weapon === weapons.pulse.key && distance < 210)) && Math.random() < diffProfile.spacingAwareness;
   const shouldPressure = shouldPunish && distance < 420;
 
   let moveX = 0;
@@ -1052,10 +1049,14 @@ export function updateEnemy(dt) {
   } else if (enemy.attackCommitTime > 0 && enemy.activeMeleeStrike) {
     updateEnemyAxeCommit(dt, previousX, previousY);
   } else {
+    // Human-like Strafing with direction reversals
+    if (!enemy.strafeDir || Math.random() < dt * diffProfile.strafeChangeRate) {
+      enemy.strafeDir = Math.random() < 0.5 ? 1 : -1;
+    }
+    
     const strafeScale = (enemy.postAttackMoveTime > 0 ? 1.38 : 1) * behaviorProfile.strafeScale;
-    const strafeDirection = Math.sin(enemy.strafeTimer * 1.9) >= 0 ? 1 : -1;
-    moveX = side.x * strafeDirection * 1.12 * strafeScale;
-    moveY = side.y * strafeDirection * 1.12 * strafeScale;
+    moveX = side.x * enemy.strafeDir * 1.12 * strafeScale;
+    moveY = side.y * enemy.strafeDir * 1.12 * strafeScale;
 
     if (distance > targetRange + 28 || shouldPressure) {
       moveX += forward.x * behaviorProfile.engageBias;
@@ -1079,6 +1080,7 @@ export function updateEnemy(dt) {
     }
   }
 
+  // Update velocity and apply movement
   enemy.velocityX += moveX * config.enemyAccel * dt;
   enemy.velocityY += moveY * config.enemyAccel * dt;
   const desired = normalize(moveX, moveY);
@@ -1089,6 +1091,7 @@ export function updateEnemy(dt) {
       enemyStatus.speedMultiplier *
       enemyFieldModifier.slowMultiplier *
       enemyZoneEffects.slowMultiplier;
+  
   if (!(enemy.attackCommitTime > 0 && enemy.activeMeleeStrike)) {
     enemy.x = clamp(enemy.x + desired.x * speed * dt, enemy.radius, arena.width - enemy.radius);
     enemy.y = clamp(enemy.y + desired.y * speed * dt, enemy.radius, arena.height - enemy.radius);
@@ -1105,164 +1108,106 @@ export function updateEnemy(dt) {
     statusLine.textContent = "Magnetic disruption threw the bot off-balance.";
   }
 
+  // Contextual Dodging & Defensive Reaction
   const incomingProjectile = bullets.find((bullet) => {
-    const nextX = bullet.x + bullet.vx * 0.12;
-    const nextY = bullet.y + bullet.vy * 0.12;
-    return length(nextX - enemy.x, nextY - enemy.y) < 66;
+    const nextX = bullet.x + bullet.vx * 0.15;
+    const nextY = bullet.y + bullet.vy * 0.15;
+    return length(nextX - enemy.x, nextY - enemy.y) < 70;
   });
 
-  if (
-    !enemyStatus.stunned &&
-    enemyHasAbility("magneticField") &&
-    enemy.fieldCooldown <= 0 &&
-    (incomingProjectile || (targetOnAxe && distance < behaviorProfile.fieldResponseDistance))
-  ) {
-    spawnEnemyMagneticField();
+  if (!enemyStatus.stunned && incomingProjectile && Math.random() < diffProfile.dodgeReaction && enemy.dodgeCooldown <= 0) {
+    const dodgeSide = Math.random() < 0.5 ? -1 : 1;
+    enemy.dodgeVectorX = side.x * dodgeSide;
+    enemy.dodgeVectorY = side.y * dodgeSide;
+    enemy.dodgeTime = config.enemyDodgeDuration + 0.05;
+    enemy.dodgeCooldown = config.enemyDodgeCooldown;
+    addImpact(enemy.x, enemy.y, "#ffc3b8", 18);
   }
 
-  if (!enemyStatus.stunned && enemyHasAbility("shockJavelin") && enemy.javelinCooldown <= 0 && distance > 180 && distance < 620) {
-    const chargedJavelin = enemyLow || shouldPunish || distance > 360;
-    if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34)) {
-      spawnEnemyJavelin(chargedJavelin, focusTargetEntity);
-      enemy.postAttackMoveTime = 0.62;
-      enemy.shootCooldown = Math.max(enemy.shootCooldown, 0.18);
+  // Defensive Abilities
+  const needsDefense = enemyLow || incomingProjectile;
+  if (!enemyStatus.stunned && Math.random() < diffProfile.defensiveReaction) {
+    if (needsDefense && enemyHasAbility("energyShield") && enemy.abilityCooldowns.shield <= 0) {
+      castEnemyShield();
+    }
+    if (needsDefense && enemyHasAbility("phaseShift") && enemy.abilityCooldowns.phaseShift <= 0) {
+      castEnemyPhaseShift();
+    }
+    if (needsDefense && enemyHasAbility("empBurst") && enemy.abilityCooldowns.emp <= 0 && distance < 180) {
+      castEnemyEmp();
     }
   }
 
-  if (
-    !enemyStatus.stunned &&
-    enemyHasAbility("magneticGrapple") &&
-    enemy.abilityCooldowns.grapple <= 0 &&
-    distance > targetRange + 120 &&
-    (shouldPunish || distance > behaviorProfile.abilityPressureDistance)
-  ) {
-    castEnemyGrapple(forward, focusTargetEntity);
-  }
-
-  if (
-    !enemyStatus.stunned &&
-    enemyHasAbility("energyShield") &&
-    enemy.abilityCooldowns.shield <= 0 &&
-    (enemyLow || incomingProjectile)
-  ) {
-    castEnemyShield();
-  }
-
-  if (
-    !enemyStatus.stunned &&
-    enemyHasAbility("empBurst") &&
-    enemy.abilityCooldowns.emp <= 0 &&
-    (incomingProjectile || distance < 126)
-  ) {
-    castEnemyEmp();
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("backstepBurst") && enemy.abilityCooldowns.backstep <= 0 && (enemyLow || (targetOnAxe && distance < 170))) {
-    castEnemyBackstep();
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("blinkStep") && enemy.abilityCooldowns.blink <= 0 && distance > targetRange + 140) {
-    castEnemyBlink(forward);
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("phaseDash") && enemy.abilityCooldowns.phaseDash <= 0 && (incomingProjectile || (shouldPunish && distance > 170 && distance < 360))) {
-    castEnemyPhaseDash(shouldPunish ? forward : { x: side.x, y: side.y });
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("gravityWell") && enemy.abilityCooldowns.gravityWell <= 0 && distance > 180 && distance < 420 && (playerExposed || targetOnAxe)) {
-    castEnemyGravityWell(focusTargetEntity);
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("phaseShift") && enemy.abilityCooldowns.phaseShift <= 0 && (enemyLow || incomingProjectile)) {
-    castEnemyPhaseShift();
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("hologramDecoy") && enemy.abilityCooldowns.hologramDecoy <= 0 && enemyLow) {
-    castEnemyHologram();
-  }
-
-  if (!enemyStatus.stunned && enemyHasAbility("speedSurge") && enemy.abilityCooldowns.speedSurge <= 0 && (shouldPunish || distance > targetRange + 90)) {
-    castEnemySpeedSurge();
-  }
-
-  if (!enemyStatus.stunned && enemy.weapon === weapons.axe.key && enemy.meleeWindupTime <= 0 && enemy.pendingMeleeStrike) {
-    resolveEnemyAxeStrike();
-  }
-
-  if (!enemyStatus.stunned && enemyOnPulse && enemy.burstShots > 0 && enemy.shootCooldown <= 0) {
-    enemy.burstShots -= 1;
-    enemy.shootCooldown = enemy.burstShots > 0 ? 0.16 : 0.84;
-    const leadX = targetX + targetVelocityX * (playerExposed ? 0.22 : 0.16);
-    const leadY = targetY + targetVelocityY * (playerExposed ? 0.22 : 0.16);
-    fireEnemyPulse(leadX, leadY, shouldPunish);
-  } else if (!enemyStatus.stunned && enemyOnPulse && enemy.shootCooldown <= 0 && distance < 660) {
-    enemy.burstShots = behaviorProfile.shootBurstSize;
-    enemy.shootCooldown = 0.08;
-    enemy.postAttackMoveTime = 0.46;
-  } else if (!enemyStatus.stunned && enemyOnShotgun && enemy.shootCooldown <= 0 && distance < 340) {
-    if (fireEnemyShotgun(targetX, targetY)) {
-      enemy.shootCooldown = shouldPunish ? 0.78 : 0.96;
-      enemy.postAttackMoveTime = 0.4;
+  // Combat Abilities usage
+  const canUseAbility = !enemyStatus.stunned && Math.random() < diffProfile.abilityTiming;
+  if (canUseAbility) {
+    // Utility / CC
+    if (enemyHasAbility("magneticField") && enemy.fieldCooldown <= 0 && (incomingProjectile || (targetOnAxe && distance < 250))) {
+      spawnEnemyMagneticField();
     }
-  } else if (!enemyStatus.stunned && enemyHasAbility("pulseBurst") && enemy.abilityCooldowns.pulseBurst <= 0 && distance < 320 && shouldPunish) {
-    castEnemyPulseBurst(focusTargetEntity);
-    enemy.shootCooldown = 0.42;
-  } else if (!enemyStatus.stunned && enemyHasAbility("chainLightning") && enemy.abilityCooldowns.chainLightning <= 0 && distance < 380 && (shouldPunish || playerExposed)) {
-    castEnemyChainLightning(focusTargetEntity);
-    enemy.shootCooldown = 0.46;
-  } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && distance > 280 && distance < 920) {
-    if (fireEnemySniper(targetX + targetVelocityX * 0.2, targetY + targetVelocityY * 0.2)) {
-      enemy.shootCooldown = shouldPunish ? 1.08 : 1.26;
-      enemy.postAttackMoveTime = 0.54;
+    if (enemyHasAbility("gravityWell") && enemy.abilityCooldowns.gravityWell <= 0 && distance > 180 && distance < 450 && shouldPunish) {
+      castEnemyGravityWell(focusTargetEntity);
     }
-  } else if (!enemyStatus.stunned && enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 340 && shouldPunish) {
-    castEnemyRailShot(focusTargetEntity);
-    enemy.shootCooldown = 0.62;
-  } else if (!enemyStatus.stunned && enemyOnStaff && enemy.shootCooldown <= 0 && distance < 480) {
-    if (fireEnemyStaff(targetX, targetY)) {
-      enemy.shootCooldown = 0.52;
-      enemy.postAttackMoveTime = 0.32;
+    
+    // Engagement / Chaining
+    const shouldEngage = shouldPunish || distance > targetRange + 100;
+    if (enemyHasAbility("magneticGrapple") && enemy.abilityCooldowns.grapple <= 0 && shouldEngage && distance < 700) {
+      castEnemyGrapple(forward, focusTargetEntity);
+      // Hard mode combo: Immediate follow up with shoot cooldown reduction
+      if (diffProfile.comboChaining) {
+        enemy.shootCooldown = Math.min(enemy.shootCooldown, 0.1);
+      }
     }
-  } else if (!enemyStatus.stunned && enemyOnInjector && enemy.shootCooldown <= 0 && distance < 560) {
-    if (fireEnemyInjector(targetX + targetVelocityX * 0.12, targetY + targetVelocityY * 0.12)) {
-      enemy.shootCooldown = shouldPunish ? 0.34 : 0.42;
-      enemy.postAttackMoveTime = 0.28;
+    
+    // Damage abilities
+    if (enemyHasAbility("shockJavelin") && enemy.javelinCooldown <= 0 && distance > 200 && distance < 650) {
+      const charged = enemyLow || shouldPunish || distance > 400;
+      spawnEnemyJavelin(charged, focusTargetEntity);
+      enemy.postAttackMoveTime = 0.6;
     }
-  } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance < 820) {
-    if (fireEnemyCannon(targetX + targetVelocityX * 0.18, targetY + targetVelocityY * 0.18, shouldPunish && distance < 260)) {
-      enemy.shootCooldown = shouldPunish ? 1.18 : 1.34;
-      enemy.postAttackMoveTime = 0.58;
+    
+    if (enemyHasAbility("pulseBurst") && enemy.abilityCooldowns.pulseBurst <= 0 && distance < 350 && shouldPunish) {
+      castEnemyPulseBurst(focusTargetEntity);
     }
-  } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 320) {
-    if (fireEnemyLance(focusTargetEntity, shouldPunish && distance < 210)) {
-      enemy.shootCooldown = shouldPunish ? 0.92 : 1.08;
-      enemy.postAttackMoveTime = 0.24;
+    
+    if (enemyHasAbility("chainLightning") && enemy.abilityCooldowns.chainLightning <= 0 && distance < 400 && shouldPunish) {
+      castEnemyChainLightning(focusTargetEntity);
     }
-  } else if (!enemyStatus.stunned && enemyOnAxe && enemy.shootCooldown <= 0 && enemy.meleeWindupTime <= 0 && enemy.attackCommitTime <= 0) {
-    if ((distance < 296 && shouldPunish) || distance < 188) {
+
+    if (enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 350 && shouldPunish) {
+      castEnemyRailShot(focusTargetEntity);
+    }
+  }
+
+  // Weapon Firing Logic
+  if (!enemyStatus.stunned && enemy.shootCooldown <= 0) {
+    const aimLead = diffProfile.aimLeadFactor;
+    const shootLX = targetX + targetVelocityX * aimLead;
+    const shootLY = targetY + targetVelocityY * aimLead;
+    
+    if (enemy.weapon === weapons.pulse.key && distance < 660) {
+      enemy.burstShots = 3;
+      enemy.shootCooldown = 0.1;
+      fireEnemyPulse(shootLX, shootLY, shouldPunish);
+    } else if (enemy.weapon === weapons.shotgun.key && distance < 350) {
+      if (fireEnemyShotgun(targetX, targetY)) {
+        enemy.shootCooldown = shouldPunish ? 0.7 : 0.9;
+      }
+    } else if (enemy.weapon === weapons.sniper.key && distance > 250 && distance < 950) {
+      if (fireEnemySniper(shootLX, shootLY)) {
+        enemy.shootCooldown = shouldPunish ? 1.0 : 1.3;
+      }
+    } else if (enemy.weapon === weapons.axe.key && distance < 200) {
       queueEnemyAxeStrike();
-      enemy.postAttackMoveTime = 0.18;
-    }
-  }
-
-  if (!enemyStatus.stunned && enemy.dodgeCooldown <= 0) {
-    if (incomingProjectile && Math.random() < behaviorProfile.dodgeAggression) {
-      const dodgeSide = Math.random() < 0.5 ? -1 : 1;
-      enemy.dodgeVectorX = side.x * dodgeSide;
-      enemy.dodgeVectorY = side.y * dodgeSide;
-      enemy.dodgeTime = config.enemyDodgeDuration + 0.05;
-      enemy.dodgeCooldown = config.enemyDodgeCooldown;
-      enemy.dashCooldown = 1.6;
-      addImpact(enemy.x, enemy.y, "#ffc3b8", 18);
-      statusLine.textContent = "The bot is dodging your fire. Track it.";
-    } else if ((shouldPunish || player.attackStartupTime > 0) && distance > 150 && distance < 330 && enemy.dashCooldown <= 0) {
-      enemy.dodgeVectorX = forward.x;
-      enemy.dodgeVectorY = forward.y;
-      enemy.dodgeTime = config.enemyDodgeDuration + 0.06;
-      enemy.dodgeCooldown = config.enemyDodgeCooldown;
-      enemy.dashCooldown = 1.65;
-      addImpact(enemy.x, enemy.y, "#ffd0a8", 20);
-      enemy.postAttackMoveTime = 0.28;
+      enemy.shootCooldown = 0.8;
+    } else if (enemy.weapon === weapons.cannon.key && distance < 800) {
+      if (fireEnemyCannon(shootLX, shootLY, shouldPunish)) {
+        enemy.shootCooldown = shouldPunish ? 1.1 : 1.4;
+      }
+    } else if (enemy.weapon === weapons.staff.key && distance < 500) {
+      if (fireEnemyStaff(targetX, targetY)) {
+        enemy.shootCooldown = 0.5;
+      }
     }
   }
 }

@@ -11,7 +11,7 @@ import { loadout, botBuildState, trainingToolState } from "../state/app-state.js
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, randomizeBotLoadout, getStatusDuration, hasRuneShard } from "../build/loadout.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playAbilityCue } from "../audio.js";
@@ -1837,7 +1837,7 @@ export function applyBotLoadout(bot, loadoutConfig) {
 }
 
 export function refreshHunterLoadout() {
-  applyBotLoadout(enemy, getActiveBotLoadout());
+  randomizeBotLoadout();
 }
 
 export function resetBotsForMode(mode = sandbox.mode) {

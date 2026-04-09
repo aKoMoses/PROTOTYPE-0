@@ -34,7 +34,6 @@ export function bindUIDeps({ resetPlayer, startDuelRound, showRoundBanner, relea
 export function setPrematchStep(step) {
   uiState.prematchStep = step;
   if (step === "build") {
-    dom.botConfigCard?.classList.add("is-hidden");
     if (dom.botConfigToggle) dom.botConfigToggle.textContent = "Configure Bot";
   }
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
@@ -2002,6 +2001,11 @@ export function renderPrematch() {
   renderRuneTrees();
   updatePrematchSummary();
   updateTrainingBuildButton();
+
+  // Update Bot Difficulty active states
+  if (dom.botDifficultyEasy) dom.botDifficultyEasy.classList.toggle("is-active", sandbox.difficulty === "easy");
+  if (dom.botDifficultyNormal) dom.botDifficultyNormal.classList.toggle("is-active", sandbox.difficulty === "normal");
+  if (dom.botDifficultyHard) dom.botDifficultyHard.classList.toggle("is-active", sandbox.difficulty === "hard");
 }
 
 export function toggleHelpPanel(forceOpen) {

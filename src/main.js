@@ -112,6 +112,9 @@ bindPrematchButton(dom.modeTraining, "mode-training");
 bindPrematchButton(dom.continueMap, "continue-map");
 bindPrematchButton(dom.backMode, "back-mode");
 bindPrematchButton(dom.continueBuild, "continue-build");
+bindPrematchButton(dom.botDifficultyEasy, "bot-difficulty-easy");
+bindPrematchButton(dom.botDifficultyNormal, "bot-difficulty-normal");
+bindPrematchButton(dom.botDifficultyHard, "bot-difficulty-hard");
 
 const matchPanelToggle = document.getElementById("match-panel-toggle");
 const matchPanel = document.getElementById("match-panel");

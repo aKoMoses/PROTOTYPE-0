@@ -2451,13 +2451,7 @@ body {
 }
 
 /* Hide all the non-wizard clutter when in focus mode */
-.wizard-focus ~ .power-mini,
-.wizard-focus ~ .cat-tabs,
-.wizard-focus ~ .build-step-nav,
-.wizard-focus ~ #build-library-grid,
-.wizard-focus ~ #rune-panel,
-.wizard-focus ~ .detail-float,
-.wizard-focus ~ #bot-config-card {
+.wizard-focus ~ .detail-float {
   display: none !important;
 }
 

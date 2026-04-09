@@ -1,7 +1,7 @@
 // Loadout, build stats, rune calculations, bot loadout management
-import { config, arena, abilityConfig } from "../config.js";
+import { config, arena, abilityConfig, difficultyProfiles } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState } from "../state.js";
+import { player, enemy, abilityState, sandbox } from "../state.js";
 import { loadout, botBuildState, uiState, createInitialRuneAllocation } from "../state/app-state.js";
 import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
@@ -75,6 +75,23 @@ const botPresetLibrary = [
         defense: { secondary: 2, primary: 0, ultimate: 0 },
         spells: { secondary: 5, primary: 3, ultimate: 1 },
         support: { secondary: 5, primary: 0, ultimate: 0 },
+      }),
+    },
+  },
+  {
+    key: "bot-assassin",
+    name: "Bot Assassin",
+    role: "Burst / disengage",
+    description: "Closes fast, unloads burst damage, then disengages before you can trade back.",
+    loadout: {
+      weapon: weapons.shotgun.key,
+      abilities: ["magneticGrapple", "shockJavelin", "phaseShift"],
+      perk: "executionRelay",
+      ultimate: "phantomSplit",
+      runes: createPresetRunes({
+        attack: { secondary: 5, primary: 3, ultimate: 1 },
+        spells: { secondary: 5, primary: 0, ultimate: 0 },
+        defense: { secondary: 2, primary: 0, ultimate: 0 },
       }),
     },
   },
@@ -452,4 +469,14 @@ export function addEnergy(amount) {
 
 export function getPulseMagazineSize() {
   return config.pulseMagazineSize;
+}
+export function getDifficultyProfile() {
+  const diffKey = sandbox.difficulty ?? "normal";
+  return difficultyProfiles[diffKey] ?? difficultyProfiles.normal;
+}
+
+export function randomizeBotLoadout() {
+  const randomIndex = Math.floor(Math.random() * botPresetLibrary.length);
+  const preset = botPresetLibrary[randomIndex];
+  applyBotLoadout(enemy, preset.loadout);
 }

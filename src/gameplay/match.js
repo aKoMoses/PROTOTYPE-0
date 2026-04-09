@@ -343,6 +343,29 @@ export function handlePrematchAction(buttonId) {
   if (buttonId === "start-session") {
     playUiCue("confirm");
     launchSelectedSession();
+    return;
+  }
+
+  if (buttonId === "bot-difficulty-easy") {
+    playUiCue("click");
+    sandbox.difficulty = "easy";
+    dom.statusLine.textContent = "Bot difficulty set to Easy - Beginner behavior simulation.";
+    _renderPrematch?.();
+    return;
+  }
+  if (buttonId === "bot-difficulty-normal") {
+    playUiCue("click");
+    sandbox.difficulty = "normal";
+    dom.statusLine.textContent = "Bot difficulty set to Normal - Intermediate behavior simulation.";
+    _renderPrematch?.();
+    return;
+  }
+  if (buttonId === "bot-difficulty-hard") {
+    playUiCue("click");
+    sandbox.difficulty = "hard";
+    dom.statusLine.textContent = "Bot difficulty set to Hard - Competitive behavior simulation.";
+    _renderPrematch?.();
+    return;
   }
 }
 

@@ -371,6 +371,7 @@ export const bots = [enemy, ...trainingBots];
 export const sandbox = {
   mode: sandboxModes.duel.key,
   mapKey: mapChoices.electroGallery.key,
+  difficulty: "normal",
   helpOpen: false,
 };
 
