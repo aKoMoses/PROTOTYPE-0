@@ -20,11 +20,15 @@ import { setupInputListeners } from "./gameplay/input.js";
 import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./gameplay/abilities.js";
 import { updatePhantomClone } from "./gameplay/phantom.js";
 import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, initRobotWizardZoneClicks } from "./build/ui.js";
-import { setBotBuildMode } from "./build/loadout.js";
+import { applySavedPlayerLoadout, setBotBuildMode } from "./build/loadout.js";
 import { bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
 import { initializeAudio, updateAudio } from "./audio.js";
 import { installSessionPersistence, restoreSessionSnapshot } from "./session.js";
+import { content } from "./content.js";
+
+// Expose content for non-module scripts (loadout builder)
+window.__P0_CONTENT = content;
 
 let sessionPersistAccumulator = 0;
 const persistSession = installSessionPersistence();
@@ -119,6 +123,19 @@ const ttPanelToggle = document.getElementById("tt-panel-toggle");
 const ttPanel = document.getElementById("training-tools-panel");
 ttPanelToggle?.addEventListener("click", () => {
   ttPanel?.classList.toggle("is-collapsed");
+});
+
+window.addEventListener("loadout-equip", (event) => {
+  const selectedLoadout = event.detail?.loadout;
+  if (!applySavedPlayerLoadout(selectedLoadout)) {
+    return;
+  }
+
+  document.querySelector('[data-shell-view="game"]')?.click();
+  openPrematch("build");
+  renderPrematch();
+  dom.statusLine.textContent = `${selectedLoadout?.name ?? "Loadout"} loaded into combat launch.`;
+  persistSession();
 });
 
 const restoredSnapshot = restoreSessionSnapshot();
