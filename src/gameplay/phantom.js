@@ -8,8 +8,8 @@ import {
   input,
   bullets,
   enemyBullets,
-  shockJavelins,
-  magneticFields,
+  boltLinkJavelins,
+  orbitalDistorterFields,
   supportZones,
 } from "../state.js";
 import { loadout } from "../state/app-state.js";
@@ -29,7 +29,7 @@ import {
   tickEntityMarks,
   getStatusState,
   getZoneEffectsForEntity,
-  beginPulseBurstCast,
+  beginSwarmMissileRackCast,
 } from "./combat.js";
 
 function getPhantomDirection(action) {
@@ -342,9 +342,9 @@ function executeCloneAxe(action) {
   addCloneFlash(comboStep === 3 ? "#ffe2a1" : "#93f3ff", comboStep === 3 ? 22 : 18);
 }
 
-function executeCloneJavelin(action) {
+function executeCloneBoltLinkJavelin(action) {
   const direction = getPhantomDirection(action);
-  shockJavelins.push({
+  boltLinkJavelins.push({
     x: playerClone.x + direction.x * (playerClone.radius + 12),
     y: playerClone.y + direction.y * (playerClone.radius + 12),
     vx: direction.x * (config.javelinSpeed * 0.96),
@@ -366,12 +366,12 @@ function executeCloneJavelin(action) {
   addCloneFlash("#9ae9ff", 18);
 }
 
-function executeCloneField(action) {
+function executeCloneOrbitalDistorter(action) {
   const holdCast = action.mode === "hold";
   const radius = holdCast ? Math.max(72, abilityConfig.field.hold.radius * 0.72) : Math.max(52, abilityConfig.field.tap.radius * 0.72);
   const centerX = holdCast ? action.aimX ?? playerClone.x : playerClone.x;
   const centerY = holdCast ? action.aimY ?? playerClone.y : playerClone.y;
-  magneticFields.push({
+  orbitalDistorterFields.push({
     x: centerX,
     y: centerY,
     radius,
@@ -395,20 +395,20 @@ function executeCloneField(action) {
   addCloneFlash(holdCast ? "#b7c9ff" : "#9fdbff", holdCast ? 22 : 18);
 }
 
-function executeCloneGrapple() {
+function executeCloneVGripHarpoon() {
   playerClone.hasteTime = Math.max(playerClone.hasteTime, 0.85);
   playerClone.ghostTime = Math.max(playerClone.ghostTime, 0.16);
   addCloneFlash("#c7f1ff", 20);
 }
 
-function executeCloneShield() {
+function executeCloneHexPlateProjector() {
   playerClone.shield = Math.max(playerClone.shield, (config.shieldValue + 3) * config.phantomShieldScale);
   playerClone.shieldTime = Math.max(playerClone.shieldTime, config.shieldDuration * 0.82);
   playerClone.shieldGuardTime = Math.max(playerClone.shieldGuardTime ?? 0, config.shieldDuration * 0.82);
   addCloneFlash("#b7ddff", 22);
 }
 
-function executeCloneEmp() {
+function executeCloneEmPulseEmitter() {
   addExplosion(playerClone.x, playerClone.y, 62, "#c3a9ff");
   addCloneFlash("#c1a7ff", 24);
   for (const target of collectTargetsInRadius(playerClone.x, playerClone.y, 96)) {
@@ -459,10 +459,10 @@ function executeClonePhaseDash() {
   addCloneFlash("#c5f0ff", 24);
 }
 
-function executeClonePulseBurst(action) {
+function executeCloneSwarmMissileRack(action) {
   const direction = getPhantomDirection(action);
-  const missileCount = Math.max(3, config.pulseBurstMissiles - 1);
-  const burstId = beginPulseBurstCast("player", missileCount);
+  const missileCount = Math.max(3, config.swarmMissileRackMissiles - 1);
+  const burstId = beginSwarmMissileRackCast("player", missileCount);
   for (let pellet = 0; pellet < missileCount; pellet += 1) {
     const spread = -0.16 + pellet * (0.32 / Math.max(1, missileCount - 1));
     const angle = direction.facing + spread;
@@ -472,18 +472,18 @@ function executeClonePulseBurst(action) {
       playerClone.y + Math.sin(angle) * 120,
       bullets,
       "#a7e7ff",
-      config.pulseBurstProjectileSpeed * 0.94,
-      getScaledDamage(config.pulseBurstBaseDamage),
+      config.swarmMissileRackProjectileSpeed * 0.94,
+      getScaledDamage(config.swarmMissileRackBaseDamage),
       {
         radius: 4.5,
-        life: config.pulseBurstLifetime,
+        life: config.swarmMissileRackLifetime,
         trailColor: "#d8f5ff",
-        source: "phantom-pulse-burst",
+        source: "phantom-swarm-missile-rack",
         effect: {
-          kind: "pulseBurst",
+          kind: "swarmMissileRack",
           burstId,
-          guideTurnRate: config.pulseBurstGuideTurnRate * 0.88,
-          guideDot: config.pulseBurstGuideDot,
+          guideTurnRate: config.swarmMissileRackGuideTurnRate * 0.88,
+          guideDot: config.swarmMissileRackGuideDot,
           resolved: false,
         },
       },
@@ -514,7 +514,7 @@ function executeCloneRailShot(action) {
   addCloneFlash("#ffe2b5", 20);
 }
 
-function executeCloneGravityWell(action) {
+function executeCloneVoidCoreSingularity(action) {
   const direction = getPhantomDirection(action);
   supportZones.push({
     type: "gravity",
@@ -542,48 +542,48 @@ function executeCloneHologram() {
   addCloneFlash("#dbbbff", 22);
 }
 
-function executeCloneSpeedSurge() {
+function executeCloneOverdriveServos() {
   playerClone.hasteTime = Math.max(playerClone.hasteTime, 1.2);
   addCloneFlash("#9ef7cb", 18);
 }
 
 function executeCloneAbility(action) {
   switch (action.abilityKey) {
-    case "shockJavelin":
-      executeCloneJavelin(action);
+    case "boltLinkJavelin":
+      executeCloneBoltLinkJavelin(action);
       break;
-    case "magneticField":
-      executeCloneField(action);
+    case "orbitalDistorter":
+      executeCloneOrbitalDistorter(action);
       break;
-    case "magneticGrapple":
-      executeCloneGrapple();
+    case "vGripHarpoon":
+      executeCloneVGripHarpoon();
       break;
-    case "energyShield":
-      executeCloneShield();
+    case "hexPlateProjector":
+      executeCloneHexPlateProjector();
       break;
-    case "empBurst":
-      executeCloneEmp();
+    case "emPulseEmitter":
+      executeCloneEmPulseEmitter();
       break;
-    case "backstepBurst":
+    case "jetBackThruster":
       executeCloneBlink();
       break;
     case "chainLightning":
       executeCloneChainLightning();
       break;
-    case "blinkStep":
+    case "blink":
       executeCloneBlink();
       break;
-    case "phaseDash":
-      executeClonePhaseDash();
+    case "overdriveServos":
+      executeCloneOverdriveServos();
       break;
-    case "pulseBurst":
-      executeClonePulseBurst(action);
+    case "swarmMissileRack":
+      executeCloneSwarmMissileRack(action);
       break;
     case "railShot":
       executeCloneRailShot(action);
       break;
-    case "gravityWell":
-      executeCloneGravityWell(action);
+    case "voidCoreSingularity":
+      executeCloneVoidCoreSingularity(action);
       break;
     case "phaseShift":
       executeClonePhaseShift();
@@ -591,8 +591,8 @@ function executeCloneAbility(action) {
     case "hologramDecoy":
       executeCloneHologram();
       break;
-    case "speedSurge":
-      executeCloneSpeedSurge();
+    case "overdriveServos":
+      executeCloneOverdriveServos();
       break;
     default:
       break;

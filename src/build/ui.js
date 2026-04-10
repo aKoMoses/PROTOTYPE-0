@@ -150,10 +150,10 @@ export function openPrematch(step = "mode") {
   input.keys.clear();
   input.firing = false;
   _releaseDashInput();
-  abilityState.javelin.recastReady = false;
-  abilityState.javelin.activeTime = 0;
-  abilityState.javelin.pendingCooldown = false;
-  abilityState.field.charging = false;
+  abilityState.boltLinkJavelin.recastReady = false;
+  abilityState.boltLinkJavelin.activeTime = 0;
+  abilityState.boltLinkJavelin.pendingCooldown = false;
+  abilityState.orbitalDistorter.charging = false;
   setPrematchStep(step);
   dom.prematchOverlay.classList.remove("is-hidden");
   syncPrematchState();
@@ -372,11 +372,11 @@ export function getPrematchCategoryItems(category) {
     case "weapon":
       return getVisibleContentItems("weapons");
     case "ability":
-      return getVisibleContentItems("abilities");
+      return getVisibleContentItems("modules");
     case "perk":
-      return getVisibleContentItems("perks");
+      return getVisibleContentItems("implants");
     case "ultimate":
-      return getVisibleContentItems("ultimates");
+      return getVisibleContentItems("cores");
     default:
       return [];
   }
@@ -392,24 +392,24 @@ export function getPrematchCategoryConfig(category) {
       compatibleSlots: ["weapon"],
     },
     ability: {
-      title: "Active Abilities",
-      hint: "Pick a tool, then snap it into Ability 1, 2, or 3. Replacing a slot is instant.",
+      title: "Active Modules",
+      hint: "Pick a tool, then snap it into Module 1, 2, or 3. Replacing a slot is instant.",
       iconType: "ability",
-      selectedKeys: loadout.abilities.filter(Boolean),
+      selectedKeys: loadout.modules.filter(Boolean),
       compatibleSlots: ["ability-0", "ability-1", "ability-2"],
     },
     perk: {
-      title: "Passive Perks",
-      hint: "Lock one balancing perk for this test pass so its effect is easy to read in combat.",
+      title: "Passive Implants",
+      hint: "Lock one balancing implant for this test pass so its effect is easy to read in combat.",
       iconType: "perk",
-      selectedKeys: loadout.perks.slice(0, 1).filter(Boolean),
+      selectedKeys: loadout.implants.slice(0, 1).filter(Boolean),
       compatibleSlots: ["perk-0"],
     },
     ultimate: {
-      title: "Ultimates",
+      title: "Reactor Cores",
       hint: "Lock one round-defining spike from the current balancing set.",
       iconType: "ultimate",
-      selectedKeys: [loadout.ultimate].filter(Boolean),
+      selectedKeys: [loadout.core].filter(Boolean),
       compatibleSlots: ["ultimate"],
     },
   };
@@ -428,11 +428,11 @@ export function getSlotCategory(slotKey) {
 export function getSlotDisplayName(slotKey) {
   const map = {
     weapon: "Weapon slot selected",
-    "ability-0": "Ability 1 selected",
-    "ability-1": "Ability 2 selected",
-    "ability-2": "Ability 3 selected",
-    "perk-0": "Perk 1 selected",
-    ultimate: "Ultimate slot selected",
+    "ability-0": "Module 1 selected",
+    "ability-1": "Module 2 selected",
+    "ability-2": "Module 3 selected",
+    "perk-0": "Implant 1 selected",
+    ultimate: "Reactor Core selected",
   };
 
   return map[slotKey] ?? "Loadout slot selected";
@@ -445,14 +445,14 @@ export function getLoadoutItemForSlot(slotKey) {
     return getContentItem("weapons", loadout.weapon);
   }
   if (slotKey === "ultimate") {
-    return getContentItem("ultimates", loadout.ultimate);
+    return getContentItem("cores", loadout.core);
   }
   if (slotKey === "ability-0" || slotKey === "ability-1" || slotKey === "ability-2") {
     const index = Number(slotKey.split("-")[1]);
-    return getContentItem("abilities", loadout.abilities[index]) ?? null;
+    return getContentItem("modules", loadout.modules[index]) ?? null;
   }
   if (slotKey === "perk-0") {
-    return getContentItem("perks", loadout.perks[0]) ?? null;
+    return getContentItem("implants", loadout.implants[0]) ?? null;
   }
 
   return getContentItem(`${category}s`, loadout.weapon) ?? null;
@@ -592,49 +592,49 @@ function getWeaponValueLines(item) {
 }
 
 function getAbilityValueLines(item) {
-  const spellsShardActive = getSelectedRuneUltimateTree() === "spells";
+  const systemsShardActive = getSelectedRuneUltimateTree() === "systems";
 
   switch (item.key) {
-    case "energyParry":
+    case "reflexAegis":
       return [
-        `Startup: ${formatSeconds(config.energyParryStartup)}. Active parry: ${formatSeconds(config.energyParryWindow)}. Fail recovery: ${formatSeconds(config.energyParryFailRecovery)}.`,
-        `If struck during the window: negate the hit, blink behind the attacker, gain ${formatNumber(config.energyParryShield)} shield for ${formatSeconds(config.energyParryShieldDuration)}.`,
-        `Success buff: +${formatPercent(config.energyParryMoveBonus)} move speed for ${formatSeconds(config.energyParryMoveDuration)} and next hit +${formatNumber(config.energyParryHitBonusDamage)} within ${formatSeconds(config.energyParryHitBonusDuration)}.`,
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.energyParryCooldown))}.`,
+        `Startup: ${formatSeconds(config.reflexAegisStartup)}. Active parry: ${formatSeconds(config.reflexAegisWindow)}. Fail recovery: ${formatSeconds(config.reflexAegisFailRecovery)}.`,
+        `If struck during the window: negate the hit, blink behind the attacker, gain ${formatNumber(config.reflexAegisShield)} shield for ${formatSeconds(config.reflexAegisShieldDuration)}.`,
+        `Success buff: +${formatPercent(config.reflexAegisMoveBonus)} move speed for ${formatSeconds(config.reflexAegisMoveDuration)} and next hit +${formatNumber(config.reflexAegisHitBonusDamage)} within ${formatSeconds(config.reflexAegisHitBonusDuration)}.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.reflexAegisCooldown))}.`,
         "Role: high-skill defensive counter that punishes predictable burst and engages.",
       ];
-    case "shockJavelin":
+    case "boltLinkJavelin":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.javelinCooldown))}.`,
-        `Initial hit: ${config.javelinDamage} damage and ${formatPercent(config.javelinSlow)} electrified slow for ${formatSeconds(getStatusDuration(config.javelinSlowDuration))}.`,
-        `Recast window: while the target is electrified, blink ${formatNumber(config.javelinRecastDistance)} units behind them once.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boltLinkJavelinCooldown))}.`,
+        `Initial hit: ${config.boltLinkJavelinDamage} damage and ${formatPercent(config.boltLinkJavelinSlow)} electrified slow for ${formatSeconds(getStatusDuration(config.boltLinkJavelinSlowDuration))}.`,
+        `Recast window: while the target is electrified, blink ${formatNumber(config.boltLinkJavelinRecastDistance)} units behind them once.`,
         "Role: two-step engage tool for outplay, chase correction and burst setup.",
       ];
-    case "magneticField":
+    case "orbitalDistorter":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.fieldCooldown))}.`,
-        `Tap cast: ${formatNumber(config.fieldTapRadius)} radius on you for ${formatSeconds(config.fieldTapDuration)}, ${formatPercent(config.fieldTapProjectileSlowEdge)} to ${formatPercent(config.fieldTapProjectileSlowCore)} projectile slow, and ${formatPercent(config.fieldTapDamageReduction)} mitigation.`,
-        `Charged cast: ${formatNumber(config.fieldHoldRadius)} radius at target point for ${formatSeconds(config.fieldHoldDuration + (spellsShardActive ? 0.6 : 0))}, ${formatPercent(config.fieldHoldProjectileSlowEdge)} to ${formatPercent(config.fieldHoldProjectileSlowCore)} projectile slow, and ${formatPercent(config.fieldHoldSlow + (spellsShardActive ? 0.08 : 0))} movement slow.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.orbitalDistorterCooldown))}.`,
+        `Tap cast: ${formatNumber(config.orbitalDistorterTapRadius)} radius on you for ${formatSeconds(config.orbitalDistorterTapDuration)}, ${formatPercent(config.orbitalDistorterTapProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterTapProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterTapDamageReduction)} mitigation.`,
+        `Charged cast: ${formatNumber(config.orbitalDistorterHoldRadius)} radius at target point for ${formatSeconds(config.orbitalDistorterHoldDuration + (systemsShardActive ? 0.6 : 0))}, ${formatPercent(config.orbitalDistorterHoldProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterHoldProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterHoldSlow + (systemsShardActive ? 0.08 : 0))} movement slow.`,
         "Enemy projectiles are dragged while inside the field instead of being deleted, making dodge windows readable and fair.",
         "Role: anti-ranged timing tool and space-control bubble.",
       ];
-    case "magneticGrapple":
+    case "vGripHarpoon":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.grappleCooldown))}.`,
-        `Hook shot: ${formatNumber(config.grappleRange)} range at ${formatNumber(config.grappleProjectileSpeed)} speed.`,
-        `On hit: drags the target toward you and applies ${formatPercent(config.grappleSnare)} snare for ${formatSeconds(getStatusDuration(config.grappleSnareDuration))}.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.vGripHarpoonCooldown))}.`,
+        `Hook shot: ${formatNumber(config.vGripHarpoonRange)} range at ${formatNumber(config.vGripHarpoonProjectileSpeed)} speed.`,
+        `On hit: drags the target toward you and applies ${formatPercent(config.vGripHarpoonSnare)} snare for ${formatSeconds(getStatusDuration(config.vGripHarpoonSnareDuration))}.`,
         "Recast during pull: cut the drag early to place the target exactly where you want.",
         "Role: signature catch tool for shotgun, axe and lance punish windows.",
       ];
-    case "energyShield":
+    case "hexPlateProjector":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.shieldCooldown))}.`,
         `Grants ${formatNumber(config.shieldValue + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(config.shieldDuration)}.`,
         "While the shield still exists, incoming slow, snare, shock and stun effects are denied.",
-        `If enemies break the shield, Energy Shield refunds about ${formatPercent(config.shieldBreakRefund)} of its cooldown.`,
+        `If enemies break the shield, HEX-PLATE Projector refunds about ${formatPercent(config.shieldBreakRefund)} of its cooldown.`,
         "Role: anti-burst and anti-control timing check that rewards clean reads.",
       ];
-    case "empBurst":
+    case "emPulseEmitter":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(config.boosterCooldown))}.`,
         "Radius: 120.",
@@ -648,7 +648,7 @@ function getAbilityValueLines(item) {
         "Damage: 28 first hit, then each hop deals 72% of the previous hit.",
         `Applies 18 to 26% slow for ${formatSeconds(getStatusDuration(0.55))}.`,
       ];
-    case "blinkStep":
+    case "blink":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(3.4))}.`,
         "Teleports 148 units to your aim.",
@@ -662,13 +662,13 @@ function getAbilityValueLines(item) {
         "Untargetable for 0.42s during the pass.",
         "Role: projectile break and hard timing outplay.",
       ];
-    case "pulseBurst":
+    case "swarmMissileRack":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.pulseBurstCooldown))}.`,
-        `Fires ${config.pulseBurstMissiles} pulse missiles at ${formatNumber(config.pulseBurstBaseDamage)} base damage each.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.swarmMissileRackCooldown))}.`,
+        `Fires ${config.swarmMissileRackMissiles} pulse missiles at ${formatNumber(config.swarmMissileRackBaseDamage)} base damage each.`,
         "Missiles lightly auto-guide toward the first visible enemy in front of them, but can still be dodged and are destroyed by terrain.",
-        `Each extra missile on the same target deals exponentially more damage at x${formatNumber(config.pulseBurstDamageGrowth)} growth per connect.`,
-        `If the full volley lands on one target, apply Burn for ${formatSeconds(config.pulseBurstBurnDuration)}.`,
+        `Each extra missile on the same target deals exponentially more damage at x${formatNumber(config.swarmMissileRackDamageGrowth)} growth per connect.`,
+        `If the full volley lands on one target, apply Burn for ${formatSeconds(config.swarmMissileRackBurnDuration)}.`,
         "Role: setup-dependent combo burst that cashes in on stuns, snares and clean confirms.",
       ];
     case "railShot":
@@ -678,28 +678,28 @@ function getAbilityValueLines(item) {
         `Applies ${formatPercent(0.22)} slow for ${formatSeconds(getStatusDuration(0.8))}.`,
         "Role: high-commit punish line that cashes in on clean aim.",
       ];
-    case "gravityWell":
+    case "voidCoreSingularity":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.gravityWellCooldown))}.`,
-        `Creates a live singularity with ${formatNumber(config.gravityWellRadius)} radius for ${formatSeconds(config.gravityWellDuration)}.`,
-        `Inside the zone: ${formatPercent(config.gravityWellSlow)} slow and steady pull toward the core.`,
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.voidCoreSingularityCooldown))}.`,
+        `Creates a live singularity with ${formatNumber(config.voidCoreSingularityRadius)} radius for ${formatSeconds(config.voidCoreSingularityDuration)}.`,
+        `Inside the zone: ${formatPercent(config.voidCoreSingularitySlow)} slow and steady pull toward the core.`,
         "Role: trap movement, stack follow-up skillshots and punish late exits.",
       ];
-    case "phaseShift":
+    case "ghostDriftModule":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.phaseShiftCooldown))}.`,
-        `Intangible for ${formatSeconds(config.phaseShiftDuration)} and purges active debuffs on cast.`,
-        "While phased: no damage taken, no control taken, no attacks, no spells. Dash only.",
+        `Cooldown: ${formatSeconds(getAbilityCooldown(config.ghostDriftModuleCooldown))}.`,
+        `Intangible for ${formatSeconds(config.ghostDriftModuleDuration)} and purges active debuffs on cast.`,
+        "While phased: no damage taken, no control taken, no attacks, no modules. Dash only.",
         "Role: pure defensive outplay and reset timing, not an engage tool.",
       ];
-    case "hologramDecoy":
+    case "spectreProjector":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(6.2))}.`,
         `Creates a false read for ${formatSeconds(2.8)}.`,
-        "Pairs well with sharp sidesteps and Phantom Split.",
+        "Pairs well with sharp sidesteps and Phantom Core.",
         "Role: information denial and focus break.",
       ];
-    case "speedSurge":
+    case "overdriveServos":
       return [
         `Cooldown: ${formatSeconds(getAbilityCooldown(4.2))}.`,
         `Haste window: ${formatSeconds(2.2)}.`,
@@ -716,13 +716,13 @@ function getFallbackDetailKey(type) {
     return loadout.weapon ?? getPrematchCategoryItems("weapon")[0]?.key ?? buildLabVisiblePools.weapons[0];
   }
   if (type === "ability") {
-    return loadout.abilities.find(Boolean) ?? getPrematchCategoryItems("ability")[0]?.key ?? buildLabVisiblePools.abilities[0];
+    return loadout.modules.find(Boolean) ?? getPrematchCategoryItems("ability")[0]?.key ?? buildLabVisiblePools.modules[0];
   }
   if (type === "perk") {
-    return loadout.perks[0] ?? getPrematchCategoryItems("perk")[0]?.key ?? buildLabVisiblePools.perks[0];
+    return loadout.implants[0] ?? getPrematchCategoryItems("perk")[0]?.key ?? buildLabVisiblePools.implants[0];
   }
   if (type === "ultimate") {
-    return loadout.ultimate ?? getPrematchCategoryItems("ultimate")[0]?.key ?? buildLabVisiblePools.ultimates[0];
+    return loadout.core ?? getPrematchCategoryItems("ultimate")[0]?.key ?? buildLabVisiblePools.cores[0];
   }
   return null;
 }
@@ -760,7 +760,7 @@ function getPerkValueLines(item) {
 
 function getUltimateValueLines(item) {
   switch (item.key) {
-    case "phantomSplit":
+    case "phantomCore":
       return [
         `Cooldown: ${formatSeconds(config.ultimateCooldown)}.`,
         `Creates a live clone for ${formatSeconds(config.phantomDuration)} with ${formatPercent(config.phantomHpScale)} HP and ${formatPercent(config.phantomDamageScale)} damage.`,
@@ -1590,19 +1590,21 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
       `Current: +${formatPercent(points * 0.03)} status duration.`,
       "Per point: -3% cooldowns and +3% status duration.",
     ];
-  }
-  if (treeKey === "spells" && nodeKey === "primary") {
+  if (treeKey === "systems" && nodeKey === "secondary") {
     return [
-      `Current: ability casts grant ${formatSeconds(0.35 + points * 0.12)} haste tempo.`,
-      `Current: +${formatPercent(points * 0.06)} haste while the buff is active.`,
-      "Per point: stronger weave window after casting.",
+      "+8% Module cooldown reduction per point.",
+      "+12% Status duration bonus per point.",
     ];
   }
-  if (treeKey === "spells" && nodeKey === "ultimate") {
+  if (treeKey === "systems" && nodeKey === "primary") {
     return [
-      "Main Rune Shard: Arc Script.",
-      "Empowers ability confirms and post-cast tempo instead of generic stat padding.",
-      "Gameplay change: spell-driven builds get cleaner punish windows and chaining payoff.",
+      "Technical Reset: Hitting 3 distinct technical module hits within 5s grants 12% CDR to all parts.",
+    ];
+  }
+  if (treeKey === "systems" && nodeKey === "ultimate") {
+    return [
+      "Module Overclock: Triggering an ultimate grants 24% CDR to active technical modules for 6s.",
+      "Gameplay change: module-driven builds get cleaner punish windows and chaining payoff.",
     ];
   }
 

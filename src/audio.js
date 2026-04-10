@@ -1,4 +1,4 @@
-import { sandbox, matchState, player, enemy, bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones, magneticFields } from "./state.js";
+import { sandbox, matchState, player, enemy, bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, supportZones, orbitalDistorterFields } from "./state.js";
 import { uiState } from "./state/app-state.js";
 
 const STORAGE_KEY = "prototype0-audio-settings-v1";
@@ -572,8 +572,8 @@ function computeIntensity() {
   const dy = (enemy.y ?? player.y) - player.y;
   const distance = Math.hypot(dx, dy);
   const proximity = duelActive ? clamp(1 - distance / 760, 0, 1) : 0;
-  const projectilePressure = clamp((bullets.length + enemyBullets.length + shockJavelins.length + enemyShockJavelins.length) / 18, 0, 1);
-  const zonePressure = clamp((supportZones.length + magneticFields.length) / 8, 0, 1);
+  const projectilePressure = clamp((bullets.length + enemyBullets.length + boltLinkJavelins.length + enemyBoltLinkJavelins.length) / 18, 0, 1);
+  const zonePressure = clamp((supportZones.length + orbitalDistorterFields.length) / 8, 0, 1);
   const playerMaxHp = Math.max(1, player.maxHp ?? 280);
   const enemyMaxHp = Math.max(1, enemy.maxHp ?? 380);
   const healthPressure = duelActive
@@ -770,55 +770,54 @@ export function playAbilityCue(abilityKey, owner = "player") {
   switch (abilityKey) {
     case "dash":
     case "phaseDash":
-    case "blinkStep":
-    case "backstepBurst":
+    case "blink":
+    case "jetBackThruster":
       if (playSfxBuffer(pickSfx('dash-0', 'dash-1', 'dash-2'), { pan, gain: 0.58, rate: jitter(1.0) })) break;
       playNoise({ duration: 0.08, gain: 0.04, filterType: "highpass", filterFrequency: 1700, pan });
       playTone({ type: "triangle", frequency: 220, sweepTo: 520, duration: 0.1, gain: 0.042, pan });
       break;
-    case "shockJavelin":
+    case "boltLinkJavelin":
       if (playSfxBuffer(pickSfx('laser-l-0', 'laser-l-1'), { pan, gain: 0.62, rate: jitter(1.1) })) break;
       playTone({ type: "sawtooth", frequency: 260, sweepTo: 680, duration: 0.14, gain: 0.05, filterType: "bandpass", filterFrequency: 1240, pan });
       break;
-    case "energyParry":
+    case "reflexAegis":
       if (playSfxBuffer(pickSfx('shield-0', 'shield-1'), { pan, gain: 0.52, rate: jitter(0.95) })) break;
       playNoise({ duration: 0.08, gain: 0.036, filterType: "highpass", filterFrequency: 1800, pan });
       playTone({ type: "triangle", frequency: 320, sweepTo: 510, duration: 0.12, gain: 0.046, filterType: "bandpass", filterFrequency: 1500, pan });
       break;
-    case "energyParrySuccess":
+    case "reflexAegisSuccess":
       if (playSfxBuffer(pickSfx('shield-2', 'shield-3'), { pan, gain: 0.72, rate: jitter(1.05) })) break;
       playNoise({ duration: 0.06, gain: 0.044, filterType: "bandpass", filterFrequency: 2100, q: 1.3, pan });
       playTone({ type: "square", frequency: 620, sweepTo: 290, duration: 0.12, gain: 0.058, filterType: "bandpass", filterFrequency: 1850, pan });
-      playTone({ type: "sine", frequency: 220, sweepTo: 520, duration: 0.09, gain: 0.034, pan });
       break;
-    case "energyParryFail":
+    case "reflexAegisFail":
       if (playSfxBuffer(pickSfx('impact-3', 'impact-4'), { pan, gain: 0.4, rate: jitter(0.7) })) break;
       playNoise({ duration: 0.08, gain: 0.024, filterType: "lowpass", filterFrequency: 760, pan });
       playTone({ type: "sine", frequency: 260, sweepTo: 180, duration: 0.1, gain: 0.026, filterType: "lowpass", filterFrequency: 980, pan });
       break;
-    case "magneticField":
-    case "gravityWell":
+    case "orbitalDistorter":
+    case "voidCoreSingularity":
       if (playSfxBuffer(pickSfx('shield-0', 'shield-1'), { pan, gain: 0.5, rate: jitter(0.6) })) break;
       playTone({ type: "sine", frequency: 130, sweepTo: 86, duration: 0.28, gain: 0.06, filterType: "lowpass", filterFrequency: 620, pan });
       playNoise({ duration: 0.14, gain: 0.035, filterType: "bandpass", filterFrequency: 980, pan });
       break;
-    case "magneticGrapple":
+    case "vGripHarpoon":
     case "chainLightning":
       if (playSfxBuffer(pickSfx('laser-l-1', 'laser-l-2'), { pan, gain: 0.64, rate: jitter(1.15) })) break;
       playTone({ type: "square", frequency: 240, sweepTo: 480, duration: 0.14, gain: 0.052, filterType: "bandpass", filterFrequency: 1800, pan });
       break;
-    case "energyShield":
+    case "hexPlateProjector":
     case "phaseShift":
       if (playSfxBuffer(pickSfx('shield-1', 'shield-2'), { pan, gain: 0.52, rate: jitter(0.8) })) break;
       playTone({ type: "sine", frequency: 340, sweepTo: 260, duration: 0.24, gain: 0.05, filterType: "lowpass", filterFrequency: 1400, pan });
       break;
-    case "empBurst":
+    case "emPulseEmitter":
     case "empCataclysm":
       if (playSfxBuffer(pickSfx('explosion-heavy-0', 'explosion-heavy-1'), { pan, gain: 0.7, rate: jitter(0.9) })) break;
       playNoise({ duration: 0.18, gain: 0.058, filterType: "bandpass", filterFrequency: 740, q: 0.5, pan });
       playTone({ type: "square", frequency: 170, sweepTo: 80, duration: 0.18, gain: 0.06, pan });
       break;
-    case "pulseBurst":
+    case "swarmMissileRack":
       if (playSfxBuffer(pickSfx('laser-s-0', 'laser-s-1'), { pan, gain: 0.62, rate: jitter(1.3) })) break;
       playTone({ type: "sawtooth", frequency: 400, sweepTo: 260, duration: 0.1, gain: 0.046, pan });
       break;
@@ -826,7 +825,7 @@ export function playAbilityCue(abilityKey, owner = "player") {
       if (playSfxBuffer(pickSfx('laser-l-0', 'laser-l-2'), { pan, gain: 0.82, rate: jitter(1.0) })) break;
       playTone({ type: "square", frequency: 640, sweepTo: 220, duration: 0.2, gain: 0.07, filterType: "bandpass", filterFrequency: 1600, q: 1.1, pan });
       break;
-    case "speedSurge":
+    case "overdriveServos":
     case "berserkCore":
       if (playSfxBuffer(pickSfx('dash-0', 'dash-1'), { pan, gain: 0.5, rate: jitter(0.75) })) break;
       playTone({ type: "triangle", frequency: 160, sweepTo: 290, duration: 0.2, gain: 0.05, pan });

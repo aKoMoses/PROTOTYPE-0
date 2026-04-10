@@ -65,9 +65,9 @@ export const player = {
   shieldBreakRefundReady: false,
   hasteTime: 0,
   afterDashHasteTime: 0,
-  energyParrySpeedTime: 0,
-  energyParryHitBonusTime: 0,
-  energyParryHitBonusDamage: 0,
+  reflexAegisSpeedTime: 0,
+  reflexAegisHitBonusTime: 0,
+  reflexAegisHitBonusDamage: 0,
   ghostTime: 0,
   failsafeReady: true,
   defenseFailsafeReady: true,
@@ -115,7 +115,7 @@ export const playerClone = {
   weaponSkin: "stock",
   loadout: {
     weapon: weapons.pulse.key,
-    abilities: ["shockJavelin", "magneticField", "energyShield"],
+    abilities: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
   },
   damageScale: config.phantomDamageScale,
   shieldScale: config.phantomShieldScale,
@@ -150,7 +150,7 @@ export const abilityState = {
     mode: "tap",
     upgraded: false,
   },
-  javelin: {
+  boltLinkJavelin: {
     cooldown: 0,
     activeTime: 0,
     recastReady: false,
@@ -161,14 +161,14 @@ export const abilityState = {
     lastDirectionY: 0,
     pendingCooldown: false,
   },
-  field: {
+  orbitalDistorter: {
     cooldown: 0,
     charging: false,
     chargeTime: 0,
     mode: "tap",
     moveBoostTime: 0,
   },
-  grapple: {
+  vGripHarpoon: {
     cooldown: 0,
     phase: "idle",
     projectile: null,
@@ -176,16 +176,16 @@ export const abilityState = {
     pullStopRequested: false,
     tetherPulse: 0,
   },
-  shield: {
+  hexPlateProjector: {
     cooldown: 0,
   },
-  booster: {
+  overdriveServos: {
     cooldown: 0,
   },
-  emp: {
+  emPulseEmitter: {
     cooldown: 0,
   },
-  backstep: {
+  jetBackThruster: {
     cooldown: 0,
   },
   chainLightning: {
@@ -198,16 +198,16 @@ export const abilityState = {
     cooldown: 0,
     time: 0,
   },
-  pulseBurst: {
+  swarmMissileRack: {
     cooldown: 0,
   },
   railShot: {
     cooldown: 0,
   },
-  gravityWell: {
+  voidCoreSingularity: {
     cooldown: 0,
   },
-  energyParry: {
+  reflexAegis: {
     cooldown: 0,
     startupTime: 0,
     activeTime: 0,
@@ -215,17 +215,14 @@ export const abilityState = {
     resolveLockTime: 0,
     successFlash: 0,
   },
-  phaseShift: {
+  ghostDriftModule: {
     cooldown: 0,
     time: 0,
   },
-  hologramDecoy: {
+  spectreProjector: {
     cooldown: 0,
   },
-  speedSurge: {
-    cooldown: 0,
-  },
-  ultimate: {
+  core: {
     cooldown: 0,
     active: false,
     phantomTime: 0,
@@ -288,23 +285,22 @@ export function createBot({
     reloadTime: 0,
     loadout: {
       weapon: weapons.pulse.key,
-      abilities: ["shockJavelin", "magneticField", "energyShield"],
+      modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
     },
     abilityCooldowns: {
-      grapple: 0,
-      shield: 0,
-      booster: 0,
-      emp: 0,
-      backstep: 0,
+      vGripHarpoon: 0,
+      hexPlateProjector: 0,
+      overdriveServos: 0,
+      emPulseEmitter: 0,
+      jetBackThruster: 0,
       chainLightning: 0,
       blink: 0,
       phaseDash: 0,
-      pulseBurst: 0,
+      swarmMissileRack: 0,
       railShot: 0,
-      gravityWell: 0,
-      phaseShift: 0,
-      hologramDecoy: 0,
-      speedSurge: 0,
+      voidCoreSingularity: 0,
+      ghostDriftModule: 0,
+      spectreProjector: 0,
     },
     comboStep: 0,
     comboTimer: 0,
@@ -346,8 +342,8 @@ export const enemy = createBot({
   team: "enemy",
 });
 enemy.dashCooldown = 0;
-enemy.javelinCooldown = 1.2;
-enemy.fieldCooldown = 2.4;
+enemy.boltLinkJavelinCooldown = 1.2;
+enemy.orbitalDistorterCooldown = 2.4;
 enemy.postAttackMoveTime = 0;
 enemy.lastSeenMissTime = 0;
 
@@ -384,8 +380,8 @@ export function createTeamDuelEntities(layout) {
     team: "player",
   });
   allyBot.dashCooldown = 0;
-  allyBot.javelinCooldown = 1.4;
-  allyBot.fieldCooldown = 2.6;
+  allyBot.boltLinkJavelinCooldown = 1.4;
+  allyBot.orbitalDistorterCooldown = 2.6;
   allyBot.postAttackMoveTime = 0;
   allyBot.lastSeenMissTime = 0;
 
@@ -402,8 +398,8 @@ export function createTeamDuelEntities(layout) {
     team: "enemy",
   });
   e1.dashCooldown = 0;
-  e1.javelinCooldown = 1.2;
-  e1.fieldCooldown = 2.4;
+  e1.boltLinkJavelinCooldown = 1.2;
+  e1.orbitalDistorterCooldown = 2.4;
   e1.postAttackMoveTime = 0;
   e1.lastSeenMissTime = 0;
 
@@ -420,8 +416,8 @@ export function createTeamDuelEntities(layout) {
     team: "enemy",
   });
   e2.dashCooldown = 0;
-  e2.javelinCooldown = 1.6;
-  e2.fieldCooldown = 2.8;
+  e2.boltLinkJavelinCooldown = 1.6;
+  e2.orbitalDistorterCooldown = 2.8;
   e2.postAttackMoveTime = 0;
   e2.lastSeenMissTime = 0;
 
@@ -474,10 +470,10 @@ export const tracers = [];
 export const combatTexts = [];
 export const afterimages = [];
 export const slashEffects = [];
-export const shockJavelins = [];
-export const enemyShockJavelins = [];
+export const boltLinkJavelins = [];
+export const enemyBoltLinkJavelins = [];
 export const explosions = [];
-export const magneticFields = [];
+export const orbitalDistorterFields = [];
 export const absorbBursts = [];
 export const abilityProjectiles = [];
 export const deployableTraps = [];

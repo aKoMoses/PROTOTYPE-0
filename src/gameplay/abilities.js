@@ -1,27 +1,27 @@
 // All player ability functions (dash, javelin, field, etc.)
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState, sandbox, matchState, shockJavelins, enemyShockJavelins, magneticFields, supportZones, input } from "../state.js";
+import { player, enemy, abilityState, sandbox, matchState, boltLinkJavelins, enemyBoltLinkJavelins, orbitalDistorterFields, supportZones, input } from "../state.js";
 import { loadout } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getAbilityBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getAbilityCooldown, hasRuneShard } from "../build/loadout.js";
-import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus, beginPulseBurstCast } from "./combat.js";
+import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus, beginSwarmMissileRackCast } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playAbilityCue } from "../audio.js";
 import { queuePhantomAbility, spawnPhantomClone } from "./phantom.js";
 import { startCast, startVisualCast } from "./casting.js";
 
-export function getJavelinProfile() {
+export function getBoltLinkJavelinProfile() {
   return {
-    speed: abilityConfig.javelin.speed,
-    damage: abilityConfig.javelin.damage,
-    radius: abilityConfig.javelin.radius,
-    range: abilityConfig.javelin.range,
-    slow: abilityConfig.javelin.slow,
-    slowDuration: abilityConfig.javelin.slowDuration,
+    speed: config.boltLinkJavelinSpeed,
+    damage: config.boltLinkJavelinDamage,
+    radius: config.boltLinkJavelinRadius,
+    range: config.boltLinkJavelinRange,
+    slow: config.boltLinkJavelinSlow,
+    slowDuration: config.boltLinkJavelinSlowDuration,
     color: abilityConfig.javelin.color,
     glow: abilityConfig.javelin.glow,
     trail: abilityConfig.javelin.trail,
@@ -29,18 +29,35 @@ export function getJavelinProfile() {
   };
 }
 
-export function getFieldProfile(mode = abilityState.field.mode) {
-  const profile = mode === "hold" ? abilityConfig.field.hold : abilityConfig.field.tap;
+export function getOrbitalDistorterProfile(mode = abilityState.orbitalDistorter.mode) {
+  const isHold = mode === "hold";
+  const tapProfile = {
+    duration: config.orbitalDistorterTapDuration,
+    radius: config.orbitalDistorterTapRadius,
+    slow: config.orbitalDistorterTapSlow,
+    damageReduction: config.orbitalDistorterTapDamageReduction,
+    projectileSlowEdge: config.orbitalDistorterTapProjectileSlowEdge,
+    projectileSlowCore: config.orbitalDistorterTapProjectileSlowCore,
+    anchor: "player",
+    color: "#89c8ff",
+  };
+  const holdProfile = {
+    duration: config.orbitalDistorterHoldDuration,
+    radius: config.orbitalDistorterHoldRadius,
+    slow: config.orbitalDistorterHoldSlow,
+    damageReduction: 0,
+    projectileSlowEdge: config.orbitalDistorterHoldProjectileSlowEdge,
+    projectileSlowCore: config.orbitalDistorterHoldProjectileSlowCore,
+    anchor: "world",
+    color: "#95b5ff",
+  };
+  const profile = isHold ? holdProfile : tapProfile;
 
   return {
     ...profile,
-    radius: profile.radius,
-    slow: profile.slow,
     disruption: 0,
     moveBoost: 1,
     moveBoostDuration: 0,
-    projectileSlowEdge: profile.projectileSlowEdge,
-    projectileSlowCore: profile.projectileSlowCore,
   };
 }
 
@@ -51,9 +68,9 @@ function triggerAbilityCastRuneEffects() {
     player.hp = clamp(player.hp + defenseCore * 2, 0, buildStats.maxHp);
   }
 
-  const spellsCore = getRuneValue("spells", "primary");
-  if (spellsCore > 0) {
-    player.hasteTime = Math.max(player.hasteTime, 0.35 + spellsCore * 0.12);
+  const systemsCore = getRuneValue("systems", "primary");
+  if (systemsCore > 0) {
+    player.hasteTime = Math.max(player.hasteTime, 0.35 + systemsCore * 0.12);
   }
 }
 
@@ -61,32 +78,32 @@ function getTrackedBot(kind) {
   return getAllBots().find((bot) => bot.alive && bot.kind === kind) ?? null;
 }
 
-function resetGrappleState() {
-  abilityState.grapple.phase = "idle";
-  abilityState.grapple.projectile = null;
-  abilityState.grapple.targetKind = null;
-  abilityState.grapple.pullStopRequested = false;
-  abilityState.grapple.tetherPulse = 0;
+function resetVGripState() {
+  abilityState.vGripHarpoon.phase = "idle";
+  abilityState.vGripHarpoon.projectile = null;
+  abilityState.vGripHarpoon.targetKind = null;
+  abilityState.vGripHarpoon.pullStopRequested = false;
+  abilityState.vGripHarpoon.tetherPulse = 0;
 }
 
-function finalizeJavelinCycle(startCooldown = true) {
-  abilityState.javelin.recastReady = false;
-  abilityState.javelin.targetKind = null;
-  abilityState.javelin.activeTime = 0;
-  abilityState.javelin.pendingCooldown = false;
+function finalizeBoltLinkCycle(startCooldown = true) {
+  abilityState.boltLinkJavelin.recastReady = false;
+  abilityState.boltLinkJavelin.targetKind = null;
+  abilityState.boltLinkJavelin.activeTime = 0;
+  abilityState.boltLinkJavelin.pendingCooldown = false;
   if (startCooldown) {
-    abilityState.javelin.cooldown = Math.max(
-      abilityState.javelin.cooldown,
-      getAbilityCooldown(abilityConfig.javelin.cooldown),
+    abilityState.boltLinkJavelin.cooldown = Math.max(
+      abilityState.boltLinkJavelin.cooldown,
+      getAbilityCooldown(config.boltLinkJavelinCooldown),
     );
   }
 }
 
-function isEnergyParryLocked() {
+function isReflexAegisLocked() {
   return (
-    abilityState.energyParry.startupTime > 0 ||
-    abilityState.energyParry.activeTime > 0 ||
-    abilityState.energyParry.recoveryTime > 0
+    abilityState.reflexAegis.startupTime > 0 ||
+    abilityState.reflexAegis.activeTime > 0 ||
+    abilityState.reflexAegis.recoveryTime > 0
   );
 }
 
@@ -103,7 +120,7 @@ export function startDashInput() {
     return;
   }
 
-  if (isEnergyParryLocked() || abilityState.dash.inputHeld || abilityState.dash.charges <= 0 || abilityState.dash.activeTime > 0) {
+  if (isReflexAegisLocked() || abilityState.dash.inputHeld || abilityState.dash.charges <= 0 || abilityState.dash.activeTime > 0) {
     return;
   }
 
@@ -114,7 +131,7 @@ export function startDashInput() {
 }
 
 export function executeDash(dashMode) {
-  if (isEnergyParryLocked() || (dashMode === "tap" && abilityState.dash.charges <= 0)) {
+  if (isReflexAegisLocked() || (dashMode === "tap" && abilityState.dash.charges <= 0)) {
     return;
   }
 
@@ -144,7 +161,7 @@ export function executeDash(dashMode) {
   }
 
   player.flash = 0.12;
-  if (hasPerk("adrenalSurge")) {
+  if (hasPerk("adrenalInjector")) {
     player.afterDashHasteTime = 1.2;
   }
   if (hasPerk("ghostCircuit")) {
@@ -231,28 +248,28 @@ export function updateDashAbility(dt) {
   }
 }
 
-export function startJavelinCharge() {
+export function startBoltLinkJavelinCharge() {
   if (!isCombatLive()) {
     return;
   }
 
-  if (abilityState.javelin.recastReady) {
-    recastShockJavelin();
+  if (abilityState.boltLinkJavelin.recastReady) {
+    recastBoltLinkJavelin();
     return;
   }
 
-  if (abilityState.javelin.cooldown > 0 || abilityState.javelin.pendingCooldown || abilityState.javelin.activeTime > 0) {
+  if (abilityState.boltLinkJavelin.cooldown > 0 || abilityState.boltLinkJavelin.pendingCooldown || abilityState.boltLinkJavelin.activeTime > 0) {
     return;
   }
 
-  startCast(player, "javelin", executeJavelinCast, null);
+  startCast(player, "boltLinkJavelin", executeBoltLinkJavelinCast, null);
 }
 
-export function executeJavelinCast() {
-  const profile = getJavelinProfile();
+export function executeBoltLinkJavelinCast() {
+  const profile = getBoltLinkJavelinProfile();
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
 
-  shockJavelins.push({
+  boltLinkJavelins.push({
     x: player.x + direction.x * (player.radius + 12),
     y: player.y + direction.y * (player.radius + 12),
     vx: direction.x * profile.speed,
@@ -271,101 +288,101 @@ export function executeJavelinCast() {
     hitTargets: new Set(),
   });
 
-  abilityState.javelin.aimX = input.mouseX;
-  abilityState.javelin.aimY = input.mouseY;
-  abilityState.javelin.lastDirectionX = direction.x;
-  abilityState.javelin.lastDirectionY = direction.y;
-  abilityState.javelin.pendingCooldown = true;
+  abilityState.boltLinkJavelin.aimX = input.mouseX;
+  abilityState.boltLinkJavelin.aimY = input.mouseY;
+  abilityState.boltLinkJavelin.lastDirectionX = direction.x;
+  abilityState.boltLinkJavelin.lastDirectionY = direction.y;
+  abilityState.boltLinkJavelin.pendingCooldown = true;
   triggerAbilityCastRuneEffects();
   player.recoil = Math.max(player.recoil, 0.22);
-  queuePhantomAbility("shockJavelin", {
+  queuePhantomAbility("boltLinkJavelin", {
     facing: player.facing,
     aimX: input.mouseX,
     aimY: input.mouseY,
   });
-  playAbilityCue("shockJavelin");
+  playAbilityCue("boltLinkJavelin");
   addImpact(player.x + direction.x * 22, player.y + direction.y * 22, profile.color, 24);
   addImpact(player.x + direction.x * 30, player.y + direction.y * 30, "#e6fbff", 16);
   addShake(6.8);
-  statusLine.textContent = "Shock Javelin armed a marked engage window.";
+  statusLine.textContent = "BOLT-LINK Javelin primed and ready for engagement.";
 }
 
-export function releaseShockJavelin() {
+export function releaseBoltLinkJavelin() {
   return;
 }
 
-export function confirmShockJavelinImpact(target) {
+export function confirmBoltLinkJavelinImpact(target) {
   if (!target?.alive) {
-    finalizeJavelinCycle(true);
+    finalizeBoltLinkJavelinCycle(true);
     return;
   }
 
   const direction = normalize(target.x - player.x, target.y - player.y);
-  abilityState.javelin.recastReady = true;
-  abilityState.javelin.targetKind = target.kind;
-  abilityState.javelin.activeTime = getStatusDuration(config.javelinSlowDuration);
-  abilityState.javelin.pendingCooldown = true;
-  abilityState.javelin.lastDirectionX = direction.x;
-  abilityState.javelin.lastDirectionY = direction.y;
-  applyStatusEffect(target, "slow", getStatusDuration(config.javelinSlowDuration), config.javelinSlow);
-  applyStatusEffect(target, "shock", getStatusDuration(config.javelinSlowDuration), 1);
+  abilityState.boltLinkJavelin.recastReady = true;
+  abilityState.boltLinkJavelin.targetKind = target.kind;
+  abilityState.boltLinkJavelin.activeTime = getStatusDuration(config.boltLinkJavelinSlowDuration);
+  abilityState.boltLinkJavelin.pendingCooldown = true;
+  abilityState.boltLinkJavelin.lastDirectionX = direction.x;
+  abilityState.boltLinkJavelin.lastDirectionY = direction.y;
+  applyStatusEffect(target, "slow", getStatusDuration(config.boltLinkJavelinSlowDuration), config.boltLinkJavelinSlow);
+  applyStatusEffect(target, "shock", getStatusDuration(config.boltLinkJavelinSlowDuration), 1);
   addImpact(target.x, target.y, "#fff5bd", 22);
   addShake(7.2);
-  statusLine.textContent = "Shock Javelin connected. Recast to blink behind the electrified target.";
+  statusLine.textContent = "BOLT-LINK Javelin anchored. Recast to snap to target position.";
 }
 
-export function expireShockJavelin(startCooldown = true) {
-  finalizeJavelinCycle(startCooldown);
+export function expireBoltLinkJavelin(startCooldown = true) {
+  finalizeBoltLinkJavelinCycle(startCooldown);
 }
 
-export function recastShockJavelin() {
-  if (!abilityState.javelin.recastReady || abilityState.javelin.activeTime <= 0) {
+export function recastBoltLinkJavelin() {
+  if (!abilityState.boltLinkJavelin.recastReady || abilityState.boltLinkJavelin.activeTime <= 0) {
     return false;
   }
 
-  const target = getTrackedBot(abilityState.javelin.targetKind);
+  const target = getTrackedBot(abilityState.boltLinkJavelin.targetKind);
   if (!target) {
-    finalizeJavelinCycle(true);
+    finalizeBoltLinkJavelinCycle(true);
     return false;
   }
 
   const direction =
-    abilityState.javelin.lastDirectionX !== 0 || abilityState.javelin.lastDirectionY !== 0
-      ? normalize(abilityState.javelin.lastDirectionX, abilityState.javelin.lastDirectionY)
+    abilityState.boltLinkJavelin.lastDirectionX !== 0 || abilityState.boltLinkJavelin.lastDirectionY !== 0
+      ? normalize(abilityState.boltLinkJavelin.lastDirectionX, abilityState.boltLinkJavelin.lastDirectionY)
       : normalize(target.x - player.x, target.y - player.y);
   const previousX = player.x;
   const previousY = player.y;
 
-  player.x = target.x - direction.x * (target.radius + player.radius + config.javelinRecastDistance);
-  player.y = target.y - direction.y * (target.radius + player.radius + config.javelinRecastDistance);
+  player.x = target.x - direction.x * (target.radius + player.radius + config.boltLinkJavelinRecastDistance);
+  player.y = target.y - direction.y * (target.radius + player.radius + config.boltLinkJavelinRecastDistance);
   resolveMapCollision(player);
   maybeTeleportEntity(player);
   player.flash = Math.max(player.flash, 0.12);
   player.ghostTime = Math.max(player.ghostTime, 0.16);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.55);
-  abilityState.javelin.recastReady = false;
+  abilityState.boltLinkJavelin.recastReady = false;
   addAfterimage(previousX, previousY, player.facing, player.radius + 4, "#9ce9ff");
   addAfterimage(player.x, player.y, player.facing, player.radius + 5, "#fff0a4");
   addBeamEffect(previousX, previousY, target.x, target.y, "#8fe8ff", 4, 0.14);
   addImpact(player.x, player.y, "#fff0a4", 24);
   addShake(5.8);
-  playAbilityCue("blinkStep");
-  statusLine.textContent = "Shock Javelin recast snapped you behind the target.";
+  playAbilityCue("blink");
+  statusLine.textContent = "BOLT-LINK Javelin recall successful.";
   return true;
 }
 
 export function spawnEnemyJavelin(charged = false, targetEntity = player) {
-  startCast(enemy, "javelin", executeEnemyJavelinCast, { charged, targetEntity });
+  startCast(enemy, "boltLinkJavelin", executeEnemyJavelinCast, { charged, targetEntity });
 }
 
 export function executeEnemyJavelinCast(params) {
   const { charged, targetEntity } = params;
   const direction = normalize((targetEntity?.x ?? player.x) - enemy.x, (targetEntity?.y ?? player.y) - enemy.y);
-  const speed = charged ? config.javelinSpeed * 0.94 : config.javelinSpeed;
-  const radius = charged ? config.javelinRadius + 1 : config.javelinRadius;
-  const damage = charged ? config.javelinDamage * 1.15 : config.javelinDamage * 0.92;
+  const speed = charged ? config.boltLinkJavelinSpeed * 0.94 : config.boltLinkJavelinSpeed;
+  const radius = charged ? config.boltLinkJavelinRadius + 1 : config.boltLinkJavelinRadius;
+  const damage = charged ? config.boltLinkJavelinDamage * 1.15 : config.boltLinkJavelinDamage * 0.92;
 
-  enemyShockJavelins.push({
+  enemyBoltLinkJavelins.push({
     x: enemy.x + direction.x * (enemy.radius + 12),
     y: enemy.y + direction.y * (enemy.radius + 12),
     vx: direction.x * speed,
@@ -373,65 +390,65 @@ export function executeEnemyJavelinCast(params) {
     radius,
     damage,
     charged,
-    life: config.javelinRange / Math.max(1, speed) + 0.08,
+    life: config.boltLinkJavelinRange / Math.max(1, speed) + 0.08,
     color: charged ? "#ffd07e" : "#ffb575",
     glow: charged ? "#fff0bc" : "#ffe0b5",
     trail: charged ? "#ffe1a8" : "#ffc28c",
     stun: 0,
-    slow: charged ? config.javelinSlow * 1.05 : config.javelinSlow * 0.92,
-    slowDuration: config.javelinSlowDuration,
+    slow: charged ? config.boltLinkJavelinSlow * 1.05 : config.boltLinkJavelinSlow * 0.92,
+    slowDuration: config.boltLinkJavelinSlowDuration,
   });
 
   enemy.javelinCooldown = charged ? 4.8 : 4;
   addImpact(enemy.x + direction.x * 24, enemy.y + direction.y * 24, charged ? "#ffe4ad" : "#ffb27e", charged ? 18 : 12);
 }
 
-export function updateJavelinAbility(dt) {
-  abilityState.javelin.cooldown = Math.max(0, abilityState.javelin.cooldown - dt);
-  if (abilityState.javelin.activeTime > 0) {
-    abilityState.javelin.activeTime = Math.max(0, abilityState.javelin.activeTime - dt);
-    const trackedTarget = abilityState.javelin.targetKind ? getTrackedBot(abilityState.javelin.targetKind) : null;
+export function updateBoltLinkJavelinAbility(dt) {
+  abilityState.boltLinkJavelin.cooldown = Math.max(0, abilityState.boltLinkJavelin.cooldown - dt);
+  if (abilityState.boltLinkJavelin.activeTime > 0) {
+    abilityState.boltLinkJavelin.activeTime = Math.max(0, abilityState.boltLinkJavelin.activeTime - dt);
+    const trackedTarget = abilityState.boltLinkJavelin.targetKind ? getTrackedBot(abilityState.boltLinkJavelin.targetKind) : null;
     if (trackedTarget) {
-      abilityState.javelin.lastDirectionX = trackedTarget.x - player.x;
-      abilityState.javelin.lastDirectionY = trackedTarget.y - player.y;
+      abilityState.boltLinkJavelin.lastDirectionX = trackedTarget.x - player.x;
+      abilityState.boltLinkJavelin.lastDirectionY = trackedTarget.y - player.y;
     }
-    if (abilityState.javelin.pendingCooldown && abilityState.javelin.activeTime <= 0) {
-      finalizeJavelinCycle(true);
+    if (abilityState.boltLinkJavelin.pendingCooldown && abilityState.boltLinkJavelin.activeTime <= 0) {
+      finalizeBoltLinkJavelinCycle(true);
     }
   }
 }
 
-export function startFieldCharge() {
+export function startOrbitalDistorterCharge() {
   if (!isCombatLive()) {
     return;
   }
 
-  if (abilityState.field.cooldown > 0 || abilityState.field.charging) {
+  if (abilityState.orbitalDistorter.cooldown > 0 || abilityState.orbitalDistorter.charging) {
     return;
   }
 
-  abilityState.field.charging = true;
-  abilityState.field.chargeTime = 0;
-  abilityState.field.mode = "tap";
-  statusLine.textContent = "Charging Magnetic Field.";
+  abilityState.orbitalDistorter.charging = true;
+  abilityState.orbitalDistorter.chargeTime = 0;
+  abilityState.orbitalDistorter.mode = "tap";
+  statusLine.textContent = "Booting ORBITAL Distorter array...";
 }
 
-export function releaseMagneticField() {
-  if (!abilityState.field.charging) {
+export function releaseOrbitalDistorter() {
+  if (!abilityState.orbitalDistorter.charging) {
     return;
   }
 
-  const isHold = abilityState.field.chargeTime >= abilityConfig.field.chargeThreshold;
-  abilityState.field.mode = isHold ? "hold" : "tap";
-  const fieldProfile = { ...getFieldProfile(abilityState.field.mode) };
-  if (isHold && hasRuneShard("spells")) {
+  const isHold = abilityState.orbitalDistorter.chargeTime >= config.orbitalDistorterChargeThreshold;
+  abilityState.orbitalDistorter.mode = isHold ? "hold" : "tap";
+  const fieldProfile = { ...getOrbitalDistorterProfile(abilityState.orbitalDistorter.mode) };
+  if (isHold && hasRuneShard("systems")) {
     fieldProfile.duration += 0.6;
     fieldProfile.slow += 0.08;
   }
   const centerX = fieldProfile.anchor === "player" ? player.x : input.mouseX;
   const centerY = fieldProfile.anchor === "player" ? player.y : input.mouseY;
 
-  magneticFields.push({
+  orbitalDistorterFields.push({
     x: centerX,
     y: centerY,
     radius: fieldProfile.radius,
@@ -450,39 +467,39 @@ export function releaseMagneticField() {
   });
 
   if (fieldProfile.moveBoost > 1) {
-    abilityState.field.moveBoostTime = fieldProfile.moveBoostDuration;
+    abilityState.orbitalDistorter.moveBoostTime = fieldProfile.moveBoostDuration;
   }
 
-  abilityState.field.charging = false;
-  abilityState.field.chargeTime = 0;
-  abilityState.field.cooldown = getAbilityCooldown(abilityConfig.field.cooldown);
+  abilityState.orbitalDistorter.charging = false;
+  abilityState.orbitalDistorter.chargeTime = 0;
+  abilityState.orbitalDistorter.cooldown = getAbilityCooldown(config.orbitalDistorterCooldown);
   triggerAbilityCastRuneEffects();
-  queuePhantomAbility("magneticField", {
-    mode: abilityState.field.mode,
+  queuePhantomAbility("orbitalDistorter", {
+    mode: abilityState.orbitalDistorter.mode,
     facing: player.facing,
     aimX: centerX,
     aimY: centerY,
   });
-  playAbilityCue("magneticField");
+  playAbilityCue("orbitalDistorter");
   addImpact(centerX, centerY, fieldProfile.color, isHold ? 28 : 22);
   addShake(isHold ? 6.5 : 4.2);
   statusLine.textContent = isHold
-    ? "Magnetic Field deployed for zone control."
-    : "Magnetic Field deployed around you.";
+    ? "ORBITAL Distorter zone initialized for tactical control."
+    : "ORBITAL Distorter active. Localized projectile disruption engaged.";
 }
 
-export function updateFieldAbility(dt) {
-  abilityState.field.cooldown = Math.max(0, abilityState.field.cooldown - dt);
-  abilityState.field.moveBoostTime = Math.max(0, abilityState.field.moveBoostTime - dt);
+export function updateOrbitalDistorterAbility(dt) {
+  abilityState.orbitalDistorter.cooldown = Math.max(0, abilityState.orbitalDistorter.cooldown - dt);
+  abilityState.orbitalDistorter.moveBoostTime = Math.max(0, abilityState.orbitalDistorter.moveBoostTime - dt);
 
-  if (abilityState.field.charging) {
-    abilityState.field.chargeTime = Math.min(1, abilityState.field.chargeTime + dt);
-    abilityState.field.mode =
-      abilityState.field.chargeTime >= abilityConfig.field.chargeThreshold ? "hold" : "tap";
+  if (abilityState.orbitalDistorter.charging) {
+    abilityState.orbitalDistorter.chargeTime = Math.min(1, abilityState.orbitalDistorter.chargeTime + dt);
+    abilityState.orbitalDistorter.mode =
+      abilityState.orbitalDistorter.chargeTime >= config.orbitalDistorterChargeThreshold ? "hold" : "tap";
   }
 
-  for (let index = magneticFields.length - 1; index >= 0; index -= 1) {
-    const field = magneticFields[index];
+  for (let index = orbitalDistorterFields.length - 1; index >= 0; index -= 1) {
+    const field = orbitalDistorterFields[index];
     field.life -= dt;
 
     if (field.anchor === "player") {
@@ -491,80 +508,80 @@ export function updateFieldAbility(dt) {
     }
 
     if (field.life <= 0) {
-      magneticFields.splice(index, 1);
+      orbitalDistorterFields.splice(index, 1);
     }
   }
 }
 
-export function castMagneticGrapple() {
+export function castVGripHarpoon() {
   if (!isCombatLive()) {
     return;
   }
 
-  if (abilityState.grapple.phase === "pull") {
-    abilityState.grapple.pullStopRequested = true;
-    statusLine.textContent = "Magnetic Grapple recast cut the pull early.";
+  if (abilityState.vGripHarpoon.phase === "pull") {
+    abilityState.vGripHarpoon.pullStopRequested = true;
+    statusLine.textContent = "V-GRIP cable released early.";
     return;
   }
 
-  if (abilityState.grapple.cooldown > 0 || abilityState.grapple.phase !== "idle") {
+  if (abilityState.vGripHarpoon.cooldown > 0 || abilityState.vGripHarpoon.phase !== "idle") {
     return;
   }
 
-  startCast(player, "magneticGrapple", executeMagneticGrappleCast);
+  startCast(player, "vGripHarpoon", executeVGripHarpoonCast);
 }
 
-export function executeMagneticGrappleCast() {
+export function executeVGripHarpoonCast() {
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
-  const life = config.grappleRange / Math.max(1, config.grappleProjectileSpeed) + 0.12;
-  abilityState.grapple.cooldown = getAbilityCooldown(config.grappleCooldown);
-  abilityState.grapple.phase = "flying";
-  abilityState.grapple.projectile = {
+  const life = config.vGripHarpoonRange / Math.max(1, config.vGripHarpoonProjectileSpeed) + 0.12;
+  abilityState.vGripHarpoon.cooldown = getAbilityCooldown(config.vGripHarpoonCooldown);
+  abilityState.vGripHarpoon.phase = "flying";
+  abilityState.vGripHarpoon.projectile = {
     x: player.x + direction.x * (player.radius + 14),
     y: player.y + direction.y * (player.radius + 14),
-    vx: direction.x * config.grappleProjectileSpeed,
-    vy: direction.y * config.grappleProjectileSpeed,
-    radius: config.grappleProjectileRadius,
+    vx: direction.x * config.vGripHarpoonProjectileSpeed,
+    vy: direction.y * config.vGripHarpoonProjectileSpeed,
+    radius: config.vGripHarpoonProjectileRadius,
     life,
     color: "#9feeff",
     trail: "#dffbff",
   };
-  abilityState.grapple.pullStopRequested = false;
-  abilityState.grapple.targetKind = null;
+  abilityState.vGripHarpoon.pullStopRequested = false;
+  abilityState.vGripHarpoon.targetKind = null;
   triggerAbilityCastRuneEffects();
   player.flash = 0.08;
-  queuePhantomAbility("magneticGrapple", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
-  playAbilityCue("magneticGrapple");
+  queuePhantomAbility("vGripHarpoon", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
+  playAbilityCue("vGripHarpoon");
   addImpact(player.x, player.y, "#9feeff", 32);
   addShake(5.4);
-  statusLine.textContent = "Magnetic Grapple launched. Confirm the hook before you commit in.";
+  statusLine.textContent = "V-GRIP Harpoon launched. Awaiting target confirmation.";
 }
 
-export function castEnergyShield() {
-  if (!isCombatLive() || abilityState.shield.cooldown > 0) {
+export function castHexPlateProjector() {
+  if (!isCombatLive() || abilityState.hexPlateProjector.cooldown > 0) {
     return;
   }
 
-  startVisualCast(player, "energyShield", 0.3);
-  abilityState.shield.cooldown = getAbilityCooldown(config.shieldCooldown);
+  startVisualCast(player, "hexPlateProjector", 0.3);
+  abilityState.hexPlateProjector.cooldown = getAbilityCooldown(config.shieldCooldown);
   triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, config.shieldValue + getRuneValue("defense", "primary") * 3);
   player.shieldTime = config.shieldDuration;
   player.shieldGuardTime = config.shieldDuration;
   player.shieldBreakRefundReady = true;
-  queuePhantomAbility("energyShield");
-  playAbilityCue("energyShield");
+  queuePhantomAbility("hexPlateProjector");
+  playAbilityCue("hexPlateProjector");
   addImpact(player.x, player.y, "#9cd5ff", 28);
   addShake(4);
-  statusLine.textContent = "Energy Shield online. It blocks burst and incoming control while it holds.";
+  statusLine.textContent = "HEX-PLATE Projector online. Reinforced plating active.";
 }
 
-export function castEnergyParry() {
+export function castReflexAegis() {
   if (
     !isCombatLive() ||
-    abilityState.energyParry.cooldown > 0 ||
-    isEnergyParryLocked() ||
-    abilityState.phaseShift.time > 0
+    abilityState.reflexAegis.cooldown > 0 ||
+    isReflexAegisLocked() ||
+    abilityState.ghostDriftModule.time > 0
   ) {
     return;
   }
@@ -583,28 +600,28 @@ export function castEnergyParry() {
   player.activeAxeStrike = null;
   player.weaponCharge = 0;
   player.weaponChargeActive = false;
-  startVisualCast(player, "energyParry", 0.22);
-  abilityState.energyParry.startupTime = config.energyParryStartup;
-  abilityState.energyParry.activeTime = 0;
-  abilityState.energyParry.recoveryTime = 0;
-  abilityState.energyParry.resolveLockTime = 0;
-  abilityState.energyParry.successFlash = 0;
-  queuePhantomAbility("energyParry");
-  playAbilityCue("energyParry");
+  startVisualCast(player, "reflexAegis", 0.22);
+  abilityState.reflexAegis.startupTime = config.reflexAegisStartup;
+  abilityState.reflexAegis.activeTime = 0;
+  abilityState.reflexAegis.recoveryTime = 0;
+  abilityState.reflexAegis.resolveLockTime = 0;
+  abilityState.reflexAegis.successFlash = 0;
+  queuePhantomAbility("reflexAegis");
+  playAbilityCue("reflexAegis");
   addImpact(player.x, player.y, "#bdf4ff", 22);
-  statusLine.textContent = "Energy Parry armed. Hold the read and catch the hit clean.";
+  statusLine.textContent = "REFLEX Aegis armed. Tactical counter window open.";
 }
 
-export function castEmpBurst() {
-  if (!isCombatLive() || abilityState.emp.cooldown > 0) {
+export function castEmPulseEmitter() {
+  if (!isCombatLive() || abilityState.emPulseEmitter.cooldown > 0) {
     return;
   }
 
-  startVisualCast(player, "empBurst", 0.35);
-  abilityState.emp.cooldown = getAbilityCooldown(config.boosterCooldown);
+  startVisualCast(player, "emPulseEmitter", 0.35);
+  abilityState.emPulseEmitter.cooldown = getAbilityCooldown(config.boosterCooldown);
   triggerAbilityCastRuneEffects();
-  queuePhantomAbility("empBurst");
-  playAbilityCue("empBurst");
+  queuePhantomAbility("emPulseEmitter");
+  playAbilityCue("emPulseEmitter");
   addImpact(player.x, player.y, "#be9dff", 34);
   addExplosion(player.x, player.y, 84, "#b99cff");
   addShake(5.4);
@@ -628,11 +645,11 @@ export function castEmpBurst() {
     }
   }
 
-  statusLine.textContent = "EMP Burst disrupted nearby tech pressure.";
+  statusLine.textContent = "EM-PULSE Emitter triggered. Local tech disrupted.";
 }
 
-export function castBackstepBurst() {
-  if (!isCombatLive() || abilityState.backstep.cooldown > 0) {
+export function castJetBackThruster() {
+  if (!isCombatLive() || abilityState.jetBackThruster.cooldown > 0) {
     return;
   }
 
@@ -642,17 +659,17 @@ export function castBackstepBurst() {
   player.y += retreat.y * 158;
   resolveMapCollision(player);
   maybeTeleportEntity(player);
-  abilityState.backstep.cooldown = getAbilityCooldown(3.6);
+  abilityState.jetBackThruster.cooldown = getAbilityCooldown(3.6);
   triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
-  queuePhantomAbility("backstepBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
-  playAbilityCue("backstepBurst");
+  queuePhantomAbility("jetBackThruster", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
+  playAbilityCue("jetBackThruster");
   addAfterimage(player.x, player.y, player.facing, player.radius + 6, "#fff0a8");
   addImpact(player.x, player.y, "#fff0a8", 22);
   addShake(4.6);
-  statusLine.textContent = "Backstep Burst snapped you out of close pressure.";
+  statusLine.textContent = "JET-BACK Thruster engaged for tactical retreat.";
 }
 
 export function castChainLightning() {
@@ -715,11 +732,11 @@ export function executeChainLightningCast(params) {
   statusLine.textContent = "Chain Lightning punished the lane with cascading arcs.";
 }
 
-export function castBlinkStep() {
+export function castBlink() {
   if (!isCombatLive() || abilityState.blink.cooldown > 0) {
     return;
   }
-  startVisualCast(player, "blinkStep", 0.3);
+  startVisualCast(player, "blink", 0.3);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   player.x += direction.x * 148;
   player.y += direction.y * 148;
@@ -728,8 +745,8 @@ export function castBlinkStep() {
   abilityState.blink.cooldown = getAbilityCooldown(3.4);
   triggerAbilityCastRuneEffects();
   player.flash = 0.1;
-  queuePhantomAbility("blinkStep", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
-  playAbilityCue("blinkStep");
+  queuePhantomAbility("blink", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
+  playAbilityCue("blink");
   addAfterimage(player.x, player.y, player.facing, player.radius + 4, "#7df0ff");
   addImpact(player.x, player.y, "#b3f6ff", 24);
   addShake(4.2);
@@ -740,7 +757,7 @@ export function castPhaseDash() {
   if (!isCombatLive() || abilityState.phaseDash.cooldown > 0) {
     return;
   }
-  startVisualCast(player, "speedSurge", 0.28);
+  startVisualCast(player, "overdriveServos", 0.28);
   const direction = normalize(input.mouseX - player.x, input.mouseY - player.y);
   player.attackCommitX = direction.x;
   player.attackCommitY = direction.y;
@@ -757,49 +774,49 @@ export function castPhaseDash() {
   statusLine.textContent = "Phase Dash cut you through danger.";
 }
 
-export function castPulseBurst() {
-  if (!isCombatLive() || abilityState.pulseBurst.cooldown > 0) {
+export function castSwarmMissileRack() {
+  if (!isCombatLive() || abilityState.swarmMissileRack.cooldown > 0) {
     return;
   }
 
-  startCast(player, "pulseBurst", executePulseBurstCast, null);
+  startCast(player, "swarmMissileRack", executeSwarmMissileRackCast, null);
 }
 
-export function executePulseBurstCast() {
-  abilityState.pulseBurst.cooldown = getAbilityCooldown(config.pulseBurstCooldown);
+export function executeSwarmMissileRackCast() {
+  abilityState.swarmMissileRack.cooldown = getAbilityCooldown(config.swarmMissileRackCooldown);
   triggerAbilityCastRuneEffects();
-  queuePhantomAbility("pulseBurst", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
+  queuePhantomAbility("swarmMissileRack", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
-  const burstId = beginPulseBurstCast("player", config.pulseBurstMissiles);
+  const burstId = beginSwarmMissileRackCast("player", config.swarmMissileRackMissiles);
   const totalAngle = 35 * (Math.PI / 180); // 35 degree cone
 
-  for (let pellet = 0; pellet < config.pulseBurstMissiles; pellet += 1) {
+  for (let pellet = 0; pellet < config.swarmMissileRackMissiles; pellet += 1) {
     let spread = 0;
-    if (config.pulseBurstMissiles > 1) {
-      spread = -totalAngle / 2 + pellet * (totalAngle / (config.pulseBurstMissiles - 1));
+    if (config.swarmMissileRackMissiles > 1) {
+      spread = -totalAngle / 2 + pellet * (totalAngle / (config.swarmMissileRackMissiles - 1));
     }
     const angle = baseAngle + spread;
     
-    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.pulseBurstProjectileSpeed, config.pulseBurstBaseDamage * getPerkDamageMultiplier(getPrimaryBot()), {
+    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.swarmMissileRackProjectileSpeed, config.swarmMissileRackBaseDamage * getPerkDamageMultiplier(getPrimaryBot()), {
       radius: 4.5,
-      life: config.pulseBurstLifetime,
+      life: config.swarmMissileRackLifetime,
       trailColor: "#c9f3ff",
-      source: "pulse-burst",
+      source: "swarm-missile-rack",
       effect: {
-        kind: "pulseBurst",
+        kind: "swarmMissileRack",
         burstId,
-        guideTurnRate: config.pulseBurstGuideTurnRate,
-        guideDot: config.pulseBurstGuideDot,
+        guideTurnRate: config.swarmMissileRackGuideTurnRate,
+        guideDot: config.swarmMissileRackGuideDot,
         guideDelay: 0.12,
         resolved: false,
       },
     });
   }
-  playAbilityCue("pulseBurst");
+  playAbilityCue("swarmMissileRack");
   addImpact(player.x, player.y, "#7ddcff", 32);
   addShake(5.6);
   player.flash = 0.08;
-  statusLine.textContent = "Pulse Burst fired. Lock the target in place to cash in the full volley.";
+  statusLine.textContent = "SWARM-MISSILE Rack deployed. Volley away.";
 }
 
 export function castRailShotAbility() {
@@ -826,46 +843,46 @@ export function executeRailShotCast() {
   addImpact(player.x, player.y, "#ffd279", 38);
   addShake(7.2);
   player.flash = 0.12;
-  statusLine.textContent = "Rail Shot tore a high-voltage line through the arena.";
+  statusLine.textContent = "RAIL-SHOT Sniper bolt discharged.";
 }
 
-export function castGravityWell() {
-  if (!isCombatLive() || abilityState.gravityWell.cooldown > 0) {
+export function castVoidCoreSingularity() {
+  if (!isCombatLive() || abilityState.voidCoreSingularity.cooldown > 0) {
     return;
   }
-  startCast(player, "gravityWell", executeGravityWellCast, null);
+  startCast(player, "voidCoreSingularity", executeVoidCoreSingularityCast, null);
 }
 
-export function executeGravityWellCast() {
-  abilityState.gravityWell.cooldown = getAbilityCooldown(config.gravityWellCooldown);
+export function executeVoidCoreSingularityCast() {
+  abilityState.voidCoreSingularity.cooldown = getAbilityCooldown(config.voidCoreSingularityCooldown);
   triggerAbilityCastRuneEffects();
-  queuePhantomAbility("gravityWell", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
+  queuePhantomAbility("voidCoreSingularity", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   supportZones.push({
     type: "gravity",
     team: "player",
     x: input.mouseX,
     y: input.mouseY,
-    radius: config.gravityWellRadius,
-    life: config.gravityWellDuration,
-    maxLife: config.gravityWellDuration,
-    color: "#b999ff",
-    slow: config.gravityWellSlow,
-    pullStrength: config.gravityWellPullStrength,
+    radius: config.voidCoreSingularityRadius,
+    life: config.voidCoreSingularityDuration,
+    maxLife: config.voidCoreSingularityDuration,
+    color: "#d1a2ff",
+    slow: config.voidCoreSingularitySlow,
+    pullStrength: config.voidCoreSingularityPullStrength,
   });
-  playAbilityCue("gravityWell");
-  addExplosion(input.mouseX, input.mouseY, config.gravityWellRadius, "#b999ff");
+  playAbilityCue("voidCoreSingularity");
+  addExplosion(input.mouseX, input.mouseY, config.voidCoreSingularityRadius, "#b999ff");
   addImpact(player.x, player.y, "#b999ff", 32);
   addShake(5.8);
   addShake(5.8);
-  statusLine.textContent = "Gravity Well collapsed the lane inward. Respect the singularity.";
+  statusLine.textContent = "VOID-CORE Singularity collapsed the lane inward.";
 }
 
-export function castPhaseShift() {
-  if (!isCombatLive() || abilityState.phaseShift.cooldown > 0 || abilityState.phaseShift.time > 0) {
+export function castGhostDriftModule() {
+  if (!isCombatLive() || abilityState.ghostDriftModule.cooldown > 0 || abilityState.ghostDriftModule.time > 0) {
     return;
   }
-  startVisualCast(player, "phaseShift", 0.35);
-  abilityState.phaseShift.cooldown = getAbilityCooldown(config.phaseShiftCooldown);
+  startVisualCast(player, "ghostDriftModule", 0.35);
+  abilityState.ghostDriftModule.cooldown = getAbilityCooldown(config.phaseShiftCooldown);
   triggerAbilityCastRuneEffects();
   clearStatusEffects(player);
   if (player.pendingAxeStrike?.attackId != null) {
@@ -880,67 +897,68 @@ export function castPhaseShift() {
   player.activeAxeStrike = null;
   player.weaponCharge = 0;
   player.weaponChargeActive = false;
-  abilityState.phaseShift.time = config.phaseShiftDuration;
+  abilityState.ghostDriftModule.time = config.phaseShiftDuration;
   player.ghostTime = Math.max(player.ghostTime, config.phaseShiftDuration);
-  queuePhantomAbility("phaseShift");
+  queuePhantomAbility("ghostDriftModule");
   playAbilityCue("phaseShift");
   addImpact(player.x, player.y, "#d2f1ff", 24);
-  statusLine.textContent = "Phase Shift purged the pressure. Dash only until you rematerialize.";
+  statusLine.textContent = "GHOST-DRIFT Module active. Vistual distortion engaged.";
 }
 
-export function castHologramDecoy() {
-  if (!isCombatLive() || abilityState.hologramDecoy.cooldown > 0) {
+export function castSpectreProjector() {
+  if (!isCombatLive() || abilityState.spectreProjector.cooldown > 0) {
     return;
   }
-  startVisualCast(player, "hologramDecoy", 0.32);
-  abilityState.hologramDecoy.cooldown = getAbilityCooldown(6.2);
+  startVisualCast(player, "spectreProjector", 0.32);
+  abilityState.spectreProjector.cooldown = getAbilityCooldown(6.2);
   triggerAbilityCastRuneEffects();
   player.decoyTime = Math.max(player.decoyTime, 2.8);
-  queuePhantomAbility("hologramDecoy");
+  queuePhantomAbility("spectreProjector");
   playAbilityCue("hologramDecoy");
   addAfterimage(player.x - 46, player.y + 20, player.facing, player.radius + 8, "#caa9ff");
   addImpact(player.x, player.y, "#d8b8ff", 24);
-  statusLine.textContent = "Hologram Decoy split your read.";
+  statusLine.textContent = "SPECTRE Projector deployed digital double.";
 }
 
-export function castSpeedSurge() {
-  if (!isCombatLive() || abilityState.speedSurge.cooldown > 0) {
+export function castOverdriveServos() {
+  if (!isCombatLive() || abilityState.overdriveServos.cooldown > 0) {
     return;
   }
-  startVisualCast(player, "speedSurge", 0.4);
-  abilityState.speedSurge.cooldown = getAbilityCooldown(4.2);
+  startVisualCast(player, "overdriveServos", 0.4);
+  abilityState.overdriveServos.cooldown = getAbilityCooldown(4.2);
   triggerAbilityCastRuneEffects();
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
-  queuePhantomAbility("speedSurge");
-  playAbilityCue("speedSurge");
+  queuePhantomAbility("overdriveServos");
+  playAbilityCue("overdriveServos");
   addImpact(player.x, player.y, "#8dfcc7", 20);
-  statusLine.textContent = "Speed Surge pushed your tempo forward.";
+  statusLine.textContent = "OVERDRIVE Servos engaged. High-pressure surge active.";
 }
 
-export function castUltimate() {
-  if (!isCombatLive() || abilityState.ultimate.cooldown > 0 || abilityState.phaseShift.time > 0 || isEnergyParryLocked()) {
+export function castReactorCore() {
+  if (!isCombatLive() || abilityState.core.cooldown > 0 || abilityState.ghostDriftModule.time > 0 || isReflexAegisLocked()) {
     return;
   }
 
-  if (loadout.ultimate === "phantomSplit") {
-    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
+  if (loadout.core === "phantomCore") {
+    abilityState.core.cooldown = getAbilityCooldown(config.ultimateCooldown);
     playAbilityCue("phantomSplit");
     spawnPhantomClone();
+    statusLine.textContent = "PHANTOM Core active. Echo systems online.";
     return;
   }
 
-  if (loadout.ultimate === "revivalProtocol") {
-    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
+  if (loadout.core === "rebootProtocol") {
+    abilityState.core.cooldown = getAbilityCooldown(config.ultimateCooldown);
     player.revivalPrimed = 5;
     playAbilityCue("revivalProtocol");
     addImpact(player.x, player.y, "#a3ffd1", 30);
-    statusLine.textContent = "Revival Protocol primed. You have one failsafe window.";
+    statusLine.textContent = "REBOOT Protocol primed. Emergency restart window open.";
     return;
   }
 
-  if (loadout.ultimate === "arenaLockdown") {
-    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
+  if (loadout.core === "lockdownMatrix") {
+    abilityState.core.cooldown = getAbilityCooldown(config.ultimateCooldown);
     supportZones.push({
       type: "lockdown",
       team: "player",
@@ -952,28 +970,28 @@ export function castUltimate() {
       color: "#ff8c67",
       slow: 0.18,
     });
-    playAbilityCue("gravityWell");
+    playAbilityCue("voidCoreSingularity");
     addExplosion(arena.width * 0.5, arena.height * 0.5, 292, "#ff9b70");
     addShake(9);
-    statusLine.textContent = "Arena Lockdown collapsed the duel space.";
+    statusLine.textContent = "LOCKDOWN Matrix deployed. Space restricted.";
     return;
   }
 
-  if (loadout.ultimate === "empCataclysm") {
-    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
+  if (loadout.core === "empCataclysmCore") {
+    abilityState.core.cooldown = getAbilityCooldown(config.ultimateCooldown);
     playAbilityCue("empCataclysm");
-    castEmpBurst();
-    abilityState.emp.cooldown = Math.max(abilityState.emp.cooldown, 0.1);
+    castEmPulseEmitter();
+    abilityState.emPulseEmitter.cooldown = Math.max(abilityState.emPulseEmitter.cooldown, 0.1);
     applyStatusEffect(enemy, "stun", getStatusDuration(0.45), 1);
     enemy.dashCooldown = Math.max(enemy.dashCooldown, 1.6);
     addExplosion(player.x, player.y, 148, "#d2b0ff");
     addShake(11.4);
-    statusLine.textContent = "EMP Cataclysm blanked the arena's tech for a moment.";
+    statusLine.textContent = "EMP-CATACLYSM Core collapsed. Wide tech blackout confirmed.";
     return;
   }
 
-  if (loadout.ultimate === "berserkCore") {
-    abilityState.ultimate.cooldown = getAbilityCooldown(config.ultimateCooldown);
+  if (loadout.core === "berserkCore") {
+    abilityState.core.cooldown = getAbilityCooldown(config.ultimateCooldown);
     player.hasteTime = Math.max(player.hasteTime, 4.2);
     player.shield = Math.max(player.shield, 28);
     player.shieldTime = Math.max(player.shieldTime, 4.2);
@@ -982,74 +1000,75 @@ export function castUltimate() {
     addImpact(player.x, player.y, "#ff875d", 34);
     addImpact(player.x, player.y, "#ffd7bc", 52);
     addShake(10.2);
-    statusLine.textContent = "Berserk Core online. Press relentlessly.";
+    statusLine.textContent = "Berserk Core online. Offensive pressure maximized.";
   }
 }
 
 export function updateExtraAbilities(dt) {
-  abilityState.grapple.cooldown = Math.max(0, abilityState.grapple.cooldown - dt);
-  abilityState.shield.cooldown = Math.max(0, abilityState.shield.cooldown - dt);
-  abilityState.energyParry.cooldown = Math.max(0, abilityState.energyParry.cooldown - dt);
-  abilityState.booster.cooldown = Math.max(0, abilityState.booster.cooldown - dt);
-  abilityState.emp.cooldown = Math.max(0, abilityState.emp.cooldown - dt);
-  abilityState.backstep.cooldown = Math.max(0, abilityState.backstep.cooldown - dt);
+  abilityState.vGripHarpoon.cooldown = Math.max(0, abilityState.vGripHarpoon.cooldown - dt);
+  abilityState.hexPlateProjector.cooldown = Math.max(0, abilityState.hexPlateProjector.cooldown - dt);
+  abilityState.reflexAegis.cooldown = Math.max(0, abilityState.reflexAegis.cooldown - dt);
+  abilityState.overdriveServos.cooldown = Math.max(0, abilityState.overdriveServos.cooldown - dt);
+  abilityState.emPulseEmitter.cooldown = Math.max(0, abilityState.emPulseEmitter.cooldown - dt);
+  abilityState.jetBackThruster.cooldown = Math.max(0, abilityState.jetBackThruster.cooldown - dt);
   abilityState.chainLightning.cooldown = Math.max(0, abilityState.chainLightning.cooldown - dt);
   abilityState.blink.cooldown = Math.max(0, abilityState.blink.cooldown - dt);
   abilityState.phaseDash.cooldown = Math.max(0, abilityState.phaseDash.cooldown - dt);
   abilityState.phaseDash.time = Math.max(0, abilityState.phaseDash.time - dt);
-  abilityState.pulseBurst.cooldown = Math.max(0, abilityState.pulseBurst.cooldown - dt);
+  abilityState.swarmMissileRack.cooldown = Math.max(0, abilityState.swarmMissileRack.cooldown - dt);
   abilityState.railShot.cooldown = Math.max(0, abilityState.railShot.cooldown - dt);
-  abilityState.gravityWell.cooldown = Math.max(0, abilityState.gravityWell.cooldown - dt);
-  abilityState.phaseShift.cooldown = Math.max(0, abilityState.phaseShift.cooldown - dt);
-  abilityState.phaseShift.time = Math.max(0, abilityState.phaseShift.time - dt);
-  abilityState.hologramDecoy.cooldown = Math.max(0, abilityState.hologramDecoy.cooldown - dt);
-  abilityState.speedSurge.cooldown = Math.max(0, abilityState.speedSurge.cooldown - dt);
-  abilityState.ultimate.cooldown = Math.max(0, abilityState.ultimate.cooldown - dt);
-  abilityState.ultimate.phantomTime = Math.max(0, abilityState.ultimate.phantomTime - dt);
+  abilityState.voidCoreSingularity.cooldown = Math.max(0, abilityState.voidCoreSingularity.cooldown - dt);
+  abilityState.ghostDriftModule.cooldown = Math.max(0, abilityState.ghostDriftModule.cooldown - dt);
+  abilityState.ghostDriftModule.time = Math.max(0, abilityState.ghostDriftModule.time - dt);
+  abilityState.spectreProjector.cooldown = Math.max(0, abilityState.spectreProjector.cooldown - dt);
+  abilityState.overdriveServos.cooldown = Math.max(0, abilityState.overdriveServos.cooldown - dt);
+  abilityState.core.cooldown = Math.max(0, abilityState.core.cooldown - dt);
+  abilityState.core.phantomTime = Math.max(0, abilityState.core.phantomTime - dt);
   player.shieldTime = Math.max(0, player.shieldTime - dt);
   player.shieldGuardTime = Math.max(0, player.shieldGuardTime - dt);
   player.hasteTime = Math.max(0, player.hasteTime - dt);
   player.afterDashHasteTime = Math.max(0, player.afterDashHasteTime - dt);
-  player.energyParrySpeedTime = Math.max(0, player.energyParrySpeedTime - dt);
-  player.energyParryHitBonusTime = Math.max(0, player.energyParryHitBonusTime - dt);
-  if (player.energyParryHitBonusTime <= 0) {
-    player.energyParryHitBonusDamage = 0;
+  player.reflexAegisSpeedTime = Math.max(0, player.reflexAegisSpeedTime - dt);
+  player.reflexAegisHitBonusTime = Math.max(0, player.reflexAegisHitBonusTime - dt);
+  if (player.reflexAegisHitBonusTime <= 0) {
+    player.reflexAegisHitBonusDamage = 0;
   }
   player.ghostTime = Math.max(0, player.ghostTime - dt);
   player.revivalPrimed = Math.max(0, player.revivalPrimed - dt);
   player.decoyTime = Math.max(0, player.decoyTime - dt);
-  abilityState.energyParry.resolveLockTime = Math.max(0, abilityState.energyParry.resolveLockTime - dt);
-  abilityState.energyParry.successFlash = Math.max(0, abilityState.energyParry.successFlash - dt);
+  abilityState.reflexAegis.resolveLockTime = Math.max(0, abilityState.reflexAegis.resolveLockTime - dt);
+  abilityState.reflexAegis.successFlash = Math.max(0, abilityState.reflexAegis.successFlash - dt);
 
-  const hadParryStartup = abilityState.energyParry.startupTime > 0;
-  if (abilityState.energyParry.startupTime > 0) {
-    abilityState.energyParry.startupTime = Math.max(0, abilityState.energyParry.startupTime - dt);
-    if (hadParryStartup && abilityState.energyParry.startupTime === 0) {
-      abilityState.energyParry.activeTime = config.energyParryWindow;
+  const hadAegisStartup = abilityState.reflexAegis.startupTime > 0;
+  if (abilityState.reflexAegis.startupTime > 0) {
+    abilityState.reflexAegis.startupTime = Math.max(0, abilityState.reflexAegis.startupTime - dt);
+    if (hadAegisStartup && abilityState.reflexAegis.startupTime === 0) {
+      abilityState.reflexAegis.activeTime = config.reflexAegisWindow;
     }
-  } else if (abilityState.energyParry.activeTime > 0) {
-    abilityState.energyParry.activeTime = Math.max(0, abilityState.energyParry.activeTime - dt);
-    if (abilityState.energyParry.activeTime === 0) {
-      abilityState.energyParry.recoveryTime = config.energyParryFailRecovery;
-      abilityState.energyParry.cooldown = config.energyParryCooldown;
-      playAbilityCue("energyParryFail");
+  } else if (abilityState.reflexAegis.activeTime > 0) {
+    abilityState.reflexAegis.activeTime = Math.max(0, abilityState.reflexAegis.activeTime - dt);
+    if (abilityState.reflexAegis.activeTime === 0) {
+      abilityState.reflexAegis.energyPool = config.reflexAegisShield;
+      abilityState.reflexAegis.recoveryTime = config.reflexAegisFailRecovery;
+      abilityState.reflexAegis.cooldown = config.reflexAegisCooldown;
+      playAbilityCue("reflexAegisFail");
       addImpact(player.x, player.y, "#8fbad3", 18);
-      statusLine.textContent = "Energy Parry whiffed. You are briefly punishable.";
+      statusLine.textContent = "REFLEX Aegis failure. Tech window closed.";
     }
-  } else if (abilityState.energyParry.recoveryTime > 0) {
-    abilityState.energyParry.recoveryTime = Math.max(0, abilityState.energyParry.recoveryTime - dt);
+  } else if (abilityState.reflexAegis.recoveryTime > 0) {
+    abilityState.reflexAegis.recoveryTime = Math.max(0, abilityState.reflexAegis.recoveryTime - dt);
   }
 
-  if (abilityState.grapple.phase === "flying" && abilityState.grapple.projectile) {
-    const projectile = abilityState.grapple.projectile;
+  if (abilityState.vGripHarpoon.phase === "flying" && abilityState.vGripHarpoon.projectile) {
+    const projectile = abilityState.vGripHarpoon.projectile;
     projectile.x += projectile.vx * dt;
     projectile.y += projectile.vy * dt;
     projectile.life -= dt;
-    abilityState.grapple.tetherPulse = Math.max(0, abilityState.grapple.tetherPulse - dt);
+    abilityState.vGripHarpoon.tetherPulse = Math.max(0, abilityState.vGripHarpoon.tetherPulse - dt);
 
-    if (abilityState.grapple.tetherPulse <= 0) {
+    if (abilityState.vGripHarpoon.tetherPulse <= 0) {
       addBeamEffect(player.x, player.y, projectile.x, projectile.y, "#c9f8ff", 3.5, 0.08);
-      abilityState.grapple.tetherPulse = 0.045;
+      abilityState.vGripHarpoon.tetherPulse = 0.045;
     }
 
     if (
@@ -1060,32 +1079,32 @@ export function updateExtraAbilities(dt) {
       projectile.y > arena.height + 20 ||
       hitMapWithProjectile(projectile, "player")
     ) {
-      resetGrappleState();
-      statusLine.textContent = "Magnetic Grapple missed. Commit only when the catch line is real.";
+      resetVGripState();
+      statusLine.textContent = "V-GRIP Harpoon missed.";
     } else {
       const caughtTarget = getAllBots().find(
         (bot) => bot.alive && length(projectile.x - bot.x, projectile.y - bot.y) <= projectile.radius + bot.radius,
       );
 
       if (caughtTarget) {
-        abilityState.grapple.phase = "pull";
-        abilityState.grapple.projectile = null;
-        abilityState.grapple.targetKind = caughtTarget.kind;
-        abilityState.grapple.pullStopRequested = false;
+        abilityState.vGripHarpoon.phase = "pull";
+        abilityState.vGripHarpoon.projectile = null;
+        abilityState.vGripHarpoon.targetKind = caughtTarget.kind;
+        abilityState.vGripHarpoon.pullStopRequested = false;
         applyStatusEffect(caughtTarget, "slow", getStatusDuration(config.grappleSnareDuration), config.grappleSnare);
         applyStatusEffect(caughtTarget, "snare", getStatusDuration(config.grappleSnareDuration), 1);
         addImpact(caughtTarget.x, caughtTarget.y, "#dffbff", 24);
         applyHitReaction(caughtTarget, player.x, player.y, 1.05);
         addShake(6.4);
-        statusLine.textContent = "Magnetic Grapple caught. Recast to cut the pull at the right spacing.";
+        statusLine.textContent = "V-GRIP Harpoon caught. Pulling target.";
       }
     }
   }
 
-  if (abilityState.grapple.phase === "pull") {
-    const target = getTrackedBot(abilityState.grapple.targetKind);
+  if (abilityState.vGripHarpoon.phase === "pull") {
+    const target = getTrackedBot(abilityState.vGripHarpoon.targetKind);
     if (!target) {
-      resetGrappleState();
+      resetVGripState();
     } else {
       const anchor = getGrappleAnchorPoint(target);
       const direction = normalize(anchor.x - target.x, anchor.y - target.y);
@@ -1099,9 +1118,9 @@ export function updateExtraAbilities(dt) {
       maybeTeleportEntity(target);
       addBeamEffect(player.x, player.y, target.x, target.y, "#bdf4ff", 4.6, 0.08);
 
-      if (abilityState.grapple.pullStopRequested || distance <= 10) {
+      if (abilityState.vGripHarpoon.pullStopRequested || distance <= 10) {
         addImpact(target.x, target.y, "#effdff", 20);
-        resetGrappleState();
+        resetVGripState();
       }
     }
   }
@@ -1117,42 +1136,42 @@ export function updateExtraAbilities(dt) {
 
 export function startAbilityInput(slotIndex) {
   const ability = getAbilityBySlot(slotIndex);
-  if (!ability || abilityState.phaseShift.time > 0 || isEnergyParryLocked()) {
+  if (!ability || abilityState.ghostDriftModule.time > 0 || isReflexAegisLocked()) {
     return;
   }
 
-  if (ability.key === "shockJavelin") {
-    startJavelinCharge();
-  } else if (ability.key === "magneticField") {
-    startFieldCharge();
-  } else if (ability.key === "magneticGrapple") {
-    castMagneticGrapple();
-  } else if (ability.key === "energyShield") {
-    castEnergyShield();
-  } else if (ability.key === "energyParry") {
-    castEnergyParry();
-  } else if (ability.key === "empBurst") {
-    castEmpBurst();
-  } else if (ability.key === "backstepBurst") {
-    castBackstepBurst();
+  if (ability.key === "boltLinkJavelin") {
+    startBoltLinkJavelinCharge();
+  } else if (ability.key === "orbitalDistorter") {
+    startOrbitalDistorterCharge();
+  } else if (ability.key === "vGripHarpoon") {
+    castVGripHarpoon();
+  } else if (ability.key === "hexPlateProjector") {
+    castHexPlateProjector();
+  } else if (ability.key === "reflexAegis") {
+    castReflexAegis();
+  } else if (ability.key === "emPulseEmitter") {
+    castEmPulseEmitter();
+  } else if (ability.key === "jetBackThruster") {
+    castJetBackThruster();
   } else if (ability.key === "chainLightning") {
     castChainLightning();
-  } else if (ability.key === "blinkStep") {
-    castBlinkStep();
+  } else if (ability.key === "blink") {
+    castBlink();
   } else if (ability.key === "phaseDash") {
     castPhaseDash();
-  } else if (ability.key === "pulseBurst") {
-    castPulseBurst();
+  } else if (ability.key === "swarmMissileRack") {
+    castSwarmMissileRack();
   } else if (ability.key === "railShot") {
     castRailShotAbility();
-  } else if (ability.key === "gravityWell") {
-    castGravityWell();
-  } else if (ability.key === "phaseShift") {
-    castPhaseShift();
-  } else if (ability.key === "hologramDecoy") {
-    castHologramDecoy();
-  } else if (ability.key === "speedSurge") {
-    castSpeedSurge();
+  } else if (ability.key === "voidCoreSingularity") {
+    castVoidCoreSingularity();
+  } else if (ability.key === "ghostDriftModule") {
+    castGhostDriftModule();
+  } else if (ability.key === "spectreProjector") {
+    castSpectreProjector();
+  } else if (ability.key === "overdriveServos") {
+    castOverdriveServos();
   }
 }
 
@@ -1162,10 +1181,10 @@ export function releaseAbilityInput(slotIndex) {
     return;
   }
 
-  if (ability.key === "shockJavelin") {
-    releaseShockJavelin();
-  } else if (ability.key === "magneticField") {
-    releaseMagneticField();
+  if (ability.key === "boltLinkJavelin") {
+    releaseBoltLinkJavelin();
+  } else if (ability.key === "orbitalDistorter") {
+    releaseOrbitalDistorter();
   }
 }
 

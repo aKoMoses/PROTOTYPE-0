@@ -11,7 +11,7 @@ import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolve
 import { updateDuelMatch, updateTeamDuelMatch, showRoundBanner, startDuelRound, startTeamDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton, updatePrematchFlow } from "./gameplay/match.js";
 import { updateImpacts } from "./gameplay/combat.js";
 import { updatePlayer, resetPlayer, setWeapon } from "./gameplay/player.js";
-import { updateEnemy, updateEnemyShockJavelins, updateShockJavelins } from "./gameplay/enemy.js";
+import { updateEnemy, updateEnemyBoltLinkJavelins, updateBoltLinkJavelins } from "./gameplay/enemy.js";
 import { updateTrainingBots } from "./gameplay/enemy.js";
 import { updateTeamDuelBots } from "./gameplay/team-ai.js";
 import { bindSurvivalDeps, startSurvivalRun, updateSurvivalEnemies, updateSurvivalMode } from "./gameplay/survival.js";
@@ -22,7 +22,7 @@ import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInpu
 import { updatePhantomClone } from "./gameplay/phantom.js";
 import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, syncPrematchState } from "./build/ui.js";
 import { applySavedPlayerLoadout, setBotBuildMode } from "./build/loadout.js";
-import { bullets, enemyBullets, shockJavelins, enemyShockJavelins, supportZones } from "./state.js";
+import { bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, supportZones } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
 import { initializeAudio, updateAudio } from "./audio.js";
 import { installSessionPersistence, restoreSessionSnapshot, clearGameSession } from "./session.js";
@@ -64,8 +64,8 @@ function frame(time) {
     resolveCharacterBodyBlocking();
     updateBullets(bullets, dt);
     updateBullets(enemyBullets, dt);
-    updateShockJavelins(dt);
-    updateEnemyShockJavelins(dt);
+    updateBoltLinkJavelins(dt);
+    updateEnemyBoltLinkJavelins(dt);
     updateSupportZones(dt);
     absorbPlayerProjectiles();
     absorbEnemyProjectiles();

@@ -1,7 +1,7 @@
 // Player update loop, reset, weapon switching
 import { arena, config, abilityConfig, sandboxModes } from "../config.js";
 import { weapons, content } from "../content.js";
-import { player, abilityState, sandbox, matchState, input, enemy, mapState, enemyBullets, magneticFields } from "../state.js";
+import { player, abilityState, sandbox, matchState, input, enemy, mapState, enemyBullets, orbitalDistorterFields } from "../state.js";
 import { loadout } from "../state/app-state.js";
 import { clamp, length, normalize, approach } from "../utils.js";
 import { addImpact, addShake, addAfterimage, addHealingText } from "./effects.js";
@@ -84,9 +84,9 @@ export function resetPlayer({ silent = false } = {}) {
   player.shieldBreakRefundReady = false;
   player.hasteTime = 0;
   player.afterDashHasteTime = 0;
-  player.energyParrySpeedTime = 0;
-  player.energyParryHitBonusTime = 0;
-  player.energyParryHitBonusDamage = 0;
+  player.reflexAegisSpeedTime = 0;
+  player.reflexAegisHitBonusTime = 0;
+  player.reflexAegisHitBonusDamage = 0;
   player.hitReactionTime = 0;
   player.hitReactionX = 0;
   player.hitReactionY = 0;
@@ -135,29 +135,27 @@ export function resetPlayer({ silent = false } = {}) {
   abilityState.grapple.pullStopRequested = false;
   abilityState.grapple.tetherPulse = 0;
   abilityState.shield.cooldown = 0;
-  abilityState.energyParry.cooldown = 0;
-  abilityState.energyParry.startupTime = 0;
-  abilityState.energyParry.activeTime = 0;
-  abilityState.energyParry.recoveryTime = 0;
-  abilityState.energyParry.resolveLockTime = 0;
-  abilityState.energyParry.successFlash = 0;
-  abilityState.booster.cooldown = 0;
-  abilityState.emp.cooldown = 0;
-  abilityState.backstep.cooldown = 0;
-  abilityState.chainLightning.cooldown = 0;
-  abilityState.blink.cooldown = 0;
-  abilityState.phaseDash.cooldown = 0;
-  abilityState.phaseDash.time = 0;
-  abilityState.pulseBurst.cooldown = 0;
+  abilityState.reflexAegis.cooldown = 0;
+  abilityState.reflexAegis.startupTime = 0;
+  abilityState.reflexAegis.activeTime = 0;
+  abilityState.reflexAegis.recoveryTime = 0;
+  abilityState.reflexAegis.resolveLockTime = 0;
+  abilityState.reflexAegis.successFlash = 0;
+  abilityState.boltLinkJavelin.cooldown = 0;
+  abilityState.orbitalDistorter.cooldown = 0;
+  abilityState.vGripHarpoon.cooldown = 0;
+  abilityState.swarmMissileRack.cooldown = 0;
+  abilityState.hexPlateProjector.cooldown = 0;
+  abilityState.voidCoreSingularity.cooldown = 0;
+  abilityState.overdriveServos.cooldown = 0;
+  abilityState.emPulseEmitter.cooldown = 0;
   abilityState.railShot.cooldown = 0;
-  abilityState.gravityWell.cooldown = 0;
   abilityState.phaseShift.cooldown = 0;
   abilityState.phaseShift.time = 0;
   abilityState.hologramDecoy.cooldown = 0;
-  abilityState.speedSurge.cooldown = 0;
   abilityState.ultimate.cooldown = 0;
   abilityState.ultimate.phantomTime = 0;
-  magneticFields.length = 0;
+  orbitalDistorterFields.length = 0;
   if (!silent) {
     dom.statusLine.textContent = "Player reset. Re-engage.";
   }
@@ -207,9 +205,9 @@ export function updatePlayer(dt) {
 
   const phaseLocked = abilityState.phaseShift.time > 0;
   const parryLocked =
-    abilityState.energyParry.startupTime > 0 ||
-    abilityState.energyParry.activeTime > 0 ||
-    abilityState.energyParry.recoveryTime > 0;
+    abilityState.reflexAegis.startupTime > 0 ||
+    abilityState.reflexAegis.activeTime > 0 ||
+    abilityState.reflexAegis.recoveryTime > 0;
 
   if (
     buildStats.outOfCombatRegen > 0 &&

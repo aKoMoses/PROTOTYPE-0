@@ -3,7 +3,7 @@ import { arena, config } from "../config.js";
 import { content, weapons } from "../content.js";
 import { player, playerClone, enemy, abilityState, sandbox, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
-  shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
+  boltLinkJavelins, enemyBoltLinkJavelins, explosions, orbitalDistorterFields, absorbBursts,
   supportZones, beamEffects, mapState, globals } from "../state.js";
 import { loadout, trainingToolState } from "../state/app-state.js";
 import { canvas, ctx } from "../dom.js";
@@ -341,7 +341,7 @@ export function drawProjectileSprite(projectile, hostile = false) {
       ctx.lineTo(-4, 8);
       ctx.stroke();
     }
-  } else if (source.includes("pulse-burst")) {
+  } else if (source.includes("swarm-missile-rack")) {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(16, 0);
@@ -781,19 +781,18 @@ export function drawCastTelegraph(entity) {
   const time = performance.now() * 0.005;
   
   const abilityColors = {
-    javelin: "#8fe8ff",
-    pulseBurst: "#7ddcff",
+    boltLinkJavelin: "#8fe8ff",
+    swarmMissileRack: "#7ddcff",
     railShot: "#ffd279",
-    gravityWell: "#b999ff",
+    voidCoreSingularity: "#b999ff",
     chainLightning: "#9feaff",
-    magneticField: "#89c8ff",
-    magneticGrapple: "#9feeff",
-    energyShield: "#9cd5ff",
-    energyParry: "#bdf4ff",
-    speedSurge: "#8dfcc7",
-    empBurst: "#be9dff",
-    phaseShift: "#d2f1ff",
-    blinkStep: "#b3f6ff",
+    orbitalDistorter: "#89c8ff",
+    vGripHarpoon: "#9feeff",
+    hexPlateProjector: "#9cd5ff",
+    reflexAegis: "#bdf4ff",
+    overdriveServos: "#8dfcc7",
+    emPulseEmitter: "#be9dff",
+    blink: "#b3f6ff",
     hologramDecoy: "#d8b8ff",
     ultimate: "#ff8c67"
   };
@@ -822,34 +821,31 @@ export function drawCastTelegraph(entity) {
     case "railShot":
       drawRailBars(radius * 1.2, entity.facing, progress, ctx);
       break;
-    case "pulseBurst":
+    case "swarmMissileRack":
       drawHexagon(0, 0, radius * 1.15, progress, ctx);
       break;
-    case "gravityWell":
+    case "voidCoreSingularity":
       drawVortex(0, 0, radius * 1.1, progress, time, ctx);
       break;
     case "chainLightning":
       drawJaggedStar(0, 0, radius, progress, time, ctx);
       break;
-    case "magneticGrapple":
+    case "vGripHarpoon":
       drawBrackets(0, 0, radius, progress, ctx);
       break;
-    case "energyShield":
+    case "hexPlateProjector":
       drawDecagon(0, 0, radius, progress, ctx);
       break;
-    case "energyParry":
+    case "reflexAegis":
       drawDiamondBrackets(0, 0, radius, progress, ctx);
       break;
-    case "speedSurge":
+    case "overdriveServos":
       drawChevron(radius, entity.facing, progress, ctx);
       break;
-    case "empBurst":
+    case "emPulseEmitter":
       drawSquareWave(0, 0, radius, progress, ctx);
       break;
-    case "phaseShift":
-      drawDoubleSpiral(radius, progress, time, ctx);
-      break;
-    case "blinkStep":
+    case "blink":
       drawPortalIris(radius, progress, ctx);
       break;
     case "hologramDecoy":
@@ -1885,7 +1881,7 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  for (const javelin of shockJavelins) {
+  for (const javelin of boltLinkJavelins) {
     ctx.save();
     ctx.translate(javelin.x, javelin.y);
     ctx.rotate(Math.atan2(javelin.vy, javelin.vx));
@@ -1911,7 +1907,7 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  for (const javelin of enemyShockJavelins) {
+  for (const javelin of enemyBoltLinkJavelins) {
     ctx.save();
     ctx.translate(javelin.x, javelin.y);
     ctx.rotate(Math.atan2(javelin.vy, javelin.vx));
@@ -2014,7 +2010,7 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  for (const field of magneticFields) {
+  for (const field of orbitalDistorterFields) {
     const t = field.life / field.duration;
     const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.04;
     ctx.save();
@@ -2137,8 +2133,8 @@ export function drawWorld() {
   drawCastTelegraph(player);
   drawWeaponTelegraph(player);
 
-  const parryStartup = abilityState.energyParry.startupTime > 0;
-  const parryActive = abilityState.energyParry.activeTime > 0;
+  const parryStartup = abilityState.reflexAegis.startupTime > 0;
+  const parryActive = abilityState.reflexAegis.activeTime > 0;
   const parryVisible = parryStartup || parryActive;
   const parryIntensity = parryActive ? 1 : parryStartup ? 0.62 : 0;
   const parryPulse = 0.5 + Math.sin(performance.now() * (parryActive ? 0.03 : 0.018)) * 0.5;
@@ -2248,7 +2244,7 @@ export function drawWorld() {
     avatar.detailColor,
     weaponSkin.tint,
     weaponSkin.glow,
-    player.slashFlash + (player.weaponChargeFlash ?? 0) + (player.energyParryHitBonusTime > 0 ? 0.18 : 0),
+    player.slashFlash + (player.weaponChargeFlash ?? 0) + (player.reflexAegisHitBonusTime > 0 ? 0.18 : 0),
     player.weapon === weapons.sniper.key || player.weapon === weapons.cannon.key ? player.weaponCharge : 0,
   );
 
@@ -2266,14 +2262,13 @@ export function drawWorld() {
     ctx.arc(0, 0, player.radius + 14 + Math.sin(performance.now() * 0.022) * 1.2, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (abilityState.energyParry.successFlash > 0) {
-    ctx.strokeStyle = `rgba(225, 252, 255, ${0.42 + abilityState.energyParry.successFlash * 1.6})`;
-    ctx.lineWidth = 3.2;
+  if (abilityState.reflexAegis.successFlash > 0) {
+    ctx.strokeStyle = `rgba(225, 252, 255, ${0.42 + abilityState.reflexAegis.successFlash * 1.6})`;
     ctx.beginPath();
-    ctx.arc(0, 0, player.radius + 16 + (1 - abilityState.energyParry.successFlash / 0.24) * 18, 0, Math.PI * 2);
+    ctx.arc(0, 0, player.radius + 16 + (1 - abilityState.reflexAegis.successFlash / 0.24) * 18, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (player.energyParryHitBonusTime > 0) {
+  if (player.reflexAegisHitBonusTime > 0) {
     ctx.strokeStyle = "rgba(255, 239, 162, 0.88)";
     ctx.lineWidth = 2;
     ctx.beginPath();

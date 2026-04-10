@@ -61,9 +61,9 @@ function getBotLoadoutForRoster() {
   const generated = createRandomBotLoadout();
   return {
     weapon: generated.weapon,
-    abilities: [...(generated.abilities ?? [])],
-    perks: [generated.perk].filter(Boolean),
-    ultimate: generated.ultimate,
+    modules: [...(generated.modules ?? [])],
+    implants: [generated.implant].filter(Boolean),
+    core: generated.core,
     avatar: Object.keys(content.avatars)[Math.floor(Math.random() * Object.keys(content.avatars).length)] ?? "drifter",
   };
 }
@@ -77,9 +77,9 @@ function buildRosterEntry({ id, name, badge, isBot, ready, profileLoadout }) {
     ready,
     loadout: {
       weapon: profileLoadout.weapon,
-      abilities: [...(profileLoadout.abilities ?? [])],
-      perks: [...(profileLoadout.perks ?? [])],
-      ultimate: profileLoadout.ultimate,
+      modules: [...(profileLoadout.modules ?? [])],
+      implants: [...(profileLoadout.implants ?? [])],
+      core: profileLoadout.core,
       avatar: profileLoadout.avatar ?? "drifter",
     },
   };
@@ -197,8 +197,8 @@ function goToLobby(autoReady = false) {
   setWholeLobbyReady();
   getPrematchOrchestrator().enterLobby();
   dom.statusLine.textContent = autoReady
-    ? "Build timer expired. Auto-ready engaged, launching lobby countdown."
-    : "Ready locked. Lobby countdown started.";
+    ? "Component lock time expired. Auto-ready engaged, launching combat trial."
+    : "Unit systems locked. Final diagnostics started.";
   _renderPrematch?.();
 }
 
@@ -687,7 +687,7 @@ export function handlePrematchAction(buttonId) {
       uiState.matchmaking.phase = "build";
     }
     getPrematchOrchestrator().enterBuild();
-    dom.statusLine.textContent = "Loadout phase open. Pick a loadout, then press Ready.";
+    dom.statusLine.textContent = "Configuration phase open. Pick your modules, then engage deployment.";
     return;
   }
 
@@ -706,7 +706,7 @@ export function handlePrematchAction(buttonId) {
     }
     getPrematchOrchestrator().enterRunes();
     _renderPrematch?.();
-    dom.statusLine.textContent = "Neural augmentation station. Allocate core points across the talent tree.";
+    dom.statusLine.textContent = "Neural augmentation station. Allocate core points across the industrial tree.";
     return;
   }
 

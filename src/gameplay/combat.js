@@ -4,7 +4,7 @@ import { content, weapons } from "../content.js";
 import { statusLine } from "../dom.js";
 import { player, playerClone, enemy, trainingBots, bots, abilityState, sandbox, matchState, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
-  shockJavelins, enemyShockJavelins, explosions, magneticFields, absorbBursts,
+  boltLinkJavelins, enemyBoltLinkJavelins, explosions, orbitalDistorterFields, absorbBursts,
   abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
   mapEffects, mapState, globals, survivalEnemies, survivalState, allyBot, teamEnemies, createTeamDuelEntities } from "../state.js";
 import { loadout, botBuildState, trainingToolState } from "../state/app-state.js";
@@ -20,9 +20,8 @@ export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
 
 const playerWeaponAttackTrackers = new Map();
-let nextPlayerWeaponAttackId = 1;
-const pulseBurstTrackers = new Map();
-let nextPulseBurstId = 1;
+const swarmMissileRackTrackers = new Map();
+let nextSwarmMissileRackId = 1;
 
 export function getAllBots() {
   if (sandbox.mode === sandboxModes.survival.key) {
@@ -115,32 +114,32 @@ function getFriendlyCombatTargets() {
   return targets;
 }
 
-function getPulseBurstTrackerKey(team, burstId) {
+function getSwarmMissileRackTrackerKey(team, burstId) {
   return `${team}:${burstId}`;
 }
 
-function getPulseBurstTracker(projectile) {
+function getSwarmMissileRackTracker(projectile) {
   const burstId = projectile.effect?.burstId;
   if (burstId == null) {
     return null;
   }
-  return pulseBurstTrackers.get(getPulseBurstTrackerKey(projectile.ownerTeam ?? "player", burstId)) ?? null;
+  return swarmMissileRackTrackers.get(getSwarmMissileRackTrackerKey(projectile.ownerTeam ?? "player", burstId)) ?? null;
 }
 
-function releasePulseBurstProjectile(projectile) {
-  if (projectile.effect?.kind !== "pulseBurst" || projectile.effect.resolved) {
+function releaseSwarmMissileRackProjectile(projectile) {
+  if (projectile.effect?.kind !== "swarmMissileRack" || projectile.effect.resolved) {
     return;
   }
 
   projectile.effect.resolved = true;
-  const tracker = getPulseBurstTracker(projectile);
+  const tracker = getSwarmMissileRackTracker(projectile);
   if (!tracker) {
     return;
   }
 
   tracker.resolved += 1;
   if (tracker.resolved >= tracker.missileCount) {
-    pulseBurstTrackers.delete(getPulseBurstTrackerKey(projectile.ownerTeam ?? "player", projectile.effect.burstId));
+    swarmMissileRackTrackers.delete(getSwarmMissileRackTrackerKey(projectile.ownerTeam ?? "player", projectile.effect.burstId));
   }
 }
 
@@ -148,11 +147,11 @@ function getProjectileTargetsForTeam(team) {
   if (team === "player") {
     return getAllBots().filter((bot) => bot.alive && (bot.team ?? "enemy") === "enemy");
   }
-  return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && abilityState.phaseShift.time > 0));
+  return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && abilityState.ghostDriftModule.time > 0));
 }
 
-function applyPulseBurstGuidance(projectile, team, dt) {
-  if (projectile.effect?.kind !== "pulseBurst") {
+function applySwarmMissileRackGuidance(projectile, team, dt) {
+  if (projectile.effect?.kind !== "swarmMissileRack") {
     return;
   }
 
@@ -176,7 +175,7 @@ function applyPulseBurstGuidance(projectile, team, dt) {
     }
     const toTarget = normalize(target.x - projectile.x, target.y - projectile.y);
     const alignment = currentDirection.x * toTarget.x + currentDirection.y * toTarget.y;
-    if (alignment < (projectile.effect.guideDot ?? config.pulseBurstGuideDot)) {
+    if (alignment < (projectile.effect.guideDot ?? config.swarmMissileRackGuideDot)) {
       continue;
     }
 
@@ -192,7 +191,7 @@ function applyPulseBurstGuidance(projectile, team, dt) {
     return;
   }
 
-  const steerRatio = clamp((projectile.effect.guideTurnRate ?? config.pulseBurstGuideTurnRate) * dt, 0, 0.28);
+  const steerRatio = clamp((projectile.effect.guideTurnRate ?? config.swarmMissileRackGuideTurnRate) * dt, 0, 0.28);
   const steered = normalize(
     currentDirection.x * (1 - steerRatio) + bestTarget.x * steerRatio,
     currentDirection.y * (1 - steerRatio) + bestTarget.y * steerRatio,
@@ -205,7 +204,7 @@ function getProjectileFieldModifier(projectile, team) {
   let speedMultiplier = 1;
   let visualIntensity = 0;
 
-  for (const field of magneticFields) {
+  for (const field of orbitalDistorterFields) {
     if (field.team === team) {
       continue;
     }
@@ -251,26 +250,26 @@ function isShieldGuardActive(entity) {
   return (entity.shieldGuardTime ?? 0) > 0 && (entity.shield ?? 0) > 0 && (entity.shieldTime ?? 0) > 0;
 }
 
-function isEnergyParryWindowActive() {
-  return abilityState.energyParry.startupTime <= 0 && abilityState.energyParry.activeTime > 0;
+function isReflexAegisWindowActive() {
+  return abilityState.reflexAegis.startupTime <= 0 && abilityState.reflexAegis.activeTime > 0;
 }
 
-function isEnergyParryResolving() {
-  return abilityState.energyParry.resolveLockTime > 0;
+function isReflexAegisResolving() {
+  return abilityState.reflexAegis.resolveLockTime > 0;
 }
 
-function getEnergyParryAttackerFacing(attacker) {
+function getReflexAegisAttackerFacing(attacker) {
   if (typeof attacker?.facing === "number" && Number.isFinite(attacker.facing)) {
     return attacker.facing;
   }
   return Math.atan2(player.y - (attacker?.y ?? player.y), player.x - (attacker?.x ?? player.x));
 }
 
-function placePlayerForEnergyParry(attacker) {
+function placePlayerForReflexAegis(attacker) {
   const previousX = player.x;
   const previousY = player.y;
-  const facing = getEnergyParryAttackerFacing(attacker);
-  const distance = attacker.radius + player.radius + config.energyParryTeleportOffset;
+  const facing = getReflexAegisAttackerFacing(attacker);
+  const distance = attacker.radius + player.radius + config.reflexAegisTeleportOffset;
   const sideDistance = Math.max(distance - 8, attacker.radius + player.radius + 10);
   const sideX = -Math.sin(facing);
   const sideY = Math.cos(facing);
@@ -310,19 +309,19 @@ function placePlayerForEnergyParry(attacker) {
 }
 
 export function consumePlayerEmpowerBonus() {
-  if (player.energyParryHitBonusTime <= 0 || player.energyParryHitBonusDamage <= 0) {
+  if (player.reflexAegisHitBonusTime <= 0 || player.reflexAegisHitBonusDamage <= 0) {
     return 0;
   }
 
-  const bonus = player.energyParryHitBonusDamage;
-  player.energyParryHitBonusTime = 0;
-  player.energyParryHitBonusDamage = 0;
+  const bonus = player.reflexAegisHitBonusDamage;
+  player.reflexAegisHitBonusTime = 0;
+  player.reflexAegisHitBonusDamage = 0;
   addImpact(player.x + Math.cos(player.facing) * 20, player.y + Math.sin(player.facing) * 20, "#fff1ac", 18);
   return bonus;
 }
 
-export function tryTriggerEnergyParry(attacker, source = "hit") {
-  if (!isEnergyParryWindowActive() || isEnergyParryResolving()) {
+export function tryTriggerReflexAegis(attacker, source = "hit") {
+  if (!isReflexAegisWindowActive() || isReflexAegisResolving()) {
     return false;
   }
   if (!attacker || (attacker.team ?? "enemy") !== "enemy") {
@@ -331,18 +330,18 @@ export function tryTriggerEnergyParry(attacker, source = "hit") {
 
   const previousX = player.x;
   const previousY = player.y;
-  abilityState.energyParry.startupTime = 0;
-  abilityState.energyParry.activeTime = 0;
-  abilityState.energyParry.recoveryTime = 0;
-  abilityState.energyParry.cooldown = config.energyParryCooldown;
-  abilityState.energyParry.resolveLockTime = 0.1;
-  abilityState.energyParry.successFlash = 0.24;
-  placePlayerForEnergyParry(attacker);
-  player.shield = Math.max(player.shield, config.energyParryShield);
-  player.shieldTime = Math.max(player.shieldTime, config.energyParryShieldDuration);
-  player.energyParrySpeedTime = Math.max(player.energyParrySpeedTime, config.energyParryMoveDuration);
-  player.energyParryHitBonusTime = Math.max(player.energyParryHitBonusTime, config.energyParryHitBonusDuration);
-  player.energyParryHitBonusDamage = config.energyParryHitBonusDamage;
+  abilityState.reflexAegis.startupTime = 0;
+  abilityState.reflexAegis.activeTime = 0;
+  abilityState.reflexAegis.recoveryTime = 0;
+  abilityState.reflexAegis.cooldown = config.reflexAegisCooldown;
+  abilityState.reflexAegis.resolveLockTime = 0.1;
+  abilityState.reflexAegis.successFlash = 0.24;
+  placePlayerForReflexAegis(attacker);
+  player.shield = Math.max(player.shield, config.reflexAegisShield);
+  player.shieldTime = Math.max(player.shieldTime, config.reflexAegisShieldDuration);
+  player.reflexAegisSpeedTime = Math.max(player.reflexAegisSpeedTime, config.reflexAegisMoveDuration);
+  player.reflexAegisHitBonusTime = Math.max(player.reflexAegisHitBonusTime, config.reflexAegisHitBonusDuration);
+  player.reflexAegisHitBonusDamage = config.reflexAegisHitBonusDamage;
   player.ghostTime = Math.max(player.ghostTime, 0.16);
   player.flash = Math.max(player.flash, 0.14);
   player.velocityX = 0;
@@ -354,10 +353,10 @@ export function tryTriggerEnergyParry(attacker, source = "hit") {
   addImpact(player.x, player.y, "#fff0b8", 28);
   addExplosion(player.x, player.y, 34, "#d7f6ff");
   addShake(7.4);
-  playAbilityCue("energyParrySuccess");
+  playAbilityCue("reflexAegisSuccess");
   statusLine.textContent = source === "grapple"
-    ? "Energy Parry denied the catch and opened a counter window."
-    : "Energy Parry caught the hit. Counter from behind.";
+    ? "Reflex Aegis denied the catch and opened a counter window."
+    : "Reflex Aegis caught the hit. Counter from behind.";
   return true;
 }
 
@@ -400,10 +399,10 @@ export function beginPlayerWeaponAttack(projectileCount = 1) {
   return attackId;
 }
 
-export function beginPulseBurstCast(team = "player", missileCount = config.pulseBurstMissiles) {
-  const burstId = nextPulseBurstId;
-  nextPulseBurstId += 1;
-  pulseBurstTrackers.set(getPulseBurstTrackerKey(team, burstId), {
+export function beginSwarmMissileRackCast(team = "player", missileCount = config.swarmMissileRackMissiles) {
+  const burstId = nextSwarmMissileRackId;
+  nextSwarmMissileRackId += 1;
+  swarmMissileRackTrackers.set(getSwarmMissileRackTrackerKey(team, burstId), {
     missileCount: Math.max(1, missileCount),
     resolved: 0,
     hitsByTarget: new Map(),
@@ -493,7 +492,7 @@ function triggerSupportRuneControl(type) {
 function getEntityFieldModifier(entity) {
   let damageReduction = getZoneEffectsForEntity(entity).damageReduction;
 
-  for (const field of magneticFields) {
+  for (const field of orbitalDistorterFields) {
     if (field.anchor !== "player" || field.team !== "player") {
       continue;
     }
@@ -678,7 +677,7 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     }
   }
 
-  if (entity === player && (abilityState.phaseShift.time > 0 || isEnergyParryResolving())) {
+  if (entity === player && (abilityState.ghostDriftModule.time > 0 || isReflexAegisResolving())) {
     return null;
   }
 
@@ -796,7 +795,7 @@ export function clearStatusEffects(entity) {
 
 export function clearCombatArtifacts() {
   resetPlayerWeaponMomentum();
-  pulseBurstTrackers.clear();
+  swarmMissileRackTrackers.clear();
   bullets.length = 0;
   enemyBullets.length = 0;
   impacts.length = 0;
@@ -804,10 +803,10 @@ export function clearCombatArtifacts() {
   combatTexts.length = 0;
   afterimages.length = 0;
   slashEffects.length = 0;
-  shockJavelins.length = 0;
-  enemyShockJavelins.length = 0;
+  boltLinkJavelins.length = 0;
+  enemyBoltLinkJavelins.length = 0;
   explosions.length = 0;
-  magneticFields.length = 0;
+  orbitalDistorterFields.length = 0;
   absorbBursts.length = 0;
   abilityProjectiles.length = 0;
   deployableTraps.length = 0;
@@ -827,7 +826,7 @@ export function getFieldInfluence(target) {
   let disrupted = false;
   const targetTeam = target.team ?? "enemy";
 
-  for (const field of magneticFields) {
+  for (const field of orbitalDistorterFields) {
     if (!target.alive) {
       break;
     }
@@ -890,7 +889,7 @@ export function updateSupportZones(dt) {
 
       const direction = normalize(offsetX, offsetY);
       const intensity = 0.35 + (1 - clamp(distance / Math.max(1, zone.radius), 0, 1)) * 0.65;
-      const pullStrength = zone.pullStrength ?? config.gravityWellPullStrength;
+      const pullStrength = zone.pullStrength ?? config.voidCoreSingularityPullStrength;
       const pullStep = pullStrength * intensity * dt;
       entity.x += direction.x * pullStep;
       entity.y += direction.y * pullStep;
@@ -934,8 +933,8 @@ export function getZoneEffectsForEntity(entity, dt = 0) {
   return { slowMultiplier, damageReduction };
 }
 
-export function spawnEnemyMagneticField() {
-  magneticFields.push({
+export function spawnEnemyOrbitalDistorterField() {
+  orbitalDistorterFields.push({
     x: enemy.x,
     y: enemy.y,
     radius: Math.max(96, config.fieldTapRadius * 0.9),
@@ -952,7 +951,7 @@ export function spawnEnemyMagneticField() {
     team: "enemy",
     touchedTargets: new Set(),
   });
-  enemy.fieldCooldown = 5.2;
+  enemy.orbitalDistorterCooldown = 5.2;
   addImpact(enemy.x, enemy.y, "#ffd1c8", 24);
 }
 
@@ -999,12 +998,12 @@ export function respawnBot(bot) {
   bot.abilityCooldowns.chainLightning = 0;
   bot.abilityCooldowns.blink = 0;
   bot.abilityCooldowns.phaseDash = 0;
-  bot.abilityCooldowns.pulseBurst = 0;
+  bot.abilityCooldowns.swarmMissileRack = 0;
   bot.abilityCooldowns.railShot = 0;
-  bot.abilityCooldowns.gravityWell = 0;
+  bot.abilityCooldowns.voidCoreSingularity = 0;
   bot.abilityCooldowns.phaseShift = 0;
   bot.abilityCooldowns.hologramDecoy = 0;
-  bot.abilityCooldowns.speedSurge = 0;
+  bot.abilityCooldowns.overdriveServos = 0;
   clearStatusEffects(bot);
 }
 
@@ -1138,15 +1137,15 @@ export function healEntity(entity, amount) {
   addHealingText(entity.x, entity.y - entity.radius - 10, amount);
 }
 
-function resolvePulseBurstImpact(projectile, target, team) {
-  if (projectile.effect?.kind !== "pulseBurst") {
+function resolveSwarmMissileRackImpact(projectile, target, team) {
+  if (projectile.effect?.kind !== "swarmMissileRack") {
     return {
       damage: projectile.damage,
       fullHit: false,
     };
   }
 
-  const tracker = getPulseBurstTracker(projectile);
+  const tracker = getSwarmMissileRackTracker(projectile);
   if (!tracker) {
     return {
       damage: projectile.damage,
@@ -1163,7 +1162,7 @@ function resolvePulseBurstImpact(projectile, target, team) {
   const hitIndex = (tracker.hitsByTarget.get(targetKey) ?? 0) + 1;
   tracker.hitsByTarget.set(targetKey, hitIndex);
 
-  const damage = projectile.damage * Math.pow(config.pulseBurstDamageGrowth, hitIndex - 1);
+  const damage = projectile.damage * Math.pow(config.swarmMissileRackDamageGrowth, hitIndex - 1);
   const fullHit = hitIndex >= tracker.missileCount && tracker.fullHitTargetKey !== targetKey;
   if (fullHit) {
     tracker.fullHitTargetKey = targetKey;
@@ -1198,9 +1197,9 @@ export function applyProjectileEffectToBot(bot, projectile) {
     if (strength >= 0.72) {
       applyStatusEffect(bot, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
     }
-  } else if (effect.kind === "pulseBurst") {
+  } else if (effect.kind === "swarmMissileRack") {
     if (effect.fullHit) {
-      applyStatusEffect(bot, "burn", getStatusDuration(config.pulseBurstBurnDuration), 1);
+      applyStatusEffect(bot, "burn", getStatusDuration(config.swarmMissileRackBurnDuration), 1);
       addImpact(bot.x, bot.y, "#ffba72", 20);
       addExplosion(bot.x, bot.y, 36, "#ffbf83");
     }
@@ -1238,9 +1237,9 @@ export function applyProjectileEffectToPlayer(projectile, target = player) {
     if (strength >= 0.72) {
       applyStatusEffect(target, "slow", getStatusDuration(effect.snareDuration ?? 0.35), effect.snareMagnitude ?? 0.82);
     }
-  } else if (effect.kind === "pulseBurst") {
+  } else if (effect.kind === "swarmMissileRack") {
     if (effect.fullHit) {
-      applyStatusEffect(target, "burn", getStatusDuration(config.pulseBurstBurnDuration), 1);
+      applyStatusEffect(target, "burn", getStatusDuration(config.swarmMissileRackBurnDuration), 1);
       addImpact(target.x, target.y, "#ffba72", 18);
       addExplosion(target.x, target.y, 30, "#ffbf83");
     }
@@ -1358,7 +1357,7 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
       "cannon",
       projectile.ownerRef ?? enemy,
     );
-    if (target === player && isEnergyParryResolving()) {
+    if (target === player && isReflexAegisResolving()) {
       continue;
     }
     if (effect.statusType === "burnslow") {
@@ -1377,7 +1376,7 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
         effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
       );
     }
-    if ((effect.pushMax ?? 0) > 0 && target === player && abilityState.phaseShift.time <= 0) {
+    if ((effect.pushMax ?? 0) > 0 && target === player && abilityState.ghostDriftModule.time <= 0) {
       const intensity = 1 - clamp(distance / Math.max(1, effect.splashRadius ?? 72), 0, 1);
       const pushDistance = (effect.pushMin ?? 0) + ((effect.pushMax ?? 0) - (effect.pushMin ?? 0)) * intensity;
       const pushDirection = distance > 0 ? normalize(target.x - impactX, target.y - impactY) : normalize(target.x - enemy.x, target.y - enemy.y);
@@ -1406,7 +1405,7 @@ export function updateBullets(collection, dt) {
   for (let i = collection.length - 1; i >= 0; i -= 1) {
     const bullet = collection[i];
     const team = collection === bullets ? "player" : "enemy";
-    applyPulseBurstGuidance(bullet, team, dt);
+    applySwarmMissileRackGuidance(bullet, team, dt);
     applyFieldDragToProjectile(bullet, team, dt);
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
@@ -1419,7 +1418,7 @@ export function updateBullets(collection, dt) {
       length(bullet.x - bullet.detonateX, bullet.y - bullet.detonateY) <= Math.max(10, length(bullet.vx, bullet.vy) * dt + bullet.radius)
     ) {
       triggerCannonExplosion(bullet, bullet.detonateX, bullet.detonateY, team);
-      releasePulseBurstProjectile(bullet);
+      releaseSwarmMissileRackProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1429,7 +1428,7 @@ export function updateBullets(collection, dt) {
 
     if (hitMapWithProjectile(bullet, team)) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
-      releasePulseBurstProjectile(bullet);
+      releaseSwarmMissileRackProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1445,7 +1444,7 @@ export function updateBullets(collection, dt) {
 
     if (bullet.life <= 0 || out) {
       triggerCannonExplosion(bullet, bullet.x, bullet.y, team);
-      releasePulseBurstProjectile(bullet);
+      releaseSwarmMissileRackProjectile(bullet);
       if (team === "player") {
         settlePlayerWeaponAttack(bullet.attackId);
       }
@@ -1473,18 +1472,18 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
     return true;
   }
 
-  if (tryTriggerEnergyParry(attacker, source)) {
+  if (tryTriggerReflexAegis(attacker, source)) {
     addImpact(player.x, player.y, "#d7fbff", 18);
     playDamageCue("player", 0, source, true);
     return false;
   }
 
-  if (isEnergyParryResolving()) {
+  if (isReflexAegisResolving()) {
     playDamageCue("player", 0, source, true);
     return false;
   }
 
-  if (abilityState.phaseShift.time > 0 || abilityState.phaseDash.time > 0) {
+  if (abilityState.ghostDriftModule.time > 0 || abilityState.phaseDash.time > 0) {
     addImpact(player.x, player.y, "#d3f6ff", 18);
     playDamageCue("player", 0, source, true);
     return false;
@@ -1504,7 +1503,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
       player.shieldGuardTime = 0;
       if (player.shieldBreakRefundReady) {
         player.shieldBreakRefundReady = false;
-        abilityState.shield.cooldown = Math.max(0, abilityState.shield.cooldown * (1 - config.shieldBreakRefund));
+        abilityState.hexPlateProjector.cooldown = Math.max(0, abilityState.hexPlateProjector.cooldown * (1 - config.shieldBreakRefund));
         addAbsorbBurst(player.x, player.y, 20, "#c1e8ff");
         addImpact(player.x, player.y, "#d7f0ff", 18);
         statusLine.textContent = "Energy Shield broke, but the timing shaved cooldown off the next cast.";
@@ -1521,7 +1520,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
   player.flash = 0.12;
   const heavyHit = finalDamage >= 18;
   applyHitReaction(player, player.x - Math.cos(player.facing) * 18, player.y - Math.sin(player.facing) * 18, heavyHit ? 1.05 : 0.65);
-  addImpact(player.x, player.y, source === "javelin" ? "#ffd4a6" : source === "axe-finisher" ? "#ffe6ac" : "#ff9c86", heavyHit ? 24 : 16);
+  addImpact(player.x, player.y, source === "boltLinkJavelin" ? "#ffd4a6" : source === "axe-finisher" ? "#ffe6ac" : "#ff9c86", heavyHit ? 24 : 16);
   playDamageCue("player", finalDamage, source, false);
   addDamageText(player.x, player.y - player.radius - 8, finalDamage, { heavy: heavyHit, color: source === "axe-finisher" ? "#ffb066" : "#ff7469" });
 
@@ -1548,7 +1547,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
       player.ghostTime = Math.max(player.ghostTime, 0.16);
       addImpact(player.x, player.y, "#ffd998", 32);
       addExplosion(player.x, player.y, 64, "#ffb26a");
-      statusLine.textContent = "Baroud d'Honneur déclenché. Trois secondes pour retourner le duel.";
+      statusLine.textContent = "Last Stand Protocol triggered. Three seconds to settle the trial.";
       return false;
     }
 
@@ -1617,8 +1616,8 @@ export function resolveCombat() {
 
       if (length(bullet.x - bot.x, bullet.y - bot.y) <= bullet.radius + bot.radius) {
         bullet.hitTargets.add(bot.kind);
-        if (bullet.effect?.kind === "pulseBurst") {
-          const outcome = resolvePulseBurstImpact(bullet, bot, "player");
+        if (bullet.effect?.kind === "swarmMissileRack") {
+          const outcome = resolveSwarmMissileRackImpact(bullet, bot, "player");
           bullet.damage = outcome.damage;
           bullet.effect.fullHit = outcome.fullHit;
         }
@@ -1628,7 +1627,7 @@ export function resolveCombat() {
         applyProjectileEffectToBot(bot, bullet);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "player", bot);
         if (!bullet.piercing) {
-          releasePulseBurstProjectile(bullet);
+          releaseSwarmMissileRackProjectile(bullet);
           settlePlayerWeaponAttack(bullet.attackId, true);
           bullets.splice(i, 1);
           consumed = true;
@@ -1669,8 +1668,8 @@ export function resolveCombat() {
       addImpact(bullet.x, bullet.y, target === playerClone ? "#e8c8ff" : "#ff8a77", target === playerClone ? 16 : 18);
 
       if (target === playerClone) {
-        if (bullet.effect?.kind === "pulseBurst") {
-          const outcome = resolvePulseBurstImpact(bullet, target, "enemy");
+        if (bullet.effect?.kind === "swarmMissileRack") {
+          const outcome = resolveSwarmMissileRackImpact(bullet, target, "enemy");
           bullet.damage = outcome.damage;
           bullet.effect.fullHit = outcome.fullHit;
         }
@@ -1679,17 +1678,17 @@ export function resolveCombat() {
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
         statusLine.textContent = "Phantom copy intercepted enemy fire.";
       } else if (abilityState.dash.invulnerabilityTime <= 0) {
-        if (tryTriggerEnergyParry(bullet.ownerRef ?? enemy, bullet.source ?? "bullet")) {
+        if (tryTriggerReflexAegis(bullet.ownerRef ?? enemy, bullet.source ?? "bullet")) {
           if (!bullet.piercing) {
-            releasePulseBurstProjectile(bullet);
+            releaseSwarmMissileRackProjectile(bullet);
             enemyBullets.splice(i, 1);
           }
           consumed = true;
           break;
         }
         const playerFieldModifier = getEntityFieldModifier(target);
-        if (bullet.effect?.kind === "pulseBurst") {
-          const outcome = resolvePulseBurstImpact(bullet, target, "enemy");
+        if (bullet.effect?.kind === "swarmMissileRack") {
+          const outcome = resolveSwarmMissileRackImpact(bullet, target, "enemy");
           bullet.damage = outcome.damage;
           bullet.effect.fullHit = outcome.fullHit;
         }
@@ -1699,7 +1698,7 @@ export function resolveCombat() {
           "bullet",
           bullet.ownerRef ?? enemy,
         );
-        if (target === player && isEnergyParryResolving()) {
+        if (target === player && isReflexAegisResolving()) {
           if (!bullet.piercing) {
             enemyBullets.splice(i, 1);
           }
@@ -1713,7 +1712,7 @@ export function resolveCombat() {
           : "You were hit. Use dash to break pressure.";
         if (defeatedByBullet) {
           if (!bullet.piercing) {
-            releasePulseBurstProjectile(bullet);
+            releaseSwarmMissileRackProjectile(bullet);
             enemyBullets.splice(i, 1);
           }
           consumed = true;
@@ -1725,7 +1724,7 @@ export function resolveCombat() {
       }
 
       if (!bullet.piercing) {
-        releasePulseBurstProjectile(bullet);
+        releaseSwarmMissileRackProjectile(bullet);
         enemyBullets.splice(i, 1);
         consumed = true;
         break;
@@ -1823,22 +1822,21 @@ export function applyBotLoadout(bot, loadoutConfig) {
   bot.attackCommitY = 0;
   bot.attackCommitSpeed = 0;
   bot.activeMeleeStrike = null;
-  bot.abilityCooldowns.grapple = 0;
-  bot.abilityCooldowns.shield = 0;
-  bot.abilityCooldowns.booster = 0;
-  bot.abilityCooldowns.emp = 0;
-  bot.abilityCooldowns.backstep = 0;
+  bot.abilityCooldowns.vGripHarpoon = 0;
+  bot.abilityCooldowns.hexPlateProjector = 0;
+  bot.abilityCooldowns.overdriveServos = 0;
+  bot.abilityCooldowns.emPulseEmitter = 0;
+  bot.abilityCooldowns.jetBackThruster = 0;
   bot.abilityCooldowns.chainLightning = 0;
   bot.abilityCooldowns.blink = 0;
   bot.abilityCooldowns.phaseDash = 0;
-  bot.abilityCooldowns.pulseBurst = 0;
+  bot.abilityCooldowns.swarmMissileRack = 0;
   bot.abilityCooldowns.railShot = 0;
-  bot.abilityCooldowns.gravityWell = 0;
-  bot.abilityCooldowns.phaseShift = 0;
-  bot.abilityCooldowns.hologramDecoy = 0;
-  bot.abilityCooldowns.speedSurge = 0;
-  bot.javelinCooldown = 0.8;
-  bot.fieldCooldown = 1.8;
+  bot.abilityCooldowns.voidCoreSingularity = 0;
+  bot.abilityCooldowns.ghostDriftModule = 0;
+  bot.abilityCooldowns.spectreProjector = 0;
+  bot.boltLinkJavelinCooldown = 0.8;
+  bot.orbitalDistorterCooldown = 1.8;
 }
 
 export function refreshHunterLoadout() {
@@ -1865,7 +1863,7 @@ export function resetBotsForMode(mode = sandbox.mode) {
       bot.weapon = weapons.pulse.key;
       bot.loadout = {
         weapon: weapons.pulse.key,
-        abilities: ["shockJavelin", "magneticField", "energyShield"],
+        abilities: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
       };
       bot.spawnX = bot.x;
       bot.spawnY = bot.y;
@@ -1980,22 +1978,21 @@ export function resetBotsForMode(mode = sandbox.mode) {
     bot.injectorMarks = 0;
     bot.injectorMarkTime = 0;
     if (bot.role === "hunter") {
-      bot.abilityCooldowns.grapple = 0;
-      bot.abilityCooldowns.shield = 0;
-      bot.abilityCooldowns.booster = 0;
-      bot.abilityCooldowns.emp = 0;
-      bot.abilityCooldowns.backstep = 0;
+      bot.abilityCooldowns.vGripHarpoon = 0;
+      bot.abilityCooldowns.hexPlateProjector = 0;
+      bot.abilityCooldowns.overdriveServos = 0;
+      bot.abilityCooldowns.emPulseEmitter = 0;
+      bot.abilityCooldowns.jetBackThruster = 0;
       bot.abilityCooldowns.chainLightning = 0;
       bot.abilityCooldowns.blink = 0;
       bot.abilityCooldowns.phaseDash = 0;
-      bot.abilityCooldowns.pulseBurst = 0;
+      bot.abilityCooldowns.swarmMissileRack = 0;
       bot.abilityCooldowns.railShot = 0;
-      bot.abilityCooldowns.gravityWell = 0;
-      bot.abilityCooldowns.phaseShift = 0;
-      bot.abilityCooldowns.hologramDecoy = 0;
-      bot.abilityCooldowns.speedSurge = 0;
-      bot.javelinCooldown = 0.8;
-      bot.fieldCooldown = 1.8;
+      bot.abilityCooldowns.voidCoreSingularity = 0;
+      bot.abilityCooldowns.ghostDriftModule = 0;
+      bot.abilityCooldowns.spectreProjector = 0;
+      bot.boltLinkJavelinCooldown = 0.8;
+      bot.orbitalDistorterCooldown = 1.8;
     }
     clearStatusEffects(bot);
   }

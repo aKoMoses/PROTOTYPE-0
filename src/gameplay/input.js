@@ -140,11 +140,11 @@ window.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyG") {
     player.fireCooldown = 0;
-    abilityState.javelin.cooldown = 0;
-    abilityState.field.cooldown = 0;
-    abilityState.shield.cooldown = 0;
-    abilityState.ultimate.cooldown = 0;
-    abilityState.energyParry.cooldown = 0;
+    abilityState.boltLinkJavelin.cooldown = 0;
+    abilityState.orbitalDistorter.cooldown = 0;
+    abilityState.hexPlateProjector.cooldown = 0;
+    abilityState.core.cooldown = 0;
+    abilityState.reflexAegis.cooldown = 0;
     abilityState.dash.charges = 2;
     statusLine.textContent = "Cooldowns reset.";
   }

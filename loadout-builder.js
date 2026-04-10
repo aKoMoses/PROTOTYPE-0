@@ -7,11 +7,11 @@ import { content } from "./src/content.js";
 
 const BUILDER_STEPS = [
   { key: "weapon",  label: "WEAPON",   slotIndex: null, zone: "arms",  prompt: "Arm Your Killing Machine",  sub: "The instrument of absolute destruction" },
-  { key: "ability0", label: "Q ABILITY", slotIndex: 0,    zone: "shoulderL", prompt: "Mount Primary System",    sub: "First strike — the opening move of annihilation" },
-  { key: "ability1", label: "E ABILITY", slotIndex: 1,    zone: "shoulderR", prompt: "Install Secondary Core",  sub: "Adapt. Control. Dominate." },
-  { key: "ability2", label: "F ABILITY", slotIndex: 2,    zone: "core",  prompt: "Embed Tactical Override",    sub: "The edge between survival and supremacy" },
-  { key: "perk",     label: "PERK",     slotIndex: null, zone: "spine", prompt: "Integrate Neural Module", sub: "A passive upgrade fused into your combat DNA" },
-  { key: "ultimate", label: "ULTIMATE", slotIndex: null, zone: "head",  prompt: "Unleash The Singularity",   sub: "When activated — nothing survives" },
+  { key: "ability0", label: "Q MODULE",  slotIndex: 0,    zone: "shoulderL", prompt: "Mount Primary System",    sub: "First strike — the opening move of annihilation" },
+  { key: "ability1", label: "E MODULE",  slotIndex: 1,    zone: "shoulderR", prompt: "Install Secondary Core",  sub: "Adapt. Control. Dominate." },
+  { key: "ability2", label: "F MODULE",  slotIndex: 2,    zone: "core",  prompt: "Embed Tactical Override",    sub: "The edge between survival and supremacy" },
+  { key: "perk",     label: "IMPLANT",  slotIndex: null, zone: "spine", prompt: "Integrate Neural Implant", sub: "A passive upgrade fused into your combat DNA" },
+  { key: "ultimate", label: "REACTOR CORE", slotIndex: null, zone: "head",  prompt: "Configure Reactor Core",   sub: "When activated — nothing survives" },
 ];
 
 // ── MECH SVG TEMPLATE ─────────────────────────────────────────────
@@ -133,7 +133,7 @@ function createMechSVG() {
     <circle cx="170" cy="260" r="2" fill="rgba(77, 216, 255, 0.15)"/>
     <circle cx="170" cy="280" r="2" fill="rgba(77, 216, 255, 0.1)"/>
     <circle cx="170" cy="300" r="2" fill="rgba(77, 216, 255, 0.08)"/>
-    <text class="mech-zone-label" data-zone-label="spine" x="170" y="338">PERK</text>
+    <text class="mech-zone-label" data-zone-label="spine" x="170" y="338">IMPLANT</text>
 
     <!-- ARMS — Weapon -->
     <path class="mech-zone" data-zone="arms" d="
@@ -296,9 +296,9 @@ function createBuilderDOM() {
 // ── CONTENT ACCESS ────────────────────────────────────────────────
 function getContentForStep(step) {
   const weapons = content.weapons || {};
-  const abilities = content.abilities || {};
-  const perks = content.perks || {};
-  const ultimates = content.ultimates || {};
+  const abilities = content.modules || {};
+  const perks = content.implants || {};
+  const ultimates = content.cores || {};
 
   switch (step.key) {
     case "weapon":
@@ -710,13 +710,13 @@ function handleForge() {
 
   const build = {
     weapon: builderState.selections.weapon,
-    abilities: [
+    modules: [
       builderState.selections.ability0,
       builderState.selections.ability1,
       builderState.selections.ability2,
     ],
-    perks: builderState.selections.perk ? [builderState.selections.perk] : [],
-    ultimate: builderState.selections.ultimate,
+    implants: builderState.selections.perk ? [builderState.selections.perk] : [],
+    core: builderState.selections.ultimate,
   };
 
   // Dispatch event with the completed loadout data

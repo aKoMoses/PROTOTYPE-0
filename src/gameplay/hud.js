@@ -64,7 +64,7 @@ export function updateHud() {
   const primaryBot = getPrimaryBot();
   const buildStats = getBuildStats();
   const slotAbilities = [getAbilityBySlot(0), getAbilityBySlot(1), getAbilityBySlot(2)];
-  const selectedUltimate = content.ultimates[loadout.ultimate] ?? content.ultimates.phantomSplit;
+  const selectedUltimate = content.cores[loadout.core] ?? content.cores.phantomCore;
   const activeEnemies = sandbox.mode === sandboxModes.teamDuel.key ? teamEnemies.filter(Boolean) : [];
   const livingEnemies = activeEnemies.filter((bot) => bot.alive);
   const teamEnemyRatio = activeEnemies.length
@@ -157,12 +157,12 @@ export function updateHud() {
   if (playerBuildTag) {
     const keystoneTree = getSelectedRuneUltimateTree();
     const keystoneName = keystoneTree ? content.runeTrees[keystoneTree]?.nodes.ultimate.name : "No keystone";
-    const perkName = content.perks[loadout.perks[0]]?.name ?? "No perk";
+    const perkName = content.implants[loadout.implants[0]]?.name ?? "No implant";
     playerBuildTag.textContent = player.lastStandTime > 0
       ? `${keystoneName} | ${perkName} | OVERLOAD ${player.lastStandTime.toFixed(1)}s`
       : `${keystoneName} | ${perkName}`;
-    if (player.energyParryHitBonusTime > 0 && player.energyParryHitBonusDamage > 0) {
-      playerBuildTag.textContent = `${playerBuildTag.textContent} | Counter +${Math.round(player.energyParryHitBonusDamage)}`;
+    if (player.reflexAegisHitBonusTime > 0 && player.reflexAegisHitBonusDamage > 0) {
+      playerBuildTag.textContent = `${playerBuildTag.textContent} | Counter +${Math.round(player.reflexAegisHitBonusDamage)}`;
     }
   }
   const pulseMeterRatio = player.reloadTime > 0
@@ -245,9 +245,9 @@ export function updateHud() {
       : "--";
 
   setHudSlotPresentation(slotDashIcon, slotDashName, { icon: "ability-dash", name: "Dash" });
-  setHudSlotPresentation(slotAbility1Icon, slotAbility1Name, slotAbilities[0] ?? content.abilities.shockJavelin);
-  setHudSlotPresentation(slotAbility2Icon, slotAbility2Name, slotAbilities[1] ?? content.abilities.magneticField);
-  setHudSlotPresentation(slotAbility3Icon, slotAbility3Name, slotAbilities[2] ?? content.abilities.energyShield);
+  setHudSlotPresentation(slotAbility1Icon, slotAbility1Name, slotAbilities[0] ?? content.modules.boltLinkJavelin);
+  setHudSlotPresentation(slotAbility2Icon, slotAbility2Name, slotAbilities[1] ?? content.modules.orbitalDistorter);
+  setHudSlotPresentation(slotAbility3Icon, slotAbility3Name, slotAbilities[2] ?? content.modules.hexPlateProjector);
   setHudSlotPresentation(ultimateSlotIcon, ultimateSlotName, selectedUltimate);
 
   updateAbilitySlot(slotDash, slotDashOverlay, slotDashTimer, getAbilityHudState("dash"));
@@ -255,10 +255,10 @@ export function updateHud() {
   updateAbilitySlot(slotAbility2, slotAbility2Overlay, slotAbility2Timer, getAbilityHudState(slotAbilities[1]?.key));
   updateAbilitySlot(slotAbility3, slotAbility3Overlay, slotAbility3Timer, getAbilityHudState(slotAbilities[2]?.key));
   updateAbilitySlot(ultimateSlot, ultimateSlotOverlay, ultimateSlotTimer, {
-    ready: abilityState.ultimate.cooldown <= 0,
+    ready: abilityState.core.cooldown <= 0,
     charging: false,
-    cooldownRatio: abilityState.ultimate.cooldown <= 0 ? 0 : abilityState.ultimate.cooldown / config.ultimateCooldown,
-    timer: abilityState.ultimate.cooldown <= 0 ? "" : abilityState.ultimate.cooldown.toFixed(1),
+    cooldownRatio: abilityState.core.cooldown <= 0 ? 0 : abilityState.core.cooldown / config.ultimateCooldown,
+    timer: abilityState.core.cooldown <= 0 ? "" : abilityState.core.cooldown.toFixed(1),
   });
 }
 
@@ -288,101 +288,101 @@ export function getAbilityHudState(abilityKey) {
         timer: abilityState.dash.activeTime > 0 ? "GO" : ready ? "" : abilityState.dash.rechargeTimer.toFixed(1),
       };
     }
-    case "shockJavelin":
+    case "boltLinkJavelin":
       return {
-        ready: abilityState.javelin.cooldown <= 0 && !abilityState.javelin.pendingCooldown && !abilityState.javelin.recastReady,
-        recast: abilityState.javelin.recastReady,
+        ready: abilityState.boltLinkJavelin.cooldown <= 0 && !abilityState.boltLinkJavelin.pendingCooldown && !abilityState.boltLinkJavelin.recastReady,
+        recast: abilityState.boltLinkJavelin.recastReady,
         charging: false,
         cooldownRatio:
-          abilityState.javelin.recastReady
-            ? 1 - (abilityState.javelin.activeTime / getStatusDuration(config.javelinSlowDuration))
-            : abilityState.javelin.pendingCooldown
-              ? Math.max(0, Math.min(1, abilityState.javelin.activeTime / Math.max(0.001, config.javelinSlowDuration)))
-            : abilityState.javelin.cooldown <= 0
+          abilityState.boltLinkJavelin.recastReady
+            ? 1 - (abilityState.boltLinkJavelin.activeTime / getStatusDuration(config.javelinSlowDuration))
+            : abilityState.boltLinkJavelin.pendingCooldown
+              ? Math.max(0, Math.min(1, abilityState.boltLinkJavelin.activeTime / Math.max(0.001, config.javelinSlowDuration)))
+            : abilityState.boltLinkJavelin.cooldown <= 0
             ? 0
-            : Math.max(0, Math.min(1, abilityState.javelin.cooldown / abilityConfig.javelin.cooldown)),
-        timer: abilityState.javelin.recastReady
+            : Math.max(0, Math.min(1, abilityState.boltLinkJavelin.cooldown / abilityConfig.javelin.cooldown)),
+        timer: abilityState.boltLinkJavelin.recastReady
           ? "RECAST"
-          : abilityState.javelin.pendingCooldown
-            ? abilityState.javelin.activeTime.toFixed(1)
-          : abilityState.javelin.cooldown <= 0
+          : abilityState.boltLinkJavelin.pendingCooldown
+            ? abilityState.boltLinkJavelin.activeTime.toFixed(1)
+          : abilityState.boltLinkJavelin.cooldown <= 0
             ? ""
-            : abilityState.javelin.cooldown.toFixed(1),
+            : abilityState.boltLinkJavelin.cooldown.toFixed(1),
       };
-    case "magneticField":
+    case "orbitalDistorter":
       return {
-        ready: abilityState.field.cooldown <= 0,
-        charging: abilityState.field.charging,
+        ready: abilityState.orbitalDistorter.cooldown <= 0,
+        charging: abilityState.orbitalDistorter.charging,
         cooldownRatio:
-          abilityState.field.cooldown <= 0
+          abilityState.orbitalDistorter.cooldown <= 0
             ? 0
-            : Math.max(0, Math.min(1, abilityState.field.cooldown / abilityConfig.field.cooldown)),
-        timer: abilityState.field.charging
-          ? abilityState.field.chargeTime >= abilityConfig.field.chargeThreshold
+            : Math.max(0, Math.min(1, abilityState.orbitalDistorter.cooldown / abilityConfig.field.cooldown)),
+        timer: abilityState.orbitalDistorter.charging
+          ? abilityState.orbitalDistorter.chargeTime >= abilityConfig.field.chargeThreshold
             ? "MAX"
             : "..."
-          : abilityState.field.cooldown <= 0
+          : abilityState.orbitalDistorter.cooldown <= 0
             ? ""
-            : abilityState.field.cooldown.toFixed(1),
+            : abilityState.orbitalDistorter.cooldown.toFixed(1),
       };
-    case "magneticGrapple":
+    case "vGripHarpoon":
       return {
-        ready: abilityState.grapple.cooldown <= 0 && abilityState.grapple.phase === "idle",
-        charging: abilityState.grapple.phase === "flying" || abilityState.grapple.phase === "pull",
-        cooldownRatio: abilityState.grapple.cooldown <= 0 ? 0 : abilityState.grapple.cooldown / config.grappleCooldown,
+        ready: abilityState.vGripHarpoon.cooldown <= 0 && abilityState.vGripHarpoon.phase === "idle",
+        charging: abilityState.vGripHarpoon.phase === "flying" || abilityState.vGripHarpoon.phase === "pull",
+        cooldownRatio: abilityState.vGripHarpoon.cooldown <= 0 ? 0 : abilityState.vGripHarpoon.cooldown / config.grappleCooldown,
         timer:
-          abilityState.grapple.phase === "pull"
+          abilityState.vGripHarpoon.phase === "pull"
             ? "CUT"
-            : abilityState.grapple.phase === "flying"
+            : abilityState.vGripHarpoon.phase === "flying"
               ? "HOOK"
-              : abilityState.grapple.cooldown <= 0
+              : abilityState.vGripHarpoon.cooldown <= 0
                 ? ""
-                : abilityState.grapple.cooldown.toFixed(1),
+                : abilityState.vGripHarpoon.cooldown.toFixed(1),
       };
-    case "energyShield":
+    case "hexPlateProjector":
       return {
-        ready: abilityState.shield.cooldown <= 0,
+        ready: abilityState.hexPlateProjector.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.shield.cooldown <= 0 ? 0 : abilityState.shield.cooldown / config.shieldCooldown,
-        timer: abilityState.shield.cooldown <= 0 ? "" : abilityState.shield.cooldown.toFixed(1),
+        cooldownRatio: abilityState.hexPlateProjector.cooldown <= 0 ? 0 : abilityState.hexPlateProjector.cooldown / config.shieldCooldown,
+        timer: abilityState.hexPlateProjector.cooldown <= 0 ? "" : abilityState.hexPlateProjector.cooldown.toFixed(1),
       };
-    case "energyParry": {
+    case "reflexAegis": {
       const locked =
-        abilityState.energyParry.startupTime > 0 ||
-        abilityState.energyParry.activeTime > 0 ||
-        abilityState.energyParry.recoveryTime > 0;
+        abilityState.reflexAegis.startupTime > 0 ||
+        abilityState.reflexAegis.activeTime > 0 ||
+        abilityState.reflexAegis.recoveryTime > 0;
       return {
-        ready: abilityState.energyParry.cooldown <= 0 && !locked,
-        charging: abilityState.energyParry.startupTime > 0 || abilityState.energyParry.activeTime > 0,
+        ready: abilityState.reflexAegis.cooldown <= 0 && !locked,
+        charging: abilityState.reflexAegis.startupTime > 0 || abilityState.reflexAegis.activeTime > 0,
         cooldownRatio:
-          abilityState.energyParry.cooldown <= 0
+          abilityState.reflexAegis.cooldown <= 0
             ? 0
-            : Math.max(0, Math.min(1, abilityState.energyParry.cooldown / config.energyParryCooldown)),
+            : Math.max(0, Math.min(1, abilityState.reflexAegis.cooldown / config.reflexAegisCooldown)),
         timer:
-          abilityState.energyParry.activeTime > 0
+          abilityState.reflexAegis.activeTime > 0
             ? "PARRY"
-            : abilityState.energyParry.recoveryTime > 0
+            : abilityState.reflexAegis.recoveryTime > 0
               ? "FAIL"
-              : abilityState.energyParry.startupTime > 0
+              : abilityState.reflexAegis.startupTime > 0
                 ? "SET"
-                : abilityState.energyParry.cooldown <= 0
+                : abilityState.reflexAegis.cooldown <= 0
                   ? ""
-                  : abilityState.energyParry.cooldown.toFixed(1),
+                  : abilityState.reflexAegis.cooldown.toFixed(1),
       };
     }
-    case "empBurst":
+    case "emPulseEmitter":
       return {
-        ready: abilityState.emp.cooldown <= 0,
+        ready: abilityState.emPulseEmitter.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.emp.cooldown <= 0 ? 0 : abilityState.emp.cooldown / config.boosterCooldown,
-        timer: abilityState.emp.cooldown <= 0 ? "" : abilityState.emp.cooldown.toFixed(1),
+        cooldownRatio: abilityState.emPulseEmitter.cooldown <= 0 ? 0 : abilityState.emPulseEmitter.cooldown / config.boosterCooldown,
+        timer: abilityState.emPulseEmitter.cooldown <= 0 ? "" : abilityState.emPulseEmitter.cooldown.toFixed(1),
       };
-    case "backstepBurst":
+    case "jetBackThruster":
       return {
-        ready: abilityState.backstep.cooldown <= 0,
+        ready: abilityState.jetBackThruster.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.backstep.cooldown <= 0 ? 0 : abilityState.backstep.cooldown / 3.6,
-        timer: abilityState.backstep.cooldown <= 0 ? "" : abilityState.backstep.cooldown.toFixed(1),
+        cooldownRatio: abilityState.jetBackThruster.cooldown <= 0 ? 0 : abilityState.jetBackThruster.cooldown / 3.6,
+        timer: abilityState.jetBackThruster.cooldown <= 0 ? "" : abilityState.jetBackThruster.cooldown.toFixed(1),
       };
     case "chainLightning":
       return {
@@ -391,7 +391,7 @@ export function getAbilityHudState(abilityKey) {
         cooldownRatio: abilityState.chainLightning.cooldown <= 0 ? 0 : abilityState.chainLightning.cooldown / 5.4,
         timer: abilityState.chainLightning.cooldown <= 0 ? "" : abilityState.chainLightning.cooldown.toFixed(1),
       };
-    case "blinkStep":
+    case "blink":
       return {
         ready: abilityState.blink.cooldown <= 0,
         charging: false,
@@ -405,12 +405,12 @@ export function getAbilityHudState(abilityKey) {
         cooldownRatio: abilityState.phaseDash.cooldown <= 0 ? 0 : abilityState.phaseDash.cooldown / 4.6,
         timer: abilityState.phaseDash.time > 0 ? "PHASE" : abilityState.phaseDash.cooldown <= 0 ? "" : abilityState.phaseDash.cooldown.toFixed(1),
       };
-    case "pulseBurst":
+    case "swarmMissileRack":
       return {
-        ready: abilityState.pulseBurst.cooldown <= 0,
+        ready: abilityState.swarmMissileRack.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.pulseBurst.cooldown <= 0 ? 0 : abilityState.pulseBurst.cooldown / config.pulseBurstCooldown,
-        timer: abilityState.pulseBurst.cooldown <= 0 ? "" : abilityState.pulseBurst.cooldown.toFixed(1),
+        cooldownRatio: abilityState.swarmMissileRack.cooldown <= 0 ? 0 : abilityState.swarmMissileRack.cooldown / config.swarmMissileRackCooldown,
+        timer: abilityState.swarmMissileRack.cooldown <= 0 ? "" : abilityState.swarmMissileRack.cooldown.toFixed(1),
       };
     case "railShot":
       return {
@@ -419,33 +419,33 @@ export function getAbilityHudState(abilityKey) {
         cooldownRatio: abilityState.railShot.cooldown <= 0 ? 0 : abilityState.railShot.cooldown / 5.1,
         timer: abilityState.railShot.cooldown <= 0 ? "" : abilityState.railShot.cooldown.toFixed(1),
       };
-    case "gravityWell":
+    case "voidCoreSingularity":
       return {
-        ready: abilityState.gravityWell.cooldown <= 0,
+        ready: abilityState.voidCoreSingularity.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.gravityWell.cooldown <= 0 ? 0 : abilityState.gravityWell.cooldown / config.gravityWellCooldown,
-        timer: abilityState.gravityWell.cooldown <= 0 ? "" : abilityState.gravityWell.cooldown.toFixed(1),
+        cooldownRatio: abilityState.voidCoreSingularity.cooldown <= 0 ? 0 : abilityState.voidCoreSingularity.cooldown / config.voidCoreSingularityCooldown,
+        timer: abilityState.voidCoreSingularity.cooldown <= 0 ? "" : abilityState.voidCoreSingularity.cooldown.toFixed(1),
       };
-    case "phaseShift":
+    case "ghostDriftModule":
       return {
-        ready: abilityState.phaseShift.cooldown <= 0,
-        charging: abilityState.phaseShift.time > 0,
-        cooldownRatio: abilityState.phaseShift.cooldown <= 0 ? 0 : abilityState.phaseShift.cooldown / config.phaseShiftCooldown,
-        timer: abilityState.phaseShift.time > 0 ? "SHIFT" : abilityState.phaseShift.cooldown <= 0 ? "" : abilityState.phaseShift.cooldown.toFixed(1),
+        ready: abilityState.ghostDriftModule.cooldown <= 0,
+        charging: abilityState.ghostDriftModule.time > 0,
+        cooldownRatio: abilityState.ghostDriftModule.cooldown <= 0 ? 0 : abilityState.ghostDriftModule.cooldown / config.phaseShiftCooldown,
+        timer: abilityState.ghostDriftModule.time > 0 ? "SHIFT" : abilityState.ghostDriftModule.cooldown <= 0 ? "" : abilityState.ghostDriftModule.cooldown.toFixed(1),
       };
-    case "hologramDecoy":
+    case "spectreProjector":
       return {
-        ready: abilityState.hologramDecoy.cooldown <= 0,
+        ready: abilityState.spectreProjector.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.hologramDecoy.cooldown <= 0 ? 0 : abilityState.hologramDecoy.cooldown / 6.2,
-        timer: abilityState.hologramDecoy.cooldown <= 0 ? "" : abilityState.hologramDecoy.cooldown.toFixed(1),
+        cooldownRatio: abilityState.spectreProjector.cooldown <= 0 ? 0 : abilityState.spectreProjector.cooldown / 6.2,
+        timer: abilityState.spectreProjector.cooldown <= 0 ? "" : abilityState.spectreProjector.cooldown.toFixed(1),
       };
-    case "speedSurge":
+    case "overdriveServos":
       return {
-        ready: abilityState.speedSurge.cooldown <= 0,
+        ready: abilityState.overdriveServos.cooldown <= 0,
         charging: false,
-        cooldownRatio: abilityState.speedSurge.cooldown <= 0 ? 0 : abilityState.speedSurge.cooldown / 4.2,
-        timer: abilityState.speedSurge.cooldown <= 0 ? "" : abilityState.speedSurge.cooldown.toFixed(1),
+        cooldownRatio: abilityState.overdriveServos.cooldown <= 0 ? 0 : abilityState.overdriveServos.cooldown / 4.2,
+        timer: abilityState.overdriveServos.cooldown <= 0 ? "" : abilityState.overdriveServos.cooldown.toFixed(1),
       };
     default:
       return { ready: false, charging: false, cooldownRatio: 1, timer: "NA" };

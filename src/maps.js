@@ -38,14 +38,14 @@ export const duelMapRegistry = {
 export const buildLabVisiblePools = {
   weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector", "lance", "cannon"],
   abilities: [
-    "shockJavelin",
-    "magneticField",
-    "magneticGrapple",
-    "energyShield",
-    "energyParry",
-    "empBurst",
-    "pulseBurst",
-    "gravityWell",
+    "boltLinkJavelin",
+    "orbitalDistorter",
+    "vGripHarpoon",
+    "hexPlateProjector",
+    "reflexAegis",
+    "emPulseEmitter",
+    "swarmMissileRack",
+    "voidCoreSingularity",
     "phaseShift",
   ],
   perks: [
