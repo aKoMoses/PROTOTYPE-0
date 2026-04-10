@@ -49,6 +49,20 @@ export function getXpForLevel(level) {
   return Math.max(0, Math.floor(Number(level) || 1) - 1);
 }
 
+export function getBotDifficultyTierForLevel(level) {
+  const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+  if (safeLevel <= 3) {
+    return "easy";
+  }
+  if (safeLevel <= 7) {
+    return "normal";
+  }
+  if (safeLevel <= 11) {
+    return "hard";
+  }
+  return "nightmare";
+}
+
 export function getMaxDefinedLevel() {
   return LEVEL_UNLOCKS.reduce((highest, entry) => Math.max(highest, entry.level), 1);
 }
@@ -158,6 +172,10 @@ export function getProgressionSnapshot() {
       ultimates: [...progressionState.unlockedKeys.ultimates],
     },
   };
+}
+
+export function getCurrentBotDifficultyTier() {
+  return getBotDifficultyTierForLevel(progressionState.level);
 }
 
 export function setXp(nextXp, reason = "update") {

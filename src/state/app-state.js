@@ -67,7 +67,6 @@ export const botBuildState = {
 };
 
 export const matchSettings = {
-  difficulty: "normal",
   format: "bo3",
   timer: 60,
   suddenDeath: true,
