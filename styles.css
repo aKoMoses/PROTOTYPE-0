@@ -62,6 +62,27 @@ body {
   pointer-events: none;
 }
 
+/* ROBUST VISIBILITY GUARDS - Hide all gameplay UI when a menu is open */
+.game-shell.prematch-open .bottom-hud,
+.game-shell.prematch-open .match-panel,
+.game-shell.prematch-open .help-toggle,
+.game-shell.prematch-open .help-panel,
+.game-shell.prematch-open .touch-layer {
+  display: none !important;
+}
+
+/* Hide HUD during Prepare/Initial phases, except in training */
+.game-shell:not(.is-combat-active):not(.is-training) .bottom-hud,
+.game-shell:not(.is-combat-active):not(.is-training) .match-panel {
+  display: none !important;
+}
+
+/* Visibility fallback for landing page */
+.shell-view--landing ~ .bottom-hud,
+.shell-view--landing ~ .match-panel {
+  display: none !important;
+}
+
 #game {
   display: block;
   width: 100%;
@@ -3420,3 +3441,352 @@ body {
     radial-gradient(ellipse at center, rgba(119, 216, 255, 0.06), transparent 60%),
     var(--panel) !important;
 }
+
+/* ================================================================ */
+/* MOBA HUD (LoL Style) Overrides */
+/* ================================================================ */
+
+.moba-hud {
+  position: absolute;
+  bottom: 0 !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+  display: flex !important;
+  align-items: flex-end;
+  gap: 0 !important;
+  padding: 0 !important;
+  z-index: 100;
+  pointer-events: none;
+  /* Override old grid */
+  grid-template-columns: none !important;
+}
+
+.moba-hud > * {
+  pointer-events: auto;
+}
+
+/* Base metallic border style for sections */
+.moba-hud__left,
+.moba-hud__right,
+.moba-hud__center {
+  background: linear-gradient(180deg, rgba(16, 24, 34, 0.95), rgba(8, 12, 18, 0.98));
+  border: 2px solid rgba(134, 116, 68, 0.8);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  border-bottom: none;
+}
+
+/* LEFT CONSOLE (Stats) */
+.moba-hud__left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  width: 154px;
+  height: 104px;
+  border-top-left-radius: 8px;
+  border-right: 1px solid rgba(134, 116, 68, 0.4);
+}
+
+.moba-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  width: 100%;
+}
+
+.moba-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+}
+
+.moba-stat__icon {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  color: #c4a75c;
+  filter: drop-shadow(0 0 2px rgba(255,215,100,0.5));
+}
+
+/* AVATAR FRAME */
+.moba-hud__avatar-frame {
+  position: relative;
+  width: 126px;
+  height: 126px;
+  margin: 0 -10px -5px -10px; /* Overlap the left and right panels */
+  z-index: 2;
+  border-radius: 50%;
+  background: #080c12;
+  border: 4px solid rgba(134, 116, 68, 1);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(255, 215, 100, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.moba-avatar {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0b0e14;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #504b3c;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.moba-avatar .content-icon,
+#weapon-icon {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  background-size: cover !important;
+  background-position: center !important;
+  border-radius: inherit !important;
+}
+
+#weapon-name,
+#weapon-status,
+#weapon-role {
+  display: none !important;
+}
+
+.moba-level-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #0b1115;
+  border: 2px solid #c4a75c;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.8);
+}
+
+/* CENTER CONSOLE (Abilities & Bars) */
+.moba-hud__center {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 116px;
+  padding: 8px 12px 10px 18px; /* extra left padding for avatar overlap */
+  border-left: none;
+  border-right: none;
+}
+
+.moba-abilities {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px !important;
+  margin-bottom: 8px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.moba-slot {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 2px !important;
+  border: 2px solid rgba(80, 75, 60, 0.9) !important;
+  background: #0b0e14 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+}
+
+.moba-slot--passive {
+  width: 44px;
+  height: 44px;
+  border-radius: 50% !important;
+  margin-right: 12px;
+  border-color: rgba(134, 116, 68, 0.6) !important;
+}
+
+.moba-slot--ultimate {
+  border-color: #c4a75c !important;
+  box-shadow: inset 0 0 8px rgba(255, 215, 100, 0.2);
+}
+
+.moba-slot .module-slot__key {
+  position: absolute !important;
+  top: auto !important;
+  bottom: 2px !important;
+  right: 4px !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  text-shadow: 0px 1px 2px #000, 0px 0px 4px #000 !important;
+  z-index: 2;
+}
+
+.moba-slot .module-slot__name {
+  display: none !important;
+}
+
+.moba-slot .module-slot__icon,
+.moba-slot .ability-slot__icon,
+.moba-slot .content-icon {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  background-size: cover !important;
+  background-position: center !important;
+  border-radius: inherit !important;
+}
+
+.moba-slot .module-slot__timer {
+  position: absolute !important;
+  inset: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem !important;
+  font-weight: bold;
+  text-shadow: 0 0 6px #000, 0 0 10px #000 !important;
+  z-index: 4; /* Above the cooldown overlay */
+}
+
+/* COOLDOWN VISUALS */
+.module-slot.cooling .module-slot__icon,
+.module-slot.cooling .content-icon {
+  filter: grayscale(1) brightness(0.5);
+  transition: filter 0.2s ease;
+}
+
+.module-slot.ready .module-slot__icon,
+.module-slot.ready .content-icon {
+  filter: grayscale(0) brightness(1);
+  transition: filter 0.2s ease;
+}
+
+.module-slot__cooldown {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+/* RECAST VISUALS */
+.module-slot.recast {
+  border-color: #5bc0de !important;
+  box-shadow: 
+    0 0 12px rgba(91, 192, 222, 0.7),
+    inset 0 0 8px rgba(91, 192, 222, 0.5) !important;
+  animation: recast-pulse 1.8s ease-in-out infinite;
+}
+
+.module-slot.recast .module-slot__icon,
+.module-slot.recast .content-icon {
+  filter: grayscale(0) brightness(1.15) contrast(1.1);
+}
+
+@keyframes recast-pulse {
+  0%, 100% { 
+    border-color: #5bc0de !important;
+    box-shadow: 0 0 8px rgba(91, 192, 222, 0.5), inset 0 0 6px rgba(91, 192, 222, 0.3) !important;
+  }
+  50% { 
+    border-color: #92e2ff !important;
+    box-shadow: 0 0 20px rgba(119, 216, 255, 0.9), inset 0 0 12px rgba(119, 216, 255, 0.6) !important;
+  }
+}
+
+/* BARS ROW */
+.moba-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.moba-bar {
+  position: relative;
+  width: 100%;
+  height: 18px !important;
+  border-radius: 3px !important;
+  border: 1px solid #000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.moba-bar--health .meter-fill {
+  background: linear-gradient(90deg, #1d6e2c, #3bd55b) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2) !important;
+}
+
+.moba-bar--resource .meter-fill {
+  background: linear-gradient(90deg, #14497e, #298bed) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2) !important;
+}
+
+.moba-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  z-index: 2;
+}
+
+/* RIGHT CONSOLE (Target / Minimap) */
+.moba-hud__right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  width: 170px;
+  height: 104px;
+  border-top-right-radius: 8px;
+  border-left: 1px solid rgba(134, 116, 68, 0.4);
+}
+
+.moba-target {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  gap: 6px !important;
+}
+
+.moba-target .label {
+  color: #c4a75c;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.moba-target #enemy-health-text {
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.moba-bar--enemy {
+  height: 12px !important;
+}
+
+.visually-hidden {
+  display: none !important;
+}
+

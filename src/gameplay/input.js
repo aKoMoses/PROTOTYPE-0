@@ -1,7 +1,7 @@
 // Input event listeners (keyboard, mouse, touch)
 import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
-import { player, input, sandbox, abilityState, trainingBots } from "../state.js";
+import { player, input, sandbox, moduleState, trainingBots } from "../state.js";
 import { uiState, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
   modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
@@ -9,7 +9,7 @@ import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematc
   trainingFireOff, trainingFireOn,
   continueRunes, backBuild, runeResetButton, trainingBuildButton, acceptMatchButton } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
-import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castReactorCore } from "./abilities.js";
+import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castReactorCore } from "./modules.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
 import { toggleHelpPanel, openPrematch, renderPrematch, resetBuildWizard, resetRuneAllocation } from "../build/ui.js";
@@ -115,15 +115,15 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (event.code === "KeyQ" && !event.repeat) {
-    startAbilityInput(0);
+    startModuleInput(0);
   }
 
   if (event.code === "KeyE" && !event.repeat) {
-    startAbilityInput(1);
+    startModuleInput(1);
   }
 
   if (event.code === "KeyF" && !event.repeat) {
-    startAbilityInput(2);
+    startModuleInput(2);
   }
 
   if (event.code === "KeyR" && !event.repeat) {
@@ -140,12 +140,12 @@ window.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyG") {
     player.fireCooldown = 0;
-    abilityState.boltLinkJavelin.cooldown = 0;
-    abilityState.orbitalDistorter.cooldown = 0;
-    abilityState.hexPlateProjector.cooldown = 0;
-    abilityState.core.cooldown = 0;
-    abilityState.reflexAegis.cooldown = 0;
-    abilityState.dash.charges = 2;
+    moduleState.boltLinkJavelin.cooldown = 0;
+    moduleState.orbitalDistorter.cooldown = 0;
+    moduleState.hexPlateProjector.cooldown = 0;
+    moduleState.core.cooldown = 0;
+    moduleState.reflexAegis.cooldown = 0;
+    moduleState.dash.charges = 2;
     statusLine.textContent = "Cooldowns reset.";
   }
 
@@ -192,11 +192,11 @@ window.addEventListener("keyup", (event) => {
   if (event.code === "Space" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
     releaseDashInput();
   } else if (event.code === "KeyQ") {
-    releaseAbilityInput(0);
+    releaseModuleInput(0);
   } else if (event.code === "KeyE") {
-    releaseAbilityInput(1);
+    releaseModuleInput(1);
   } else if (event.code === "KeyF") {
-    releaseAbilityInput(2);
+    releaseModuleInput(2);
   } else if (event.code === "KeyC") {
     input.altFiring = false;
   }

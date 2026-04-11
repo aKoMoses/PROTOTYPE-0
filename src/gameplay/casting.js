@@ -5,7 +5,7 @@ import { approach } from "../utils.js";
  * Starts a purely visual cast telegraph that does NOT block actions.
  */
 export function startVisualCast(entity, moduleKey, duration = 0.24) {
-  entity.visualCastingmodule = moduleKey;
+  entity.visualCastingModule = moduleKey;
   entity.visualCastTime = duration;
   entity.totalVisualCastTime = duration;
 }
@@ -34,7 +34,7 @@ export function startCast(entity, moduleKey, executeFn, params = {}) {
     return;
   }
 
-  entity.castingmodule = moduleKey;
+  entity.castingModule = moduleKey;
   entity.castTime = castDuration;
   entity.totalCastTime = castDuration;
   entity.castParams = params;
@@ -49,8 +49,8 @@ export function startCast(entity, moduleKey, executeFn, params = {}) {
  * @param {boolean} isDashing - Whether the entity is currently dashing (to bypass friction).
  */
 export function updateCasting(entity, dt, isDashing = false) {
-  if (!entity.castingmodule || entity.castTime <= 0) {
-    entity.castingmodule = null;
+  if (!entity.castingModule || entity.castTime <= 0) {
+    entity.castingModule = null;
     return;
   }
 
@@ -68,7 +68,7 @@ export function updateCasting(entity, dt, isDashing = false) {
     if (entity.castExecuteFn) {
       entity.castExecuteFn(entity.castParams);
     }
-    entity.castingmodule = null;
+    entity.castingModule = null;
     entity.castExecuteFn = null;
     entity.castParams = null;
   }
@@ -83,7 +83,7 @@ export function updateVisualTimers(entity, dt) {
   if (entity.visualCastTime > 0) {
     entity.visualCastTime = Math.max(0, entity.visualCastTime - dt);
     if (entity.visualCastTime <= 0) {
-      entity.visualCastingmodule = null;
+      entity.visualCastingModule = null;
     }
   }
 

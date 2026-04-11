@@ -1,23 +1,23 @@
 // Enemy AI, training bots, enemy actions
-import { arena, config, abilityConfig, botDifficultyProfiles, sandboxModes } from "../config.js";
+import { arena, config, moduleConfig, botDifficultyProfiles, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, moduleState, loadout, sandbox, matchState, input,
   bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, orbitalDistorterFields, supportZones, mapState,
   tracers, trainingToolState } from "../state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
+import { getBuildStats, hasImplant, getRuneValue, getStatusDuration, getImplantDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyOrbitalDistorterField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
   getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy, consumePlayerEmpowerBonus, tryTriggerReflexAegis, beginSwarmMissileRackCast, applyFieldDragToProjectile } from "./combat.js";
 import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
-import { spawnEnemyJavelin, confirmBoltLinkJavelinImpact, expireBoltLinkJavelin } from "./abilities.js";
+import { spawnEnemyBoltLinkJavelin, confirmBoltLinkJavelinImpact, expireBoltLinkJavelin } from "./modules.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
-import { playWeaponFire, playAbilityCue } from "../audio.js";
+import { playWeaponFire, playModuleCue } from "../audio.js";
 import { updateCasting, startCast, startVisualCast, startWeaponTelegraph } from "./casting.js";
 import { applyPhantomDamage } from "./phantom.js";
 import { getCurrentBotDifficultyTier } from "../progression.js";
@@ -461,7 +461,7 @@ export function fireEnemyLance(target = player, altFire = false) {
       : "Enemy lance punctured the phantom copy.";
   } else {
     applyPlayerDamage(damage, altFire ? "lance-drive" : "lance", enemy);
-    if (abilityState.reflexAegis.resolveLockTime <= 0) {
+    if (moduleState.reflexAegis.resolveLockTime <= 0) {
       applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration((altFire ? config.lanceAltShockDuration : config.lancePrimarySlowDuration) * (1 - getBuildStats().ccReduction)), altFire ? 1 : config.lancePrimarySlow);
     } else {
       return true;
@@ -594,7 +594,7 @@ export function resolveEnemyAxeStrike() {
 
   if (hit) {
     applyPlayerDamage(profile.damage, "axe", enemy);
-    if (abilityState.reflexAegis.resolveLockTime > 0) {
+    if (moduleState.reflexAegis.resolveLockTime > 0) {
       return;
     }
     addImpact(player.x, player.y, profile.impactColor, profile.impactSize * 0.7);
@@ -618,7 +618,7 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   if (!enemy.activeMeleeStrike.connected && dashDistance <= enemy.radius + player.radius + 6) {
     enemy.activeMeleeStrike.connected = true;
     applyPlayerDamage(enemy.activeMeleeStrike.profile.damage, "axe-finisher", enemy);
-    if (abilityState.reflexAegis.resolveLockTime > 0) {
+    if (moduleState.reflexAegis.resolveLockTime > 0) {
       return;
     }
     applyStatusEffect(player, "stun", getStatusDuration(enemy.activeMeleeStrike.profile.stun), 1);
@@ -631,7 +631,7 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   }
 }
 
- // spawnEnemyJavelin is imported from abilities.js
+ // spawnEnemyBoltLinkJavelin is imported from abilities.js
 
 export function castEnemyVGripHarpoon(forward, target = player) {
   startCast(enemy, "vGripHarpoon", executeEnemyVGripHarpoonCast, { forward, target });
@@ -641,8 +641,8 @@ export function executeEnemyVGripHarpoonCast(params) {
   const { forward, target } = params;
   if (!target || !target.alive) return;
 
-  enemy.abilityCooldowns.vGripHarpoon = config.grappleCooldown + 0.6;
-  playAbilityCue("vGripHarpoon", "enemy");
+  enemy.abilityCooldowns.vGripHarpoon = config.vGripHarpoonCooldown + 0.6;
+  playModuleCue("vGripHarpoon", "enemy");
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
   addImpact(enemy.x, enemy.y, "#9feeff", 32);
   addShake(5.2);
@@ -651,7 +651,7 @@ export function executeEnemyVGripHarpoonCast(params) {
     return;
   }
 
-  if (target === player && (abilityState.dash.invulnerabilityTime > 0 || abilityState.ghostDriftModule.time > 0)) {
+  if (target === player && (moduleState.dash.invulnerabilityTime > 0 || moduleState.ghostDriftModule.time > 0)) {
     addImpact(player.x, player.y, "#b8f9c9", 20);
     statusLine.textContent = "You slipped the enemy harpoon with clean timing.";
     return;
@@ -676,19 +676,19 @@ export function executeEnemyVGripHarpoonCast(params) {
 
 export function castEnemyHexPlateProjector() {
   startVisualCast(enemy, "hexPlateProjector", 0.3);
-  enemy.abilityCooldowns.hexPlateProjector = config.shieldCooldown + 0.5;
-  enemy.shield = Math.max(enemy.shield, config.shieldValue);
-  enemy.shieldTime = config.shieldDuration;
-  enemy.shieldGuardTime = config.shieldDuration;
+  enemy.abilityCooldowns.hexPlateProjector = config.hexPlateProjectorCooldown + 0.5;
+  enemy.shield = Math.max(enemy.shield, config.hexPlateProjectorValue);
+  enemy.shieldTime = config.hexPlateProjectorDuration;
+  enemy.shieldGuardTime = config.hexPlateProjectorDuration;
   enemy.shieldBreakRefundReady = true;
-  playAbilityCue("hexPlateProjector", "enemy");
+  playModuleCue("hexPlateProjector", "enemy");
   addImpact(enemy.x, enemy.y, "#a8d9ff", 22);
 }
 
 export function castEnemyEmPulseEmitter() {
   startVisualCast(enemy, "emPulseEmitter", 0.35);
   enemy.abilityCooldowns.emPulseEmitter = config.emPulseEmitterCooldown + 0.8;
-  playAbilityCue("emPulseEmitter", "enemy");
+  playModuleCue("emPulseEmitter", "enemy");
   addExplosion(enemy.x, enemy.y, 72, "#cbb0ff");
   addImpact(enemy.x, enemy.y, "#b99cff", 24);
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
@@ -712,7 +712,7 @@ export function castEnemyJetBackThruster() {
   maybeTeleportEntity(enemy);
   enemy.shield = Math.max(enemy.shield, 8);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.6);
-  playAbilityCue("jetBackThruster", "enemy");
+  playModuleCue("jetBackThruster", "enemy");
   addAfterimage(enemy.x, enemy.y, enemy.facing, enemy.radius + 5, "#fff0a8");
   addImpact(enemy.x, enemy.y, "#fff0a8", 18);
 }
@@ -732,7 +732,7 @@ export function executeEnemyChainLightningCast(params) {
     applyStatusEffect(target, "slow", getStatusDuration(0.42), 0.2);
   } else {
     applyPlayerDamage(24, "enemy-chain-lightning", enemy);
-    if (abilityState.reflexAegis.resolveLockTime <= 0) {
+    if (moduleState.reflexAegis.resolveLockTime <= 0) {
       applyStatusEffect(target, "slow", getStatusDuration(0.5), 0.2);
     } else {
       return;
@@ -750,7 +750,7 @@ export function castEnemyBlink(forward) {
   enemy.y = clamp(enemy.y + forward.y * 132, enemy.radius, arena.height - enemy.radius);
   resolveMapCollision(enemy);
   maybeTeleportEntity(enemy);
-  playAbilityCue("blink", "enemy");
+  playModuleCue("blink", "enemy");
   addImpact(enemy.x, enemy.y, "#b3f6ff", 18);
 }
 
@@ -762,7 +762,7 @@ export function castEnemyPhaseDash(forward) {
   enemy.dodgeTime = 0.22;
   enemy.shield = Math.max(enemy.shield, 10);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.5);
-  playAbilityCue("jetBackThruster", "enemy");
+  playModuleCue("jetBackThruster", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 20);
 }
 
@@ -794,7 +794,7 @@ export function executeEnemySwarmMissileRackCast(params) {
       },
     });
   }
-  playAbilityCue("swarmMissileRack", "enemy");
+  playModuleCue("swarmMissileRack", "enemy");
   addImpact(enemy.x, enemy.y, "#7ddcff", 32);
   addShake(4.8);
   enemy.flash = 0.08;
@@ -809,7 +809,7 @@ export function executeEnemyRailShotCast(params) {
   if (!target) return;
 
   enemy.abilityCooldowns.railShot = 5.3;
-  playAbilityCue("railShot", "enemy");
+  playModuleCue("railShot", "enemy");
   addImpact(enemy.x, enemy.y, "#ffd279", 36);
   addShake(6.4);
   enemy.flash = 0.1;
@@ -837,7 +837,7 @@ export function executeEnemyVoidCoreSingularityCast(params) {
     slow: config.voidCoreSingularitySlow * 0.9,
     pullStrength: config.voidCoreSingularityPullStrength * 0.92,
   });
-  playAbilityCue("voidCoreSingularity", "enemy");
+  playModuleCue("voidCoreSingularity", "enemy");
   addExplosion(target.x, target.y, config.voidCoreSingularityRadius, "#b999ff");
   addImpact(enemy.x, enemy.y, "#b999ff", 32);
   addShake(5.6);
@@ -848,7 +848,7 @@ export function castEnemyGhostDriftModule() {
   enemy.abilityCooldowns.ghostDriftModule = 5.8;
   enemy.shield = Math.max(enemy.shield, 14);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.7);
-  playAbilityCue("ghostDriftModule", "enemy");
+  playModuleCue("ghostDriftModule", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 18);
 }
 
@@ -856,7 +856,7 @@ export function castEnemySpectreProjector() {
   startVisualCast(enemy, "spectreProjector", 0.32);
   enemy.abilityCooldowns.spectreProjector = 6.4;
   enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.5);
-  playAbilityCue("spectreProjector", "enemy");
+  playModuleCue("spectreProjector", "enemy");
   addAfterimage(enemy.x - 32, enemy.y + 16, enemy.facing, enemy.radius + 5, "#d8b8ff");
 }
 
@@ -864,7 +864,7 @@ export function castEnemyOverdriveServos() {
   startVisualCast(enemy, "overdriveServos", 0.4);
   enemy.abilityCooldowns.overdriveServos = 4.4;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
-  playAbilityCue("overdriveServos", "enemy");
+  playModuleCue("overdriveServos", "enemy");
   addImpact(enemy.x, enemy.y, "#8dfcc7", 18);
 }
 
@@ -918,7 +918,7 @@ export function updateEnemyBoltLinkJavelins(dt) {
     enemyBoltLinkJavelins.splice(i, 1);
     addImpact(hitTarget.x, hitTarget.y, javelin.charged ? "#ffd7be" : "#ffb09a", javelin.charged ? 26 : 18);
 
-    if (hitTarget === player && abilityState.dash.invulnerabilityTime > 0) {
+    if (hitTarget === player && moduleState.dash.invulnerabilityTime > 0) {
       addImpact(player.x, player.y, "#b8f9c9", 20);
       statusLine.textContent = "Clean dash through enemy javelin.";
       continue;
@@ -934,7 +934,7 @@ export function updateEnemyBoltLinkJavelins(dt) {
     }
 
     const defeatedByJavelin = applyPlayerDamage(javelin.damage, "boltLinkJavelin", enemy);
-    if (abilityState.reflexAegis.resolveLockTime > 0) {
+    if (moduleState.reflexAegis.resolveLockTime > 0) {
       continue;
     }
     applyStatusEffect(player, "slow", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), javelin.slow);
@@ -1141,7 +1141,7 @@ export function updateEnemy(dt) {
   if (canUseOffensiveAbility && enemyHasAbility("boltLinkJavelin") && enemy.boltLinkJavelinCooldown <= 0 && distance > 180 && distance < 620) {
     const chargedJavelin = enemyLow || shouldPunish || distance > 360;
     if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34)) {
-      spawnEnemyJavelin(chargedJavelin, focusTargetEntity);
+      spawnEnemyBoltLinkJavelin(chargedJavelin, focusTargetEntity);
       enemy.postAttackMoveTime = 0.62;
       enemy.shootCooldown = Math.max(enemy.shootCooldown, 0.18);
     }

@@ -1,4 +1,4 @@
-// All player Module functions (dash, javelin, field, etc.)
+// All player ability functions (dash, javelin, field, etc.)
 import { arena, config, moduleConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
 import { player, enemy, moduleState, sandbox, matchState, boltLinkJavelins, enemyBoltLinkJavelins, orbitalDistorterFields, supportZones, input } from "../state.js";
@@ -7,7 +7,7 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasImplant, getRuneValue, getStatusDuration, getPerkDamageMultiplier, getModuleBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getModuleCooldown, hasRuneShard } from "../build/loadout.js";
+import { getBuildStats, hasImplant, getRuneValue, getStatusDuration, getImplantDamageMultiplier, getModuleBySlot, getActiveDashCooldown, getActiveDashCharges, getDashProfile, getModuleCooldown, hasRuneShard } from "../build/loadout.js";
 import { getAllBots, getMoveVector, getPrimaryBot, isCombatLive, damageBot, spawnBullet, applyStatusEffect, getPlayerFieldModifier, getPlayerSpawn, resize, hitMapWithProjectile, clearStatusEffects, completePlayerWeaponAttack, consumePlayerEmpowerBonus, beginSwarmMissileRackCast } from "./combat.js";
 import { bullets, enemyBullets } from "../state.js";
 import { playModuleCue } from "../audio.js";
@@ -22,9 +22,9 @@ export function getBoltLinkJavelinProfile() {
     range: config.boltLinkJavelinRange,
     slow: config.boltLinkJavelinSlow,
     slowDuration: config.boltLinkJavelinSlowDuration,
-    color: moduleConfig.javelin.color,
-    glow: moduleConfig.javelin.glow,
-    trail: moduleConfig.javelin.trail,
+    color: moduleConfig.boltLinkJavelin.color,
+    glow: moduleConfig.boltLinkJavelin.glow,
+    trail: moduleConfig.boltLinkJavelin.trail,
     piercing: false,
   };
 }
@@ -61,7 +61,7 @@ export function getOrbitalDistorterProfile(mode = moduleState.orbitalDistorter.m
   };
 }
 
-function triggerModuleCastRuneEffects() {
+function triggerAbilityCastRuneEffects() {
   const defenseCore = getRuneValue("defense", "primary");
   if (defenseCore > 0) {
     const buildStats = getBuildStats();
@@ -86,7 +86,7 @@ function resetVGripState() {
   moduleState.vGripHarpoon.tetherPulse = 0;
 }
 
-function finalizeBoltLinkCycle(startCooldown = true) {
+function finalizeBoltLinkJavelinCycle(startCooldown = true) {
   moduleState.boltLinkJavelin.recastReady = false;
   moduleState.boltLinkJavelin.targetKind = null;
   moduleState.boltLinkJavelin.activeTime = 0;
@@ -144,9 +144,9 @@ export function executeDash(dashMode) {
   moduleState.dash.vectorX = dashDirection.x;
   moduleState.dash.vectorY = dashDirection.y;
   moduleState.dash.activeTime = Math.max(moduleState.dash.activeTime, dashProfile.duration);
-  moduleState.dash.invulnerModuleTime = Math.max(
-    moduleState.dash.invulnerModuleTime,
-    dashProfile.invulnerModule,
+  moduleState.dash.invulnerabilityTime = Math.max(
+    moduleState.dash.invulnerabilityTime,
+    dashProfile.invulnerability,
   );
 
   if (dashMode === "tap") {
@@ -180,9 +180,9 @@ export function upgradeDashToHold() {
   const holdProfile = getDashProfile("hold");
   moduleState.dash.mode = "hold";
   moduleState.dash.activeTime = Math.max(moduleState.dash.activeTime, holdProfile.duration * 0.82);
-  moduleState.dash.invulnerModuleTime = Math.max(
-    moduleState.dash.invulnerModuleTime,
-    holdProfile.invulnerModule,
+  moduleState.dash.invulnerabilityTime = Math.max(
+    moduleState.dash.invulnerabilityTime,
+    holdProfile.invulnerability,
   );
   addAfterimage(player.x, player.y, player.facing, player.radius + 3, holdProfile.trailColor);
 }
@@ -231,7 +231,7 @@ export function updateDashModule(dt) {
     moduleState.dash.rechargeTimer = 0;
   }
 
-  moduleState.dash.invulnerModuleTime = Math.max(0, moduleState.dash.invulnerModuleTime - dt);
+  moduleState.dash.invulnerabilityTime = Math.max(0, moduleState.dash.invulnerabilityTime - dt);
 
   if (moduleState.dash.activeTime > 0) {
     const dashProfile = getDashProfile(moduleState.dash.mode);
@@ -293,7 +293,7 @@ export function executeBoltLinkJavelinCast() {
   moduleState.boltLinkJavelin.lastDirectionX = direction.x;
   moduleState.boltLinkJavelin.lastDirectionY = direction.y;
   moduleState.boltLinkJavelin.pendingCooldown = true;
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.recoil = Math.max(player.recoil, 0.22);
   queuePhantomModule("boltLinkJavelin", {
     facing: player.facing,
@@ -371,11 +371,11 @@ export function recastBoltLinkJavelin() {
   return true;
 }
 
-export function spawnEnemyJavelin(charged = false, targetEntity = player) {
-  startCast(enemy, "boltLinkJavelin", executeEnemyJavelinCast, { charged, targetEntity });
+export function spawnEnemyBoltLinkJavelin(charged = false, targetEntity = player) {
+  startCast(enemy, "boltLinkJavelin", executeEnemyBoltLinkJavelinCast, { charged, targetEntity });
 }
 
-export function executeEnemyJavelinCast(params) {
+export function executeEnemyBoltLinkJavelinCast(params) {
   const { charged, targetEntity } = params;
   const direction = normalize((targetEntity?.x ?? player.x) - enemy.x, (targetEntity?.y ?? player.y) - enemy.y);
   const speed = charged ? config.boltLinkJavelinSpeed * 0.94 : config.boltLinkJavelinSpeed;
@@ -399,7 +399,7 @@ export function executeEnemyJavelinCast(params) {
     slowDuration: config.boltLinkJavelinSlowDuration,
   });
 
-  enemy.javelinCooldown = charged ? 4.8 : 4;
+  enemy.boltLinkJavelinCooldown = charged ? 4.8 : 4;
   addImpact(enemy.x + direction.x * 24, enemy.y + direction.y * 24, charged ? "#ffe4ad" : "#ffb27e", charged ? 18 : 12);
 }
 
@@ -413,7 +413,7 @@ export function updateBoltLinkJavelinModule(dt) {
       moduleState.boltLinkJavelin.lastDirectionY = trackedTarget.y - player.y;
     }
     if (moduleState.boltLinkJavelin.pendingCooldown && moduleState.boltLinkJavelin.activeTime <= 0) {
-      finalizeBoltLinkCycle(true);
+      finalizeBoltLinkJavelinCycle(true);
     }
   }
 }
@@ -473,7 +473,7 @@ export function releaseOrbitalDistorter() {
   moduleState.orbitalDistorter.charging = false;
   moduleState.orbitalDistorter.chargeTime = 0;
   moduleState.orbitalDistorter.cooldown = getModuleCooldown(config.orbitalDistorterCooldown);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("orbitalDistorter", {
     mode: moduleState.orbitalDistorter.mode,
     facing: player.facing,
@@ -548,7 +548,7 @@ export function executeVGripHarpoonCast() {
   };
   moduleState.vGripHarpoon.pullStopRequested = false;
   moduleState.vGripHarpoon.targetKind = null;
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.flash = 0.08;
   queuePhantomModule("vGripHarpoon", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playModuleCue("vGripHarpoon");
@@ -563,11 +563,11 @@ export function castHexPlateProjector() {
   }
 
   startVisualCast(player, "hexPlateProjector", 0.3);
-  moduleState.hexPlateProjector.cooldown = getModuleCooldown(config.shieldCooldown);
-  triggerModuleCastRuneEffects();
-  player.shield = Math.max(player.shield, config.shieldValue + getRuneValue("defense", "primary") * 3);
-  player.shieldTime = config.shieldDuration;
-  player.shieldGuardTime = config.shieldDuration;
+  moduleState.hexPlateProjector.cooldown = getModuleCooldown(config.hexPlateProjectorCooldown);
+  triggerAbilityCastRuneEffects();
+  player.shield = Math.max(player.shield, config.hexPlateProjectorValue + getRuneValue("defense", "primary") * 3);
+  player.shieldTime = config.hexPlateProjectorDuration;
+  player.shieldGuardTime = config.hexPlateProjectorDuration;
   player.shieldBreakRefundReady = true;
   queuePhantomModule("hexPlateProjector");
   playModuleCue("hexPlateProjector");
@@ -593,7 +593,7 @@ export function castReflexAegis() {
     completePlayerWeaponAttack(player.activeAxeStrike.attackId, player.activeAxeStrike.connected || player.activeAxeStrike.worldHit);
   }
 
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.attackStartupTime = 0;
   player.attackCommitTime = 0;
   player.pendingAxeStrike = null;
@@ -618,8 +618,8 @@ export function castEmPulseEmitter() {
   }
 
   startVisualCast(player, "emPulseEmitter", 0.35);
-  moduleState.emPulseEmitter.cooldown = getModuleCooldown(config.boosterCooldown);
-  triggerModuleCastRuneEffects();
+  moduleState.emPulseEmitter.cooldown = getModuleCooldown(config.emPulseEmitterCooldown);
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("emPulseEmitter");
   playModuleCue("emPulseEmitter");
   addImpact(player.x, player.y, "#be9dff", 34);
@@ -660,7 +660,7 @@ export function castJetBackThruster() {
   resolveMapCollision(player);
   maybeTeleportEntity(player);
   moduleState.jetBackThruster.cooldown = getModuleCooldown(3.6);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.shield = Math.max(player.shield, 10);
   player.shieldTime = Math.max(player.shieldTime, 0.7);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 0.85);
@@ -696,12 +696,12 @@ export function executeChainLightningCast(params) {
   if (!firstTarget || !firstTarget.alive) return;
 
   moduleState.chainLightning.cooldown = getModuleCooldown(5.4);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("chainLightning", { facing: player.facing, aimX: firstTarget.x, aimY: firstTarget.y });
   let sourceX = player.x;
   let sourceY = player.y;
   let currentTarget = firstTarget;
-  let currentDamage = 28 * getPerkDamageMultiplier(firstTarget);
+  let currentDamage = 28 * getImplantDamageMultiplier(firstTarget);
   const struck = new Set();
 
   for (let hop = 0; hop < 3 && currentTarget; hop += 1) {
@@ -743,7 +743,7 @@ export function castBlink() {
   resolveMapCollision(player);
   maybeTeleportEntity(player);
   moduleState.blink.cooldown = getModuleCooldown(3.4);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.flash = 0.1;
   queuePhantomModule("blink", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   playModuleCue("blink");
@@ -764,7 +764,7 @@ export function castPhaseDash() {
   player.attackCommitSpeed = 1580;
   player.attackCommitTime = 0.18;
   moduleState.phaseDash.cooldown = getModuleCooldown(4.6);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   moduleState.phaseDash.time = 0.42;
   player.ghostTime = Math.max(player.ghostTime, 0.42);
   queuePhantomModule("phaseDash", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
@@ -784,7 +784,7 @@ export function castSwarmMissileRack() {
 
 export function executeSwarmMissileRackCast() {
   moduleState.swarmMissileRack.cooldown = getModuleCooldown(config.swarmMissileRackCooldown);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("swarmMissileRack", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   const baseAngle = Math.atan2(input.mouseY - player.y, input.mouseX - player.x);
   const burstId = beginSwarmMissileRackCast("player", config.swarmMissileRackMissiles);
@@ -797,7 +797,7 @@ export function executeSwarmMissileRackCast() {
     }
     const angle = baseAngle + spread;
     
-    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.swarmMissileRackProjectileSpeed, config.swarmMissileRackBaseDamage * getPerkDamageMultiplier(getPrimaryBot()), {
+    spawnBullet(player, player.x + Math.cos(angle) * 120, player.y + Math.sin(angle) * 120, bullets, "#7ddcff", config.swarmMissileRackProjectileSpeed, config.swarmMissileRackBaseDamage * getImplantDamageMultiplier(getPrimaryBot()), {
       radius: 4.5,
       life: config.swarmMissileRackLifetime,
       trailColor: "#c9f3ff",
@@ -819,7 +819,7 @@ export function executeSwarmMissileRackCast() {
   statusLine.textContent = "SWARM-MISSILE Rack deployed. Volley away.";
 }
 
-export function castRailShot() {
+export function castRailShotAbility() {
   if (!isCombatLive() || moduleState.railShot.cooldown > 0) {
     return;
   }
@@ -829,9 +829,9 @@ export function castRailShot() {
 
 export function executeRailShotCast() {
   moduleState.railShot.cooldown = getModuleCooldown(5.1);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("railShot", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
-  spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * getPerkDamageMultiplier(getPrimaryBot()), {
+  spawnBullet(player, input.mouseX, input.mouseY, bullets, "#ffd279", 1820, 46 * getImplantDamageMultiplier(getPrimaryBot()), {
     radius: 7,
     life: 0.72,
     piercing: true,
@@ -855,7 +855,7 @@ export function castVoidCoreSingularity() {
 
 export function executeVoidCoreSingularityCast() {
   moduleState.voidCoreSingularity.cooldown = getModuleCooldown(config.voidCoreSingularityCooldown);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   queuePhantomModule("voidCoreSingularity", { facing: player.facing, aimX: input.mouseX, aimY: input.mouseY });
   supportZones.push({
     type: "gravity",
@@ -883,7 +883,7 @@ export function castGhostDriftModule() {
   }
   startVisualCast(player, "ghostDriftModule", 0.35);
   moduleState.ghostDriftModule.cooldown = getModuleCooldown(config.phaseShiftCooldown);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   clearStatusEffects(player);
   if (player.pendingAxeStrike?.attackId != null) {
     completePlayerWeaponAttack(player.pendingAxeStrike.attackId, false);
@@ -911,7 +911,7 @@ export function castSpectreProjector() {
   }
   startVisualCast(player, "spectreProjector", 0.32);
   moduleState.spectreProjector.cooldown = getModuleCooldown(6.2);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.decoyTime = Math.max(player.decoyTime, 2.8);
   queuePhantomModule("spectreProjector");
   playModuleCue("hologramDecoy");
@@ -926,7 +926,7 @@ export function castOverdriveServos() {
   }
   startVisualCast(player, "overdriveServos", 0.4);
   moduleState.overdriveServos.cooldown = getModuleCooldown(4.2);
-  triggerModuleCastRuneEffects();
+  triggerAbilityCastRuneEffects();
   player.hasteTime = Math.max(player.hasteTime, 2.2);
   player.afterDashHasteTime = Math.max(player.afterDashHasteTime, 1.2);
   queuePhantomModule("overdriveServos");
@@ -935,7 +935,7 @@ export function castOverdriveServos() {
   statusLine.textContent = "OVERDRIVE Servos engaged. High-pressure surge active.";
 }
 
-export function castCore() {
+export function castReactorCore() {
   if (!isCombatLive() || moduleState.core.cooldown > 0 || moduleState.ghostDriftModule.time > 0 || isReflexAegisLocked()) {
     return;
   }
@@ -1004,7 +1004,7 @@ export function castCore() {
   }
 }
 
-export function updateModules(dt) {
+export function updateExtraModules(dt) {
   moduleState.vGripHarpoon.cooldown = Math.max(0, moduleState.vGripHarpoon.cooldown - dt);
   moduleState.hexPlateProjector.cooldown = Math.max(0, moduleState.hexPlateProjector.cooldown - dt);
   moduleState.reflexAegis.cooldown = Math.max(0, moduleState.reflexAegis.cooldown - dt);
@@ -1091,8 +1091,8 @@ export function updateModules(dt) {
         moduleState.vGripHarpoon.projectile = null;
         moduleState.vGripHarpoon.targetKind = caughtTarget.kind;
         moduleState.vGripHarpoon.pullStopRequested = false;
-        applyStatusEffect(caughtTarget, "slow", getStatusDuration(config.grappleSnareDuration), config.grappleSnare);
-        applyStatusEffect(caughtTarget, "snare", getStatusDuration(config.grappleSnareDuration), 1);
+        applyStatusEffect(caughtTarget, "slow", getStatusDuration(config.vGripHarpoonSnareDuration), config.vGripHarpoonSnare);
+        applyStatusEffect(caughtTarget, "snare", getStatusDuration(config.vGripHarpoonSnareDuration), 1);
         addImpact(caughtTarget.x, caughtTarget.y, "#dffbff", 24);
         applyHitReaction(caughtTarget, player.x, player.y, 1.05);
         addShake(6.4);
@@ -1109,11 +1109,11 @@ export function updateModules(dt) {
       const anchor = getGrappleAnchorPoint(target);
       const direction = normalize(anchor.x - target.x, anchor.y - target.y);
       const distance = length(anchor.x - target.x, anchor.y - target.y);
-      const step = Math.min(distance, config.grapplePullSpeed * dt);
+      const step = Math.min(distance, config.vGripHarpoonPullSpeed * dt);
       target.x += direction.x * step;
       target.y += direction.y * step;
-      target.velocityX = direction.x * config.grapplePullSpeed * 0.72;
-      target.velocityY = direction.y * config.grapplePullSpeed * 0.72;
+      target.velocityX = direction.x * config.vGripHarpoonPullSpeed * 0.72;
+      target.velocityY = direction.y * config.vGripHarpoonPullSpeed * 0.72;
       resolveMapCollision(target);
       maybeTeleportEntity(target);
       addBeamEffect(player.x, player.y, target.x, target.y, "#bdf4ff", 4.6, 0.08);
@@ -1163,7 +1163,7 @@ export function startModuleInput(slotIndex) {
   } else if (module.key === "swarmMissileRack") {
     castSwarmMissileRack();
   } else if (module.key === "railShot") {
-    castRailShot();
+    castRailShotAbility();
   } else if (module.key === "voidCoreSingularity") {
     castVoidCoreSingularity();
   } else if (module.key === "ghostDriftModule") {

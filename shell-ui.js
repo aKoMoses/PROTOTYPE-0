@@ -16,10 +16,10 @@ const shellViewLoaders = {
     import("./src/main.js"),
     import("./src/gameplay/training-ui.js"),
   ]),
-  profile: () => import("./profile.js"),
-  collection: () => import("./collection.js"),
-  loadouts: () => import("./loadout-page.js"),
-  dev: () => import("./dev-status.js"),
+  profile: () => import("./src/pages/profile/profile-page.js"),
+  collection: () => import("./src/pages/collection/collection-page.js"),
+  loadouts: () => import("./src/pages/loadouts/loadouts-page.js"),
+  dev: () => import("./src/pages/dev/dev-page.js"),
 };
 const loadedShellViews = new Set();
 const pendingShellViews = new Map();
@@ -118,11 +118,18 @@ async function setShellView(nextView) {
     
     // Initialization logic for specific modules
     if (nextView === "loadouts") {
-      const mod = await import("./loadout-page.js");
+      const mod = await import("./src/pages/loadouts/loadouts-page.js");
       if (mod.init) mod.init();
     } else if (nextView === "play" || nextView === "game") {
-      const { renderPrematch } = await import("./src/build/ui.js");
+      const { renderPrematch, openPrematch } = await import("./src/build/ui.js");
+      const { matchState } = await import("./src/state.js");
+      matchState.round = 1;
+      matchState.playerWins = 0;
+      matchState.botWins = 0;
+      matchState.isOver = false;
+      openPrematch("mode");
       renderPrematch();
+      window.__P0_GAME?.restartGameLoop?.();
     }
   } catch (err) {
     console.error(`[Shell] Failed to initialize view "${nextView}":`, err);

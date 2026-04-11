@@ -1,6 +1,6 @@
 const SOURCES = {
-  documentation: "./doc/DOCUMENTATION.md",
-  latestUpdates: "./doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md",
+  documentation: "../../../doc/DOCUMENTATION.md",
+  latestUpdates: "../../../doc/COLLAB_UPDATES_MD/LATEST_UPDATES.md",
 };
 
 const statusStrip = document.getElementById("status-strip");

@@ -1,5 +1,5 @@
-import collectionGroups from "./src/data/content-groups.json";
-import { content } from "./src/content.js";
+import collectionGroups from "../../data/content-groups.json";
+import { content } from "../../content.js";
 import {
   PROGRESSION_CHANGED_EVENT,
   decrementLevelForTest,
@@ -10,8 +10,8 @@ import {
   getXpForLevel,
   incrementLevelForTest,
   setXp,
-} from "./src/progression.js";
-import { sanitizeIconClass } from "./src/utils.js";
+} from "../../progression.js";
+import { sanitizeIconClass } from "../../utils.js";
 
 function buildIconDiv(item, iconClass, categoryClass) {
   if (item.iconImg) {

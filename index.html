@@ -418,44 +418,41 @@
         </div>
       </div>
 
-      <div class="bottom-hud">
-        <div class="hud-panel hud-panel--weapon">
-          <div class="weapon-pill">
-            <div class="weapon-pill__top">
-              <div class="content-icon content-icon--weapon-pulse" id="weapon-icon"></div>
-              <div class="weapon-pill__copy">
-                <span class="label">Weapon</span>
-                <strong id="weapon-name">Pulse Rifle</strong>
-                <span class="weapon-pill__status" id="weapon-status">Ready</span>
-                <span class="weapon-pill__role" id="weapon-role">Mid range pressure</span>
-              </div>
-            </div>
-            <div class="meter">
-              <div class="meter-fill meter-fill-weapon" id="weapon-meter"></div>
-            </div>
+      <div class="bottom-hud moba-hud" style="display: none;">
+        <div class="moba-hud__left">
+          <!-- Stats Panel -->
+          <div class="moba-stat-grid">
+            <div class="moba-stat"><span class="moba-stat__icon" style="background-image:url('')">⚔️</span><span class="moba-stat__val">72</span></div>
+            <div class="moba-stat"><span class="moba-stat__icon">🛡️</span><span class="moba-stat__val">24</span></div>
+            <div class="moba-stat"><span class="moba-stat__icon">🗡️</span><span class="moba-stat__val">0.78</span></div>
+            <div class="moba-stat"><span class="moba-stat__icon">👟</span><span class="moba-stat__val">453</span></div>
           </div>
         </div>
 
-        <div class="hud-panel hud-panel--core">
-          <div class="hud-panel__row hud-panel__row--health">
-            <span class="label">Health</span>
-            <strong id="player-health-text">100 / 100</strong>
+        <div class="moba-hud__avatar-frame">
+          <div class="moba-avatar-ring"></div>
+          <div class="moba-avatar">
+            <div class="content-icon content-icon--weapon-pulse" id="weapon-icon"></div>
+            <!-- Kept for JS compatibility -->
+            <strong id="weapon-name" class="visually-hidden">Pulse Rifle</strong>
+            <span id="weapon-status" class="visually-hidden">Ready</span>
+            <span id="weapon-role" class="visually-hidden">Mid range pressure</span>
           </div>
-          <span class="hud-build-tag" id="player-build-tag">Keystone offline</span>
-          <div class="meter meter-health meter-health-player">
-            <div class="meter-fill meter-fill-player" id="player-health-fill"></div>
-          </div>
+          <div class="moba-level-badge" id="player-build-tag">1</div>
+        </div>
 
-          <div class="module-bar">
-            <div class="module-slot" id="slot-dash">
-              <span class="module-slot__key">Shift</span>
-              <div class="module-slot__icon module-slot__icon--dash"></div>
-              <div class="module-slot__cooldown" id="slot-dash-overlay"></div>
-              <span class="module-slot__timer" id="slot-dash-timer"></span>
-              <span class="module-slot__name">Dash</span>
+        <div class="moba-hud__center">
+          <div class="module-bar moba-abilities">
+            <!-- Passive (Perk) - Placeholders for visuals -->
+            <div class="module-slot moba-slot moba-slot--passive" id="slot-perk">
+              <span class="module-slot__key">P</span>
+              <div class="module-slot__icon module-slot__icon--perk" id="slot-perk-icon"></div>
             </div>
 
-            <div class="module-slot" id="slot-module-1">
+            <!-- Dash removed per user request -->
+
+            <!-- Mod 1 (Q) -->
+            <div class="module-slot moba-slot" id="slot-module-1">
               <span class="module-slot__key">Q</span>
               <div class="module-slot__icon module-slot__icon--javelin"></div>
               <div class="module-slot__cooldown" id="slot-module-1-overlay"></div>
@@ -463,7 +460,8 @@
               <span class="module-slot__name">BOLT-LINK Javelin</span>
             </div>
 
-            <div class="module-slot" id="slot-module-2">
+            <!-- Mod 2 (E) -->
+            <div class="module-slot moba-slot" id="slot-module-2">
               <span class="module-slot__key">E</span>
               <div class="module-slot__icon module-slot__icon--field"></div>
               <div class="module-slot__cooldown" id="slot-module-2-overlay"></div>
@@ -471,7 +469,8 @@
               <span class="module-slot__name">ORBITAL Distorter</span>
             </div>
 
-            <div class="module-slot" id="slot-module-3">
+            <!-- Mod 3 (F) -->
+            <div class="module-slot moba-slot" id="slot-module-3">
               <span class="module-slot__key">F</span>
               <div class="module-slot__icon module-slot__icon--field"></div>
               <div class="module-slot__cooldown" id="slot-module-3-overlay"></div>
@@ -479,7 +478,8 @@
               <span class="module-slot__name">HEX-PLATE Projector</span>
             </div>
 
-            <div class="module-slot" id="slot-core">
+            <!-- Core (R) -->
+            <div class="module-slot moba-slot moba-slot--ultimate" id="slot-core">
               <span class="module-slot__key">R</span>
               <div class="module-slot__icon module-slot__icon--ultimate" id="slot-core-icon"></div>
               <div class="module-slot__cooldown" id="slot-core-overlay"></div>
@@ -487,18 +487,19 @@
               <span class="module-slot__name">Reactor Core</span>
             </div>
           </div>
+
+          <div class="moba-bars">
+            <div class="meter meter-health meter-health-player moba-bar moba-bar--health">
+              <div class="meter-fill meter-fill-player" id="player-health-fill"></div>
+              <strong class="moba-bar-text" id="player-health-text">100 / 100</strong>
+            </div>
+            <div class="meter moba-bar moba-bar--resource">
+              <div class="meter-fill meter-fill-weapon" id="weapon-meter"></div>
+            </div>
+          </div>
         </div>
 
-        <div class="hud-panel hud-panel--target">
-          <div class="hud-panel__row">
-            <span class="label">Target</span>
-            <strong id="enemy-health-text">160 / 160</strong>
-          </div>
-          <span class="hud-hint">Primary duel target or nearest training target.</span>
-          <div class="meter meter-health meter-health-enemy">
-            <div class="meter-fill meter-fill-enemy" id="enemy-health-fill"></div>
-          </div>
-        </div>
+        <!-- Target info removed in favor of dynamic proximity health bars -->
       </div>
 
       <div class="touch-layer" aria-hidden="true">

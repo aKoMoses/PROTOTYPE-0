@@ -23,6 +23,7 @@ export const input = {
   moveTouchId: null,
   moveTouchX: 0,
   moveTouchY: 0,
+  hoveredTarget: null,
 };
 
 
@@ -229,6 +230,7 @@ export const moduleState = {
   },
 };
 
+// Industrial nomenclature state exports
 export const abilityState = moduleState;
 
 
@@ -289,7 +291,7 @@ export function createBot({
       weapon: weapons.pulse.key,
       modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
     },
-    moduleCooldowns: {
+    abilityCooldowns: {
       vGripHarpoon: 0,
       hexPlateProjector: 0,
       overdriveServos: 0,
@@ -432,7 +434,7 @@ export function setTeamEnemies(arr) { teamEnemies = arr; }
 export const bots = [enemy, ...trainingBots];
 
 export const sandbox = {
-  mode: sandboxModes.duel.key,
+  mode: "none",
   mapKey: mapChoices.electroGallery.key,
   helpOpen: false,
 };

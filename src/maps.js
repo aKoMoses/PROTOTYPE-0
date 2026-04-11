@@ -1,6 +1,6 @@
 // Map layouts, portals, collision, and spatial helpers
 import { arena, config, sandboxModes } from "./config.js";
-import { mapState, player, abilityState, bots, sandbox, survivalEnemies } from "./state.js";
+import { mapState, player, moduleState, bots, sandbox, survivalEnemies } from "./state.js";
 import { uiState } from "./state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
 import { playMapCue } from "./audio.js";
@@ -442,7 +442,7 @@ export function resolveCharacterBodyBlocking() {
     return;
   }
 
-  const playerIntangible = abilityState.phaseDash.time > 0 || player.ghostTime > 0;
+  const playerIntangible = moduleState.phaseDash.time > 0 || player.ghostTime > 0;
   if (playerIntangible) {
     return;
   }

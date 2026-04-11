@@ -109,7 +109,7 @@ function loadSfxBuffers() {
       .then((r) => r.arrayBuffer())
       .then((ab) => audioState.ctx.decodeAudioData(ab))
       .then((buf) => audioState.sfxBuffers.set(key, buf))
-      .catch(() => {});
+      .catch(() => { });
   }
 }
 
@@ -308,19 +308,19 @@ function loadMusicTracks() {
     const audio = new Audio(url);
     audio.loop = true;
     audio.volume = 0;
-    
+
     // We'll use the AudioContext to pipe this through our gain nodes
     const sourceNode = audioState.ctx.createMediaElementSource(audio);
     const trackGain = audioState.ctx.createGain();
     trackGain.gain.value = 0; // Controlled by crossfade logic
-    
+
     sourceNode.connect(trackGain);
     trackGain.connect(audioState.musicGain);
-    
-    audioState.music.tracks.set(key, { 
-      audio, 
+
+    audioState.music.tracks.set(key, {
+      audio,
       gain: trackGain,
-      url 
+      url
     });
   }
 }
@@ -349,12 +349,12 @@ function updateMusicPlaylist() {
     m.target = targetKey;
     m.fadePhase = m.current ? "out" : "in";
     m.fadeStartTime = now;
-    
+
     // If we're starting from silence (none), jump to 'in'
     if (m.fadePhase === "in") {
       const trackData = m.tracks.get(targetKey);
       if (trackData && trackData.audio.paused) {
-        trackData.audio.play().catch(() => {});
+        trackData.audio.play().catch(() => { });
       }
     }
   }
@@ -363,45 +363,45 @@ function updateMusicPlaylist() {
   if (m.fadePhase === "out") {
     const progress = Math.min(1, (now - m.fadeStartTime) / fadeDuration);
     const currentTrack = m.tracks.get(m.current);
-    
+
     if (currentTrack) {
-        setParamTarget(currentTrack.gain.gain, 1 - progress, 0.05);
+      setParamTarget(currentTrack.gain.gain, 1 - progress, 0.05);
     }
-    
+
     // Switch to 'in' once faded out
     if (progress >= 1) {
-        if (currentTrack && !currentTrack.audio.paused) currentTrack.audio.pause();
-        m.current = null; // Grounded to silence
-        m.fadePhase = "in";
-        m.fadeStartTime = now;
-        
-        const nextTrack = m.tracks.get(m.target);
-        if (nextTrack && nextTrack.audio.paused) {
-            nextTrack.audio.play().catch(() => {});
-        }
+      if (currentTrack && !currentTrack.audio.paused) currentTrack.audio.pause();
+      m.current = null; // Grounded to silence
+      m.fadePhase = "in";
+      m.fadeStartTime = now;
+
+      const nextTrack = m.tracks.get(m.target);
+      if (nextTrack && nextTrack.audio.paused) {
+        nextTrack.audio.play().catch(() => { });
+      }
     }
   } else if (m.fadePhase === "in") {
     const progress = Math.min(1, (now - m.fadeStartTime) / fadeDuration);
     const nextTrack = m.tracks.get(m.target);
-    
+
     if (nextTrack) {
-        setParamTarget(nextTrack.gain.gain, progress, 0.05);
-        nextTrack.audio.volume = 1.0;
+      setParamTarget(nextTrack.gain.gain, progress, 0.05);
+      nextTrack.audio.volume = 1.0;
     }
-    
+
     if (progress >= 1) {
-        m.current = m.target;
-        m.fadePhase = "none";
+      m.current = m.target;
+      m.fadePhase = "none";
     }
   } else if (m.fadePhase === "none") {
     // Steady state: ensure only current is playing at full volume
     for (const [key, track] of m.tracks.entries()) {
-        if (key === m.current) {
-            setParamTarget(track.gain.gain, 1.0, 0.1);
-        } else {
-            setParamTarget(track.gain.gain, 0.0001, 0.1);
-            if (!track.audio.paused) track.audio.pause();
-        }
+      if (key === m.current) {
+        setParamTarget(track.gain.gain, 1.0, 0.1);
+      } else {
+        setParamTarget(track.gain.gain, 0.0001, 0.1);
+        if (!track.audio.paused) track.audio.pause();
+      }
     }
   }
 }
@@ -592,7 +592,7 @@ function computeIntensity() {
 
 function updateMusicLayers(intensity) {
   updateMusicPlaylist();
-  
+
   // Note: intensity can still modulate the underlying gain or filters if we want
   // But for now we just handle track switching.
 }
@@ -844,7 +844,7 @@ export function playModuleCue(moduleKey, owner = "player") {
   }
 }
 
-export const playAbilityCue = playModuleCue;
+
 
 export function playStatusCue(statusType, target = "enemy") {
   const pan = target === "player" ? -0.14 : 0.14;

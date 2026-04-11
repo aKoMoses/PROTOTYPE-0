@@ -3,12 +3,12 @@
 // Persistent named builds — CRUD, import to session
 // ================================================================
 
-import { content } from "./src/content.js";
-import { openBuilder } from "./loadout-builder.js";
-import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "./src/loadouts/storage.js";
-import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "./src/progression.js";
-import { hideClickTooltip, registerClickTooltip } from "./src/ui/tooltip-manager.js";
-import { sanitizeIconClass } from "./src/utils.js";
+import { content } from "../../content.js";
+import { openBuilder } from "../../../loadout-builder.js";
+import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "../../loadouts/storage.js";
+import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "../../progression.js";
+import { hideClickTooltip, registerClickTooltip } from "../../ui/tooltip-manager.js";
+import { sanitizeIconClass } from "../../utils.js";
 
 const GAMEPLAY_TAGS = ["aggro", "control", "poke", "burst", "tank", "support", "hybrid", "cheese"];
 

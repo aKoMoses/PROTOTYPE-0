@@ -1,15 +1,15 @@
 // Prematch / Build Lab UI rendering
-import { config, sandboxModes, abilityConfig } from "../config.js";
+import { config, sandboxModes, moduleConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { abilityState, sandbox, matchState, input, trainingBots } from "../state.js";
+import { moduleState, sandbox, matchState, input, trainingBots } from "../state.js";
 import { loadout, uiState, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { sanitizeIconClass } from "../utils.js";
 import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsForMode, normalizeSelectedMap, getSelectedMapMeta, getMapLayout } from "../maps.js";
-import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoadoutSelections,
-  hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
+import { getContentItem, getModuleBySlot, getVisibleContentItems, normalizeLoadoutSelections,
+  hasImplant, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
-  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration,
+  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomModule, getPulseMagazineSize, getModuleCooldown, getWeaponCooldown, getStatusDuration,
   applySavedPlayerLoadout, getBotPresets, applyBotPreset } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
 import { getAxeComboProfile } from "../gameplay/weapons.js";
@@ -17,6 +17,7 @@ import { playUiCue, unlockAudio } from "../audio.js";
 import { normalizeStoredBuild, readStoredLoadouts } from "../loadouts/storage.js";
 import { formatMissingUnlocks, getCurrentBotDifficultyTier, getLoadoutAccessState, isContentUnlocked } from "../progression.js";
 import { registerClickTooltip } from "../ui/tooltip-manager.js";
+import { on } from "../core/event-bus.js";
 
 // Forward declarations
 let _resetPlayer = null;
@@ -150,10 +151,10 @@ export function openPrematch(step = "mode") {
   input.keys.clear();
   input.firing = false;
   _releaseDashInput();
-  abilityState.boltLinkJavelin.recastReady = false;
-  abilityState.boltLinkJavelin.activeTime = 0;
-  abilityState.boltLinkJavelin.pendingCooldown = false;
-  abilityState.orbitalDistorter.charging = false;
+  moduleState.boltLinkJavelin.recastReady = false;
+  moduleState.boltLinkJavelin.activeTime = 0;
+  moduleState.boltLinkJavelin.pendingCooldown = false;
+  moduleState.orbitalDistorter.charging = false;
   setPrematchStep(step);
   dom.prematchOverlay.classList.remove("is-hidden");
   syncPrematchState();
@@ -600,19 +601,19 @@ function getAbilityValueLines(item) {
         `Startup: ${formatSeconds(config.reflexAegisStartup)}. Active parry: ${formatSeconds(config.reflexAegisWindow)}. Fail recovery: ${formatSeconds(config.reflexAegisFailRecovery)}.`,
         `If struck during the window: negate the hit, blink behind the attacker, gain ${formatNumber(config.reflexAegisShield)} shield for ${formatSeconds(config.reflexAegisShieldDuration)}.`,
         `Success buff: +${formatPercent(config.reflexAegisMoveBonus)} move speed for ${formatSeconds(config.reflexAegisMoveDuration)} and next hit +${formatNumber(config.reflexAegisHitBonusDamage)} within ${formatSeconds(config.reflexAegisHitBonusDuration)}.`,
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.reflexAegisCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.reflexAegisCooldown))}.`,
         "Role: high-skill defensive counter that punishes predictable burst and engages.",
       ];
     case "boltLinkJavelin":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boltLinkJavelinCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.boltLinkJavelinCooldown))}.`,
         `Initial hit: ${config.boltLinkJavelinDamage} damage and ${formatPercent(config.boltLinkJavelinSlow)} electrified slow for ${formatSeconds(getStatusDuration(config.boltLinkJavelinSlowDuration))}.`,
         `Recast window: while the target is electrified, blink ${formatNumber(config.boltLinkJavelinRecastDistance)} units behind them once.`,
         "Role: two-step engage tool for outplay, chase correction and burst setup.",
       ];
     case "orbitalDistorter":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.orbitalDistorterCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.orbitalDistorterCooldown))}.`,
         `Tap cast: ${formatNumber(config.orbitalDistorterTapRadius)} radius on you for ${formatSeconds(config.orbitalDistorterTapDuration)}, ${formatPercent(config.orbitalDistorterTapProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterTapProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterTapDamageReduction)} mitigation.`,
         `Charged cast: ${formatNumber(config.orbitalDistorterHoldRadius)} radius at target point for ${formatSeconds(config.orbitalDistorterHoldDuration + (systemsShardActive ? 0.6 : 0))}, ${formatPercent(config.orbitalDistorterHoldProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterHoldProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterHoldSlow + (systemsShardActive ? 0.08 : 0))} movement slow.`,
         "Enemy projectiles are dragged while inside the field instead of being deleted, making dodge windows readable and fair.",
@@ -620,7 +621,7 @@ function getAbilityValueLines(item) {
       ];
     case "vGripHarpoon":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.vGripHarpoonCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.vGripHarpoonCooldown))}.`,
         `Hook shot: ${formatNumber(config.vGripHarpoonRange)} range at ${formatNumber(config.vGripHarpoonProjectileSpeed)} speed.`,
         `On hit: drags the target toward you and applies ${formatPercent(config.vGripHarpoonSnare)} snare for ${formatSeconds(getStatusDuration(config.vGripHarpoonSnareDuration))}.`,
         "Recast during pull: cut the drag early to place the target exactly where you want.",
@@ -628,43 +629,43 @@ function getAbilityValueLines(item) {
       ];
     case "hexPlateProjector":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.shieldCooldown))}.`,
-        `Grants ${formatNumber(config.shieldValue + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(config.shieldDuration)}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.hexPlateProjectorCooldown))}.`,
+        `Grants ${formatNumber(config.hexPlateProjectorValue + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(config.hexPlateProjectorDuration)}.`,
         "While the shield still exists, incoming slow, snare, shock and stun effects are denied.",
-        `If enemies break the shield, HEX-PLATE Projector refunds about ${formatPercent(config.shieldBreakRefund)} of its cooldown.`,
+        `If enemies break the shield, HEX-PLATE Projector refunds about ${formatPercent(config.hexPlateProjectorBreakRefund)} of its cooldown.`,
         "Role: anti-burst and anti-control timing check that rewards clean reads.",
       ];
     case "emPulseEmitter":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boosterCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.emPulseEmitterCooldown))}.`,
         "Radius: 120.",
         `Applies ${formatPercent(0.38)} slow for ${formatSeconds(getStatusDuration(1))} and delays bot fire by 0.8s.`,
         "Destroys enemy projectiles inside the pulse.",
       ];
     case "chainLightning":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.4))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(5.4))}.`,
         "Range: 520 first snap, then up to 2 extra hops within 220.",
         "Damage: 28 first hit, then each hop deals 72% of the previous hit.",
         `Applies 18 to 26% slow for ${formatSeconds(getStatusDuration(0.55))}.`,
       ];
     case "blink":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(3.4))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(3.4))}.`,
         "Teleports 148 units to your aim.",
         "No damage, pure spacing and outplay.",
         "Role: instant reposition without commit frames.",
       ];
     case "phaseDash":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(4.6))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(4.6))}.`,
         "Dash speed: 1580 for 0.18s.",
         "Untargetable for 0.42s during the pass.",
         "Role: projectile break and hard timing outplay.",
       ];
     case "swarmMissileRack":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.swarmMissileRackCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.swarmMissileRackCooldown))}.`,
         `Fires ${config.swarmMissileRackMissiles} pulse missiles at ${formatNumber(config.swarmMissileRackBaseDamage)} base damage each.`,
         "Missiles lightly auto-guide toward the first visible enemy in front of them, but can still be dodged and are destroyed by terrain.",
         `Each extra missile on the same target deals exponentially more damage at x${formatNumber(config.swarmMissileRackDamageGrowth)} growth per connect.`,
@@ -673,35 +674,35 @@ function getAbilityValueLines(item) {
       ];
     case "railShot":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.1))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(5.1))}.`,
         "Deals 46 damage and pierces.",
         `Applies ${formatPercent(0.22)} slow for ${formatSeconds(getStatusDuration(0.8))}.`,
         "Role: high-commit punish line that cashes in on clean aim.",
       ];
     case "voidCoreSingularity":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.voidCoreSingularityCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.voidCoreSingularityCooldown))}.`,
         `Creates a live singularity with ${formatNumber(config.voidCoreSingularityRadius)} radius for ${formatSeconds(config.voidCoreSingularityDuration)}.`,
         `Inside the zone: ${formatPercent(config.voidCoreSingularitySlow)} slow and steady pull toward the core.`,
         "Role: trap movement, stack follow-up skillshots and punish late exits.",
       ];
     case "ghostDriftModule":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.ghostDriftModuleCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.ghostDriftModuleCooldown))}.`,
         `Intangible for ${formatSeconds(config.ghostDriftModuleDuration)} and purges active debuffs on cast.`,
         "While phased: no damage taken, no control taken, no attacks, no modules. Dash only.",
         "Role: pure defensive outplay and reset timing, not an engage tool.",
       ];
     case "spectreProjector":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(6.2))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(6.2))}.`,
         `Creates a false read for ${formatSeconds(2.8)}.`,
         "Pairs well with sharp sidesteps and Phantom Core.",
         "Role: information denial and focus break.",
       ];
     case "overdriveServos":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(4.2))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(4.2))}.`,
         `Haste window: ${formatSeconds(2.2)}.`,
         `After-dash tempo extension: ${formatSeconds(1.2)}.`,
         "Role: tempo spike for chase, disengage or reset.",
@@ -1284,7 +1285,7 @@ export function renderTrainingBotPanel() {
     dom.botAbilityGrid,
     getVisibleContentItems("modules", { ignoreProgression: true }),
     botBuildState.custom.modules,
-    (abilityKey) => toggleBotCustomAbility(abilityKey),
+    (abilityKey) => toggleBotCustomModule(abilityKey),
     {
       iconType: "ability",
       activeKeys: previewBuild.modules,
@@ -1932,3 +1933,5 @@ export function toggleHelpPanel(forceOpen) {
   dom.helpPanel.classList.toggle("is-hidden", !sandbox.helpOpen);
   dom.helpToggle.textContent = sandbox.helpOpen ? "Hide" : "Help";
 }
+
+on("prematch:render-requested", () => renderPrematch());

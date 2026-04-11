@@ -1,10 +1,10 @@
 // Phantom Split clone runtime
-import { config, abilityConfig } from "../config.js";
+import { config, moduleConfig } from "../config.js";
 import { weapons } from "../content.js";
 import {
   player,
   playerClone,
-  abilityState,
+  moduleState,
   input,
   bullets,
   enemyBullets,
@@ -17,7 +17,7 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addAfterimage, addBeamEffect, addExplosion, addShake } from "./effects.js";
 import { resolveMapCollision, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, getPerkDamageMultiplier, getStatusDuration } from "../build/loadout.js";
+import { getBuildStats, getImplantDamageMultiplier, getStatusDuration } from "../build/loadout.js";
 import {
   getAllBots,
   getPrimaryBot,
@@ -50,7 +50,7 @@ function getPhantomDirection(action) {
 }
 
 function getScaledDamage(baseDamage, target = getPrimaryBot()) {
-  return baseDamage * config.phantomDamageScale * getPerkDamageMultiplier(target);
+  return baseDamage * config.phantomDamageScale * getImplantDamageMultiplier(target);
 }
 
 function getScaledDuration(baseDuration) {
@@ -347,18 +347,18 @@ function executeCloneBoltLinkJavelin(action) {
   boltLinkJavelins.push({
     x: playerClone.x + direction.x * (playerClone.radius + 12),
     y: playerClone.y + direction.y * (playerClone.radius + 12),
-    vx: direction.x * (config.javelinSpeed * 0.96),
-    vy: direction.y * (config.javelinSpeed * 0.96),
-    radius: Math.max(7, config.javelinRadius * 0.84),
-    damage: getScaledDamage(config.javelinDamage),
+    vx: direction.x * (config.boltLinkJavelinSpeed * 0.96),
+    vy: direction.y * (config.boltLinkJavelinSpeed * 0.96),
+    radius: Math.max(7, config.boltLinkJavelinRadius * 0.84),
+    damage: getScaledDamage(config.boltLinkJavelinDamage),
     charged: false,
-    life: config.javelinRange / Math.max(1, config.javelinSpeed) + 0.06,
+    life: config.boltLinkJavelinRange / Math.max(1, config.boltLinkJavelinSpeed) + 0.06,
     color: "#a9efff",
     glow: "#dff7ff",
     trail: "#86e6ff",
     piercing: false,
-    slow: getScaledMagnitude(config.javelinSlow),
-    slowDuration: getScaledDuration(config.javelinSlowDuration),
+    slow: getScaledMagnitude(config.boltLinkJavelinSlow),
+    slowDuration: getScaledDuration(config.boltLinkJavelinSlowDuration),
     stun: 0,
     hitTargets: new Set(),
   });
@@ -368,23 +368,23 @@ function executeCloneBoltLinkJavelin(action) {
 
 function executeCloneOrbitalDistorter(action) {
   const holdCast = action.mode === "hold";
-  const radius = holdCast ? Math.max(72, abilityConfig.field.hold.radius * 0.72) : Math.max(52, abilityConfig.field.tap.radius * 0.72);
+  const radius = holdCast ? Math.max(72, moduleConfig.orbitalDistorter.hold.radius * 0.72) : Math.max(52, moduleConfig.orbitalDistorter.tap.radius * 0.72);
   const centerX = holdCast ? action.aimX ?? playerClone.x : playerClone.x;
   const centerY = holdCast ? action.aimY ?? playerClone.y : playerClone.y;
   orbitalDistorterFields.push({
     x: centerX,
     y: centerY,
     radius,
-    duration: holdCast ? abilityConfig.field.hold.duration * 0.55 : abilityConfig.field.tap.duration * 0.7,
-    life: holdCast ? abilityConfig.field.hold.duration * 0.55 : abilityConfig.field.tap.duration * 0.7,
-    slow: holdCast ? abilityConfig.field.hold.slow * 0.6 : abilityConfig.field.tap.slow * 0.55,
-    damageReduction: holdCast ? 0 : abilityConfig.field.tap.damageReduction * 0.35,
+    duration: holdCast ? moduleConfig.orbitalDistorter.hold.duration * 0.55 : moduleConfig.orbitalDistorter.tap.duration * 0.7,
+    life: holdCast ? moduleConfig.orbitalDistorter.hold.duration * 0.55 : moduleConfig.orbitalDistorter.tap.duration * 0.7,
+    slow: holdCast ? moduleConfig.orbitalDistorter.hold.slow * 0.6 : moduleConfig.orbitalDistorter.tap.slow * 0.55,
+    damageReduction: holdCast ? 0 : moduleConfig.orbitalDistorter.tap.damageReduction * 0.35,
     anchor: "world",
     color: holdCast ? "#b4c7ff" : "#9fdbff",
     glow: holdCast ? "#dce7ff" : "#dbf4ff",
     disruption: holdCast ? 0 : 0.12,
-    projectileSlowEdge: holdCast ? config.fieldHoldProjectileSlowEdge * 0.65 : config.fieldTapProjectileSlowEdge * 0.55,
-    projectileSlowCore: holdCast ? config.fieldHoldProjectileSlowCore * 0.68 : config.fieldTapProjectileSlowCore * 0.58,
+    projectileSlowEdge: holdCast ? config.orbitalDistorterHoldProjectileSlowEdge * 0.65 : config.orbitalDistorterTapProjectileSlowEdge * 0.55,
+    projectileSlowCore: holdCast ? config.orbitalDistorterHoldProjectileSlowCore * 0.68 : config.orbitalDistorterTapProjectileSlowCore * 0.58,
     team: "player",
     touchedTargets: new Set(),
   });
@@ -402,9 +402,9 @@ function executeCloneVGripHarpoon() {
 }
 
 function executeCloneHexPlateProjector() {
-  playerClone.shield = Math.max(playerClone.shield, (config.shieldValue + 3) * config.phantomShieldScale);
-  playerClone.shieldTime = Math.max(playerClone.shieldTime, config.shieldDuration * 0.82);
-  playerClone.shieldGuardTime = Math.max(playerClone.shieldGuardTime ?? 0, config.shieldDuration * 0.82);
+  playerClone.shield = Math.max(playerClone.shield, (config.hexPlateProjectorValue + 3) * config.phantomShieldScale);
+  playerClone.shieldTime = Math.max(playerClone.shieldTime, config.hexPlateProjectorDuration * 0.82);
+  playerClone.shieldGuardTime = Math.max(playerClone.shieldGuardTime ?? 0, config.hexPlateProjectorDuration * 0.82);
   addCloneFlash("#b7ddff", 22);
 }
 
@@ -671,7 +671,7 @@ export function queuePhantomWeapon(action) {
   });
 }
 
-export function queuePhantomAbility(abilityKey, action = {}) {
+export function queuePhantomModule(abilityKey, action = {}) {
   queueCloneAction({
     type: "ability",
     abilityKey,
@@ -702,7 +702,7 @@ export function resetPhantomClone({ silent = true } = {}) {
   playerClone.injectorMarks = 0;
   playerClone.injectorMarkTime = 0;
   clearStatusEffects(playerClone);
-  abilityState.core.phantomTime = 0;
+  moduleState.core.phantomTime = 0;
   if (!silent) {
     statusLine.textContent = "Phantom copy collapsed.";
   }
@@ -746,7 +746,7 @@ export function spawnPhantomClone() {
   playerClone.injectorMarkTime = 0;
   clearStatusEffects(playerClone);
 
-  abilityState.core.phantomTime = config.phantomDuration;
+  moduleState.core.phantomTime = config.phantomDuration;
   player.decoyTime = Math.max(player.decoyTime, config.phantomDuration);
   player.ghostTime = Math.max(player.ghostTime, 0.7);
   addAfterimage(player.x, player.y, player.facing, player.radius + 8, "#caa3ff");
@@ -800,7 +800,7 @@ export function updatePhantomClone(dt) {
   }
 
   playerClone.life = Math.max(0, playerClone.life - dt);
-  abilityState.core.phantomTime = Math.max(abilityState.core.phantomTime, playerClone.life);
+  moduleState.core.phantomTime = Math.max(moduleState.core.phantomTime, playerClone.life);
   playerClone.shieldTime = Math.max(0, playerClone.shieldTime - dt);
   playerClone.shieldGuardTime = Math.max(0, (playerClone.shieldGuardTime ?? 0) - dt);
   playerClone.ghostTime = Math.max(0, playerClone.ghostTime - dt);

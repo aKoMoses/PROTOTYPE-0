@@ -1,15 +1,15 @@
 // Player update loop, reset, weapon switching
-import { arena, config, abilityConfig, sandboxModes } from "../config.js";
+import { arena, config, moduleConfig, sandboxModes } from "../config.js";
 import { weapons, content } from "../content.js";
-import { player, abilityState, sandbox, matchState, input, enemy, mapState, enemyBullets, orbitalDistorterFields } from "../state.js";
+import { player, moduleState, sandbox, matchState, input, enemy, mapState, enemyBullets, orbitalDistorterFields } from "../state.js";
 import { loadout } from "../state/app-state.js";
 import { clamp, length, normalize, approach } from "../utils.js";
 import { addImpact, addShake, addAfterimage, addHealingText } from "./effects.js";
 import { getMapLayout, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getActiveDashCooldown, getAbilityBySlot, getPulseMagazineSize } from "../build/loadout.js";
+import { getBuildStats, hasImplant, getRuneValue, getActiveDashCooldown, getModuleBySlot, getPulseMagazineSize } from "../build/loadout.js";
 import { getAllBots, isCombatLive, getActiveMoveSpeed, getMoveVector, getPlayerSpawn, clearStatusEffects, updateStatusEffects, tickEntityMarks, clearCombatArtifacts, getStatusState, getZoneEffectsForEntity, finalizePulseReload, defeatPlayer, resetPlayerWeaponMomentum, completePlayerWeaponAttack } from "./combat.js";
 import { attackPulseRifle, attackScrapShotgun, attackRailSniper, attackVoltStaff, attackBioInjector, attackChargeLance, fireHeavyCannon, attackElectricAxe, tryDashStrikeHits, resolveQueuedAxeStrike } from "./weapons.js";
-import { updateDashAbility, updateBoltLinkJavelinAbility, updateOrbitalDistorterAbility, updateExtraAbilities } from "./abilities.js";
+import { updateDashModule, updateBoltLinkJavelinModule, updateOrbitalDistorterModule, updateExtraModules } from "./modules.js";
 import { updateCasting } from "./casting.js";
 import { resetPhantomClone } from "./phantom.js";
 import * as dom from "../dom.js";
@@ -107,54 +107,54 @@ export function resetPlayer({ silent = false } = {}) {
   input.altFiring = false;
   clearStatusEffects(player);
   resetPhantomClone({ silent: true });
-  abilityState.dash.inputHeld = false;
-  abilityState.dash.holdTime = 0;
-  abilityState.dash.activeTime = 0;
-  abilityState.dash.invulnerabilityTime = 0;
-  abilityState.dash.charges = 1;
-  abilityState.dash.rechargeTimer = 0;
-  abilityState.dash.upgraded = false;
-  abilityState.boltLinkJavelin.cooldown = 0;
-  abilityState.boltLinkJavelin.activeTime = 0;
-  abilityState.boltLinkJavelin.recastReady = false;
-  abilityState.boltLinkJavelin.targetKind = null;
-  abilityState.boltLinkJavelin.aimX = 0;
-  abilityState.boltLinkJavelin.aimY = 0;
-  abilityState.boltLinkJavelin.lastDirectionX = 0;
-  abilityState.boltLinkJavelin.lastDirectionY = 0;
-  abilityState.boltLinkJavelin.pendingCooldown = false;
-  abilityState.orbitalDistorter.cooldown = 0;
-  abilityState.orbitalDistorter.charging = false;
-  abilityState.orbitalDistorter.chargeTime = 0;
-  abilityState.orbitalDistorter.mode = "tap";
-  abilityState.orbitalDistorter.moveBoostTime = 0;
-  abilityState.vGripHarpoon.cooldown = 0;
-  abilityState.vGripHarpoon.phase = "idle";
-  abilityState.vGripHarpoon.projectile = null;
-  abilityState.vGripHarpoon.targetKind = null;
-  abilityState.vGripHarpoon.pullStopRequested = false;
-  abilityState.vGripHarpoon.tetherPulse = 0;
-  abilityState.hexPlateProjector.cooldown = 0;
-  abilityState.reflexAegis.cooldown = 0;
-  abilityState.reflexAegis.startupTime = 0;
-  abilityState.reflexAegis.activeTime = 0;
-  abilityState.reflexAegis.recoveryTime = 0;
-  abilityState.reflexAegis.resolveLockTime = 0;
-  abilityState.reflexAegis.successFlash = 0;
-  abilityState.boltLinkJavelin.cooldown = 0;
-  abilityState.orbitalDistorter.cooldown = 0;
-  abilityState.vGripHarpoon.cooldown = 0;
-  abilityState.swarmMissileRack.cooldown = 0;
-  abilityState.hexPlateProjector.cooldown = 0;
-  abilityState.voidCoreSingularity.cooldown = 0;
-  abilityState.overdriveServos.cooldown = 0;
-  abilityState.emPulseEmitter.cooldown = 0;
-  abilityState.railShot.cooldown = 0;
-  abilityState.phaseDash.cooldown = 0;
-  abilityState.phaseDash.time = 0;
-  abilityState.spectreProjector.cooldown = 0;
-  abilityState.core.cooldown = 0;
-  abilityState.core.phantomTime = 0;
+  moduleState.dash.inputHeld = false;
+  moduleState.dash.holdTime = 0;
+  moduleState.dash.activeTime = 0;
+  moduleState.dash.invulnerabilityTime = 0;
+  moduleState.dash.charges = 1;
+  moduleState.dash.rechargeTimer = 0;
+  moduleState.dash.upgraded = false;
+  moduleState.boltLinkJavelin.cooldown = 0;
+  moduleState.boltLinkJavelin.activeTime = 0;
+  moduleState.boltLinkJavelin.recastReady = false;
+  moduleState.boltLinkJavelin.targetKind = null;
+  moduleState.boltLinkJavelin.aimX = 0;
+  moduleState.boltLinkJavelin.aimY = 0;
+  moduleState.boltLinkJavelin.lastDirectionX = 0;
+  moduleState.boltLinkJavelin.lastDirectionY = 0;
+  moduleState.boltLinkJavelin.pendingCooldown = false;
+  moduleState.orbitalDistorter.cooldown = 0;
+  moduleState.orbitalDistorter.charging = false;
+  moduleState.orbitalDistorter.chargeTime = 0;
+  moduleState.orbitalDistorter.mode = "tap";
+  moduleState.orbitalDistorter.moveBoostTime = 0;
+  moduleState.vGripHarpoon.cooldown = 0;
+  moduleState.vGripHarpoon.phase = "idle";
+  moduleState.vGripHarpoon.projectile = null;
+  moduleState.vGripHarpoon.targetKind = null;
+  moduleState.vGripHarpoon.pullStopRequested = false;
+  moduleState.vGripHarpoon.tetherPulse = 0;
+  moduleState.hexPlateProjector.cooldown = 0;
+  moduleState.reflexAegis.cooldown = 0;
+  moduleState.reflexAegis.startupTime = 0;
+  moduleState.reflexAegis.activeTime = 0;
+  moduleState.reflexAegis.recoveryTime = 0;
+  moduleState.reflexAegis.resolveLockTime = 0;
+  moduleState.reflexAegis.successFlash = 0;
+  moduleState.boltLinkJavelin.cooldown = 0;
+  moduleState.orbitalDistorter.cooldown = 0;
+  moduleState.vGripHarpoon.cooldown = 0;
+  moduleState.swarmMissileRack.cooldown = 0;
+  moduleState.hexPlateProjector.cooldown = 0;
+  moduleState.voidCoreSingularity.cooldown = 0;
+  moduleState.overdriveServos.cooldown = 0;
+  moduleState.emPulseEmitter.cooldown = 0;
+  moduleState.railShot.cooldown = 0;
+  moduleState.phaseDash.cooldown = 0;
+  moduleState.phaseDash.time = 0;
+  moduleState.spectreProjector.cooldown = 0;
+  moduleState.core.cooldown = 0;
+  moduleState.core.phantomTime = 0;
   orbitalDistorterFields.length = 0;
   if (!silent) {
     dom.statusLine.textContent = "Player reset. Re-engage.";
@@ -197,17 +197,17 @@ export function updatePlayer(dt) {
     }
   }
 
-  updateDashAbility(dt);
-  updateBoltLinkJavelinAbility(dt);
-  updateOrbitalDistorterAbility(dt);
-  updateExtraAbilities(dt);
-  updateCasting(player, dt, abilityState.dash.activeTime > 0);
+  updateDashModule(dt);
+  updateBoltLinkJavelinModule(dt);
+  updateOrbitalDistorterModule(dt);
+  updateExtraModules(dt);
+  updateCasting(player, dt, moduleState.dash.activeTime > 0);
 
-  const phaseLocked = abilityState.phaseDash.time > 0;
+  const phaseLocked = moduleState.phaseDash.time > 0;
   const parryLocked =
-    abilityState.reflexAegis.startupTime > 0 ||
-    abilityState.reflexAegis.activeTime > 0 ||
-    abilityState.reflexAegis.recoveryTime > 0;
+    moduleState.reflexAegis.startupTime > 0 ||
+    moduleState.reflexAegis.activeTime > 0 ||
+    moduleState.reflexAegis.recoveryTime > 0;
 
   if (
     buildStats.outOfCombatRegen > 0 &&
@@ -221,7 +221,7 @@ export function updatePlayer(dt) {
   if (!combatLive) {
     player.velocityX = approach(player.velocityX, 0, config.playerFriction * dt);
     player.velocityY = approach(player.velocityY, 0, config.playerFriction * dt);
-  } else if (abilityState.dash.activeTime > 0) {
+  } else if (moduleState.dash.activeTime > 0) {
     // Dash owns the movement profile while it is active.
   } else if (player.attackStartupTime > 0) {
     const startupMoveScale = player.weapon === weapons.axe.key ? 0.34 : 0.55;
@@ -235,11 +235,11 @@ export function updatePlayer(dt) {
     player.velocityX = player.attackCommitX * player.attackCommitSpeed;
     player.velocityY = player.attackCommitY * player.attackCommitSpeed;
     addAfterimage(player.x, player.y, player.facing, player.radius, "#bfffd8");
-  } else if (playerStatus.stunned || parryLocked || (player.castingAbility && abilityState.dash.activeTime <= 0)) {
+  } else if (playerStatus.stunned || parryLocked || (player.castingAbility && moduleState.dash.activeTime <= 0)) {
     // Casting aggressive spells stops movement with the "glissade" friction handled in updateCasting.
     // We already handled friction inside updateCasting for player & bots.
     // Ensure we don't apply standard movement here.
-    if (player.castingAbility && abilityState.dash.activeTime <= 0) {
+    if (player.castingAbility && moduleState.dash.activeTime <= 0) {
        // updateCasting already handles friction for casts.
     } else {
        player.velocityX = approach(player.velocityX, 0, config.playerFriction * dt);

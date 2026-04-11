@@ -323,6 +323,7 @@ export function updateSurvivalMode(dt) {
   }
 
   if (survivalState.phase === "active") {
+    dom.gameShell.classList.add("is-combat-active");
     if (!player.alive) {
       finishSurvivalRun();
       return;
@@ -370,6 +371,7 @@ export function updateSurvivalMode(dt) {
   }
 
   if (survivalState.phase === "run_end" && survivalState.timer <= 0) {
+    dom.gameShell.classList.remove("is-combat-active");
     _openPrematch?.("mode");
     _resetPlayer?.({ silent: true });
     _resetBotsForMode?.(sandboxModes.training.key);

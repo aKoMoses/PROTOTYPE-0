@@ -317,8 +317,11 @@ export function updateDuelMatch(dt) {
   }
 
   if (matchState.phase === "active") {
+    dom.gameShell.classList.add("is-combat-active");
     showRoundBanner("", "", false);
     return;
+  } else {
+    dom.gameShell.classList.remove("is-combat-active");
   }
 
   matchState.timer = Math.max(0, matchState.timer - dt);
