@@ -5,7 +5,7 @@
 
 import { content } from "./src/content.js";
 import { openBuilder } from "./loadout-builder.js";
-import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "./src/loadouts/storage.js";
+import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, updateStoredLoadouts } from "./src/loadouts/storage.js";
 import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "./src/progression.js";
 import { hideClickTooltip, registerClickTooltip } from "./src/ui/tooltip-manager.js";
 import { sanitizeIconClass } from "./src/utils.js";
@@ -82,12 +82,18 @@ function getLockedStatusMessage(access) {
 function handleBuilderForge(event) {
   const { name, build } = event.detail;
   const entry = createStoredLoadout({ name, build });
-  loadouts.unshift(entry);
-  save();
+  activeTagFilter = null;
+  persistLoadoutChanges((list) => {
+    list.unshift(entry);
+    return { value: entry.id };
+  });
 }
 
 function syncStoredLoadouts() {
   loadouts = readStoredLoadouts();
+  if (activeModalId && !loadouts.some((entry) => entry.id === activeModalId)) {
+    activeModalId = null;
+  }
   render();
 }
 
@@ -96,26 +102,30 @@ function handleCreate() {
 }
 
 function handleDuplicate(id) {
-  const source = loadouts.find((entry) => entry.id === id);
-  if (!source) {
-    return;
-  }
+  persistLoadoutChanges((list) => {
+    const source = list.find((entry) => entry.id === id);
+    if (!source) {
+      return;
+    }
 
-  const clone = cloneStoredLoadout(source, {
-    name: `${source.name} (copy)`,
-    tags: [...source.tags],
-    build: source.build,
+    const clone = cloneStoredLoadout(source, {
+      name: `${source.name} (copy)`,
+      tags: [...source.tags],
+      build: source.build,
+    });
+    const index = list.findIndex((entry) => entry.id === id);
+    list.splice(index + 1, 0, clone);
+    return { value: clone.id };
   });
-  const index = loadouts.findIndex((entry) => entry.id === id);
-  loadouts.splice(index + 1, 0, clone);
-  save();
 }
 
 function handleDelete(id) {
   if (confirmingDeleteId === id) {
-    loadouts = loadouts.filter((entry) => entry.id !== id);
     confirmingDeleteId = null;
-    save();
+    if (activeModalId === id) {
+      activeModalId = null;
+    }
+    persistLoadoutChanges((list) => list.filter((entry) => entry.id !== id));
     return;
   }
 
@@ -129,51 +139,57 @@ function handleCancelDelete() {
 }
 
 function handleToggleFavorite(id) {
-  const entry = loadouts.find((item) => item.id === id);
-  if (!entry) {
-    return;
-  }
+  persistLoadoutChanges((list) => {
+    const entry = list.find((item) => item.id === id);
+    if (!entry) {
+      return;
+    }
 
-  entry.favorite = !entry.favorite;
-  entry.updatedAt = new Date().toISOString();
-  save();
+    entry.favorite = !entry.favorite;
+    entry.updatedAt = new Date().toISOString();
+  });
 }
 
 function handleRename(id, newName) {
-  const entry = loadouts.find((item) => item.id === id);
-  if (!entry) {
-    return;
-  }
-
   const sanitized = newName.replace(/<[^>]*>/g, "").trim().slice(0, 40);
-  if (sanitized) {
-    entry.name = sanitized;
-    entry.updatedAt = new Date().toISOString();
-  }
-  save();
+  persistLoadoutChanges((list) => {
+    const entry = list.find((item) => item.id === id);
+    if (!entry) {
+      return;
+    }
+
+    if (sanitized) {
+      entry.name = sanitized;
+      entry.updatedAt = new Date().toISOString();
+    }
+  });
 }
 
 function handleToggleTag(id, tag) {
-  const entry = loadouts.find((item) => item.id === id);
-  if (!entry) {
-    return;
-  }
+  persistLoadoutChanges((list) => {
+    const entry = list.find((item) => item.id === id);
+    if (!entry) {
+      return;
+    }
 
-  const index = entry.tags.indexOf(tag);
-  if (index === -1) {
-    entry.tags.push(tag);
-  } else {
-    entry.tags.splice(index, 1);
-  }
-  entry.updatedAt = new Date().toISOString();
-  save();
+    const index = entry.tags.indexOf(tag);
+    if (index === -1) {
+      entry.tags.push(tag);
+    } else {
+      entry.tags.splice(index, 1);
+    }
+    entry.updatedAt = new Date().toISOString();
+  });
 }
 
 async function handleEquip(id) {
-  const entry = loadouts.find((item) => item.id === id);
+  const latestLoadouts = readStoredLoadouts();
+  const entry = latestLoadouts.find((item) => item.id === id);
   if (!entry?.build) {
     return false;
   }
+
+  loadouts = latestLoadouts;
 
   const access = getLoadoutAccessState(entry);
   if (access.locked) {
@@ -221,7 +237,7 @@ async function handleEquip(id) {
 
 function dispatchEquip(entry, message = "") {
   const detail = {
-    loadout: entry,
+    loadout: createStoredLoadout(entry),
     message,
     matchmakingActive: false,
     prematchStep: null,
@@ -289,9 +305,11 @@ function handleNameKey(event) {
   }
 }
 
-function save() {
-  loadouts = writeStoredLoadouts(loadouts);
+function persistLoadoutChanges(mutator) {
+  const { list, value } = updateStoredLoadouts(mutator);
+  loadouts = list;
   render();
+  return value;
 }
 
 function getFilteredLoadouts() {

@@ -103,6 +103,10 @@ export function cloneStoredLoadout(entry, overrides = {}) {
   });
 }
 
+function cloneStoredLoadoutList(list = []) {
+  return Array.isArray(list) ? list.map((entry) => createStoredLoadout(entry)) : [];
+}
+
 function emitLoadoutsChanged(list) {
   if (typeof window === "undefined") {
     return;
@@ -214,4 +218,28 @@ export function writeStoredLoadouts(list) {
 
   emitLoadoutsChanged(sanitizedList);
   return sanitizedList;
+}
+
+export function updateStoredLoadouts(mutator) {
+  const workingList = cloneStoredLoadoutList(readStoredLoadouts());
+  let nextList = workingList;
+  let value = null;
+
+  if (typeof mutator === "function") {
+    const outcome = mutator(workingList);
+
+    if (Array.isArray(outcome)) {
+      nextList = outcome;
+    } else if (outcome && typeof outcome === "object") {
+      nextList = Array.isArray(outcome.list) ? outcome.list : workingList;
+      value = outcome.value ?? null;
+    } else if (outcome !== undefined) {
+      value = outcome;
+    }
+  }
+
+  return {
+    list: writeStoredLoadouts(nextList),
+    value,
+  };
 }
