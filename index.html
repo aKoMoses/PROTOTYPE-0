@@ -86,12 +86,25 @@
             <div class="home-center">
               <div class="home-tile-group home-tile-group--loadout">
                 <button class="home-tile home-tile--loadout" type="button" data-shell-view="loadouts" aria-label="Loadouts">
-                  <img class="home-tile__loadout-img" src="./assets/loadout_icon.png" alt="" />
+                  <div class="home-tile__corner home-tile__corner--tl"></div>
+                  <div class="home-tile__corner home-tile__corner--br"></div>
+                  <div class="home-tile__icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <polygon points="20,4 36,20 20,36 4,20" stroke="currentColor" stroke-width="1.6"/>
+                      <line x1="12" y1="16" x2="28" y2="16" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+                      <line x1="10" y1="20" x2="30" y2="20" stroke="currentColor" stroke-width="1.6"/>
+                      <line x1="12" y1="24" x2="28" y2="24" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+                      <circle cx="20" cy="4" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="20" cy="36" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="36" cy="20" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="4" cy="20" r="1.5" fill="currentColor" opacity="0.7"/>
+                    </svg>
+                  </div>
                 </button>
                 <div class="home-tile-label">
-                  <div class="home-tile-label__rule"></div>
-                  <span class="home-tile-label__name">LOADOUT</span>
-
+                  <div class="home-tile-label__rule home-tile-label__rule--purple"></div>
+                  <span class="home-tile-label__name home-tile-label__name--purple">LOADOUT</span>
+                  <span class="home-tile-label__sub">Builds &amp; Presets</span>
                 </div>
               </div>
             </div>
@@ -629,33 +642,52 @@
 
     <!-- AUTH / SESSION GATE -->
     <div class="auth-screen" id="auth-screen" role="dialog" aria-modal="true" aria-label="Connexion">
+      <canvas class="auth-canvas" id="auth-canvas"></canvas>
+      <div class="auth-scanlines"></div>
+
       <div class="auth-card">
+        <div class="auth-card-scan"></div>
         <div class="auth-corner auth-corner--tl"></div>
         <div class="auth-corner auth-corner--tr"></div>
         <div class="auth-corner auth-corner--bl"></div>
         <div class="auth-corner auth-corner--br"></div>
 
-        <span class="auth-eyebrow">Prototype-0</span>
-        <strong class="auth-title">Arena Shell</strong>
-        <p class="auth-sub">Scrap-tech duel prototype</p>
+        <div class="auth-brand">
+          <div class="auth-eyebrow">
+            <span class="auth-eyebrow__dot"></span>
+            TACTICAL&nbsp;AUTH&nbsp;GATEWAY
+            <span class="auth-eyebrow__dot"></span>
+          </div>
+          <h1 class="auth-title" id="auth-title" data-text="PROTOTYPE-0">PROTOTYPE-0</h1>
+          <p class="auth-sub">ARENA&nbsp;SHELL&nbsp;·&nbsp;v0.1.0</p>
+        </div>
+
+        <div class="auth-status">
+          <span>SYS_INIT</span>
+          <div class="auth-status__bar"><div class="auth-status__bar-fill"></div></div>
+          <span>72%</span>
+        </div>
 
         <form class="auth-form" id="auth-form" autocomplete="off" novalidate>
           <div class="auth-field">
-            <label class="auth-field__label" for="auth-identifier">Identifiant</label>
-            <input class="auth-field__input" id="auth-identifier" type="text" placeholder="tag ou adresse e-mail" autocomplete="username" spellcheck="false" />
+            <label class="auth-field__label" for="auth-identifier">// Identifiant</label>
+            <input class="auth-field__input" id="auth-identifier" type="text" placeholder="TAG ou adresse e-mail" autocomplete="username" spellcheck="false" />
           </div>
           <div class="auth-field">
-            <label class="auth-field__label" for="auth-password">Mot de passe</label>
-            <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+            <label class="auth-field__label" for="auth-password">// Mot de passe</label>
+            <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••••••" autocomplete="current-password" />
           </div>
-          <button class="auth-submit-btn" type="submit">Se connecter</button>
+          <button class="auth-submit-btn" type="submit">[ SE&nbsp;CONNECTER ]</button>
         </form>
 
-        <button class="auth-forgot-btn" type="button">Mot de passe oublié ?</button>
+        <button class="auth-forgot-btn" type="button">RÉINITIALISER L'ACCÈS</button>
 
-        <div class="auth-divider"><span>ou</span></div>
+        <div class="auth-divider"><span>ACCÈS DIRECT</span></div>
 
-        <button class="auth-connect-btn" id="auth-connect-btn" type="button">Connect as SAA_BOT</button>
+        <button class="auth-connect-btn" id="auth-connect-btn" type="button">
+          <span class="auth-connect-btn__icon">▶</span>
+          CONTINUER EN TANT QUE SAA_BOT
+        </button>
       </div>
     </div>
   </body>

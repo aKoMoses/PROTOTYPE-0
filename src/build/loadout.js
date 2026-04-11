@@ -189,18 +189,30 @@ export function ensureBotLoadoutFilled(loadoutConfig) {
     }
   }
 
-  const implantKey = getContentItem("implants", loadoutConfig.implant)?.state === "playable"
-    ? loadoutConfig.implant
+  const implantSource = loadoutConfig.implant
+    ?? loadoutConfig.perk
+    ?? (Array.isArray(loadoutConfig.implants) ? loadoutConfig.implants[0] ?? null : loadoutConfig.implants ?? null);
+  const perkKey = getContentItem("implants", implantSource)?.state === "playable"
+    ? implantSource
     : buildLabVisiblePools.implants[0];
-  const coreKey = getContentItem("cores", loadoutConfig.core)?.state === "playable"
-    ? loadoutConfig.core
+
+  const coreSource = loadoutConfig.core ?? loadoutConfig.ultimate ?? null;
+  const ultimateKey = getContentItem("cores", coreSource)?.state === "playable"
+    ? coreSource
     : buildLabVisiblePools.cores[0];
+
+  const modules = uniqueModules.slice(0, 3);
+  const implants = perkKey ? [perkKey] : [];
 
   return {
     weapon: weaponKey,
-    modules: uniqueModules.slice(0, 3),
-    implant: implantKey,
-    core: coreKey,
+    modules,
+    abilities: [...modules],
+    implant: perkKey,
+    implants,
+    perk: perkKey,
+    core: ultimateKey,
+    ultimate: ultimateKey,
     runes: cloneRuneAllocation(loadoutConfig.runes),
     presetKey: loadoutConfig.presetKey ?? null,
     name: loadoutConfig.name ?? null,

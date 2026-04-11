@@ -59,10 +59,13 @@ function isMatchmakingMode(mode) {
 
 function getBotLoadoutForRoster() {
   const generated = createRandomBotLoadout();
+  const implants = Array.isArray(generated.implants)
+    ? [...generated.implants]
+    : (generated.implant ? [generated.implant] : []);
   return {
     weapon: generated.weapon,
     modules: [...(generated.modules ?? [])],
-    implants: [...(generated.implants ?? [])],
+    implants,
     core: generated.core,
     avatar: Object.keys(content.avatars)[Math.floor(Math.random() * Object.keys(content.avatars).length)] ?? "drifter",
   };

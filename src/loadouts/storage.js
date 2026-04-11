@@ -103,6 +103,10 @@ export function cloneStoredLoadout(entry, overrides = {}) {
   });
 }
 
+function cloneStoredLoadoutList(list = []) {
+  return Array.isArray(list) ? list.map((entry) => createStoredLoadout(entry)) : [];
+}
+
 function emitLoadoutsChanged(list) {
   if (typeof window === "undefined") {
     return;
@@ -154,18 +158,57 @@ function createV2StarterLoadouts() {
   }));
 }
 
+function isBuiltStale(stored, template) {
+  const build = stored?.build;
+  if (!build) return true;
+  const hasModules = Array.isArray(build.modules) && build.modules.some(Boolean);
+  const hasImplant = Array.isArray(build.implants) && build.implants.some(Boolean);
+  const hasCore = Boolean(build.core);
+  const templateHasModules = Array.isArray(template.build?.modules) && template.build.modules.some(Boolean);
+  const templateHasImplant = Array.isArray(template.build?.implants) && template.build.implants.some(Boolean);
+  const templateHasCore = Boolean(template.build?.core);
+  if (templateHasModules && !hasModules) return true;
+  if (templateHasImplant && !hasImplant) return true;
+  if (templateHasCore && !hasCore) return true;
+  return false;
+}
+
 function seedV2StartersOnce(list) {
-  const existingPresetKeys = new Set(list.map((entry) => entry.presetKey).filter(Boolean));
+  const templateMap = new Map(newSystemStarterTemplates.map((t) => [t.key, t]));
+
+  let needsPersist = false;
+
+  // Refresh stale system presets in-place
+  const refreshedList = list.map((entry) => {
+    if (!entry.systemPreset || !entry.presetKey) return entry;
+    const template = templateMap.get(entry.presetKey);
+    if (!template || !isBuiltStale(entry, template)) return entry;
+    needsPersist = true;
+    return createStoredLoadout({
+      ...entry,
+      name: template.name,
+      role: template.role,
+      description: template.description,
+      tags: template.tags,
+      presetUnlockLevel: template.unlockLevel,
+      build: template.build,
+    });
+  });
+
+  const existingPresetKeys = new Set(refreshedList.map((e) => e.presetKey).filter(Boolean));
   const starterEntries = createV2StarterLoadouts().filter((entry) => !existingPresetKeys.has(entry.presetKey));
 
   if (!starterEntries.length) {
     if (!hasSeededV2Starters()) {
       markV2StartersSeeded();
     }
-    return list;
+    if (needsPersist) {
+      window.localStorage.setItem(LOADOUT_STORAGE_KEY, JSON.stringify(refreshedList));
+    }
+    return refreshedList;
   }
 
-  const seededList = [...starterEntries, ...list];
+  const seededList = [...starterEntries, ...refreshedList];
   markV2StartersSeeded();
   return seededList;
 }
@@ -214,4 +257,28 @@ export function writeStoredLoadouts(list) {
 
   emitLoadoutsChanged(sanitizedList);
   return sanitizedList;
+}
+
+export function updateStoredLoadouts(mutator) {
+  const workingList = cloneStoredLoadoutList(readStoredLoadouts());
+  let nextList = workingList;
+  let value = null;
+
+  if (typeof mutator === "function") {
+    const outcome = mutator(workingList);
+
+    if (Array.isArray(outcome)) {
+      nextList = outcome;
+    } else if (outcome && typeof outcome === "object") {
+      nextList = Array.isArray(outcome.list) ? outcome.list : workingList;
+      value = outcome.value ?? null;
+    } else if (outcome !== undefined) {
+      value = outcome;
+    }
+  }
+
+  return {
+    list: writeStoredLoadouts(nextList),
+    value,
+  };
 }
