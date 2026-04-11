@@ -1,5 +1,5 @@
 import { sandboxModes, config } from "../config.js";
-import { sandbox, trainingBots, abilityState, player } from "../state.js";
+import { sandbox, trainingBots, moduleState, player } from "../state.js";
 import { trainingToolState } from "../state/app-state.js";
 import { resetBotsForMode } from "./combat.js";
 import { statusLine } from "../dom.js";
@@ -67,12 +67,12 @@ resetCdBtn?.addEventListener("click", () => {
   unlockAudio();
   playUiCue("click");
   player.fireCooldown = 0;
-  abilityState.boltLinkJavelin.cooldown = 0;
-  abilityState.orbitalDistorter.cooldown = 0;
-  abilityState.hexPlateProjector.cooldown = 0;
-  abilityState.core.cooldown = 0;
-  abilityState.reflexAegis.cooldown = 0;
-  abilityState.dash.charges = config.baseDashCharges || 2;
+  moduleState.boltLinkJavelin.cooldown = 0;
+  moduleState.orbitalDistorter.cooldown = 0;
+  moduleState.hexPlateProjector.cooldown = 0;
+  moduleState.core.cooldown = 0;
+  moduleState.reflexAegis.cooldown = 0;
+  moduleState.dash.charges = config.baseDashCharges || 2;
   statusLine.textContent = "Cooldowns reset.";
 });
 

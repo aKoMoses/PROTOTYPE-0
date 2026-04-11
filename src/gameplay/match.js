@@ -1,7 +1,7 @@
 // Duel match flow, round management, session launch
 import { config, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, trainingBots, abilityState, sandbox, matchState, mapState, allyBot, teamEnemies } from "../state.js";
+import { player, enemy, trainingBots, moduleState, sandbox, matchState, mapState, allyBot, teamEnemies } from "../state.js";
 import { loadout, uiState, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import { getMapLayout, resetMapState, buildMapState, mapChoices, normalizeSelectedMap, resolveMapKey } from "../maps.js";
 import { getAllBots, isCombatLive, clearCombatArtifacts, getPlayerSpawn, resetBotsForMode, refreshHunterLoadout } from "./combat.js";
@@ -62,7 +62,7 @@ function getBotLoadoutForRoster() {
   return {
     weapon: generated.weapon,
     modules: [...(generated.modules ?? [])],
-    implants: [generated.implant].filter(Boolean),
+    implants: [...(generated.implants ?? [])],
     core: generated.core,
     avatar: Object.keys(content.avatars)[Math.floor(Math.random() * Object.keys(content.avatars).length)] ?? "drifter",
   };
@@ -178,7 +178,7 @@ function acceptFoundMatch() {
 function setWholeLobbyReady() {
   uiState.matchmaking.roster = uiState.matchmaking.roster.map((entry, index) => ({
     ...entry,
-    ready: index === 0 ? true : true,
+    ready: true,
   }));
 }
 
@@ -535,7 +535,6 @@ export function updatePrematchFlow(dt) {
   }
 }
 
-
 export function launchSelectedSession() {
   commitActivePreviewSelection();
   normalizeLoadoutSelections({ preserveEmptySlots: true });
@@ -561,6 +560,7 @@ export function launchSelectedSession() {
   const previousMapKey = sandbox.mapKey;
   const resolvedMapKey = resolveMapKey(uiState.selectedMode, uiState.selectedMap, true);
   _closePrematch?.();
+
   if (
     trainingToolState.editingBuild &&
     previousMode === sandboxModes.training.key &&
@@ -573,7 +573,6 @@ export function launchSelectedSession() {
     showRoundBanner("", "", false);
     dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} build applied. Training lane refreshed instantly.`;
     updateTrainingBuildButton();
-    // Restart the game loop
     window.__P0_GAME?.restartGameLoop?.();
     return;
   }
@@ -603,11 +602,8 @@ export function launchSelectedSession() {
   }
   trainingToolState.editingBuild = false;
   updateTrainingBuildButton();
-  
-  // Restart the game loop
   window.__P0_GAME?.restartGameLoop?.();
 }
-
 
 export function handlePrematchAction(buttonId) {
   unlockAudio();
@@ -789,4 +785,3 @@ export function bindPrematchButton(button, actionId) {
     }
   });
 }
-

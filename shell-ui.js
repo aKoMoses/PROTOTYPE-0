@@ -113,7 +113,20 @@ async function setShellView(nextView) {
     window.__P0_GAME?.stopGameSession?.();
   }
 
-  await ensureShellViewModule(nextView);
+  try {
+    await ensureShellViewModule(nextView);
+    
+    // Initialization logic for specific modules
+    if (nextView === "loadouts") {
+      const mod = await import("./loadout-page.js");
+      if (mod.init) mod.init();
+    } else if (nextView === "play" || nextView === "game") {
+      const { renderPrematch } = await import("./src/build/ui.js");
+      renderPrematch();
+    }
+  } catch (err) {
+    console.error(`[Shell] Failed to initialize view "${nextView}":`, err);
+  }
 
   activeView = nextView;
   persistShellView(nextView);

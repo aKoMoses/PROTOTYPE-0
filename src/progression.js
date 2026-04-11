@@ -9,24 +9,24 @@ const PROGRESSION_GROUPS = collectionGroups.map((group) => group.key);
 
 const INITIAL_UNLOCKS = {
   weapons: ["pulse", "shotgun", "sniper"],
-  abilities: [...buildLabVisiblePools.abilities],
-  perks: ["reactiveArmor", "executionRelay", "dashCooling"],
-  ultimates: ["phantomSplit"],
+  modules: [...buildLabVisiblePools.modules],
+  implants: ["reactiveArmor", "executionRelay", "dashCooling"],
+  cores: ["phantomSplit"],
 };
 
 const LEVEL_UNLOCKS = [
   { level: 2, group: "weapons", key: "axe" },
-  { level: 3, group: "perks", key: "scavengerPlates" },
-  { level: 4, group: "ultimates", key: "revivalProtocol" },
+  { level: 3, group: "implants", key: "scavengerPlates" },
+  { level: 4, group: "cores", key: "revivalProtocol" },
   { level: 5, group: "weapons", key: "staff" },
-  { level: 6, group: "perks", key: "omnivampCore" },
-  { level: 7, group: "ultimates", key: "empCataclysm" },
+  { level: 6, group: "implants", key: "omnivampCore" },
+  { level: 7, group: "cores", key: "empCataclysm" },
   { level: 8, group: "weapons", key: "injector" },
-  { level: 9, group: "perks", key: "lastStandBuffer" },
+  { level: 9, group: "implants", key: "lastStandBuffer" },
   { level: 10, group: "weapons", key: "lance" },
-  { level: 11, group: "perks", key: "precisionMomentum" },
+  { level: 11, group: "implants", key: "precisionMomentum" },
   { level: 12, group: "weapons", key: "cannon" },
-  { level: 13, group: "perks", key: "shockBuffer" },
+  { level: 13, group: "implants", key: "shockBuffer" },
 ];
 
 function canUseLocalStorage() {
@@ -270,37 +270,39 @@ export function getMissingUnlocksForBuild(source = {}) {
     });
   }
 
-  normalized.abilities.forEach((abilityKey, index) => {
-    if (!abilityKey || isContentUnlocked("abilities", abilityKey)) {
+  const modules = Array.isArray(normalized.modules) ? normalized.modules : [];
+  modules.forEach((moduleKey, index) => {
+    if (!moduleKey || isContentUnlocked("modules", moduleKey)) {
       return;
     }
     missing.push({
-      slot: `Ability ${index + 1}`,
-      group: "abilities",
-      key: abilityKey,
-      requiredLevel: getUnlockLevelForContent("abilities", abilityKey),
-      name: content.abilities[abilityKey]?.name ?? abilityKey,
+      slot: `Module ${index + 1}`,
+      group: "modules",
+      key: moduleKey,
+      requiredLevel: getUnlockLevelForContent("modules", moduleKey),
+      name: content.modules[moduleKey]?.name ?? moduleKey,
     });
   });
 
-  const perkKey = normalized.perks[0] ?? null;
-  if (perkKey && !isContentUnlocked("perks", perkKey)) {
+  const implantKey = (Array.isArray(normalized.implants) ? normalized.implants[0] : null) ?? null;
+  if (implantKey && !isContentUnlocked("implants", implantKey)) {
     missing.push({
-      slot: "Perk",
-      group: "perks",
-      key: perkKey,
-      requiredLevel: getUnlockLevelForContent("perks", perkKey),
-      name: content.perks[perkKey]?.name ?? perkKey,
+      slot: "Implant",
+      group: "implants",
+      key: implantKey,
+      requiredLevel: getUnlockLevelForContent("implants", implantKey),
+      name: content.implants[implantKey]?.name ?? implantKey,
     });
   }
 
-  if (normalized.ultimate && !isContentUnlocked("ultimates", normalized.ultimate)) {
+  const coreKey = (Array.isArray(normalized.cores) ? normalized.cores[0] : null) ?? normalized.core ?? null;
+  if (coreKey && !isContentUnlocked("cores", coreKey)) {
     missing.push({
-      slot: "Ultimate",
-      group: "ultimates",
-      key: normalized.ultimate,
-      requiredLevel: getUnlockLevelForContent("ultimates", normalized.ultimate),
-      name: content.ultimates[normalized.ultimate]?.name ?? normalized.ultimate,
+      slot: "Core",
+      group: "cores",
+      key: coreKey,
+      requiredLevel: getUnlockLevelForContent("cores", coreKey),
+      name: content.cores[coreKey]?.name ?? coreKey,
     });
   }
 

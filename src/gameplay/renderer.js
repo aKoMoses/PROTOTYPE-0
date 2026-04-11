@@ -1,7 +1,7 @@
 // Canvas rendering (all draw functions)
 import { arena, config } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, abilityState, sandbox, input,
+import { player, playerClone, enemy, moduleState, sandbox, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   boltLinkJavelins, enemyBoltLinkJavelins, explosions, orbitalDistorterFields, absorbBursts,
   supportZones, beamEffects, mapState, globals } from "../state.js";
@@ -35,16 +35,23 @@ export function resize() {
   const ratio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
   const height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
-  canvas.width = width;
-  canvas.height = height;
+  
+  if (width !== canvas.width || height !== canvas.height) {
+    canvas.width = width;
+    canvas.height = height;
+    console.log(`[Renderer] Canvas resized to ${width}x${height} (ratio: ${ratio})`);
+  }
+  
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 }
+
+
 
 function syncCameraViewport(layout, viewportWidth, viewportHeight) {
   const scrollable = Boolean(layout.scrollable && (arena.width > cameraState.baseWidth || arena.height > cameraState.baseHeight));
 
   if (!scrollable) {
-    const scale = Math.min(viewportWidth / arena.width, viewportHeight / arena.height);
+    const scale = Math.max(0.001, Math.min(viewportWidth / Math.max(1, arena.width), viewportHeight / Math.max(1, arena.height)));
     cameraState.width = arena.width;
     cameraState.height = arena.height;
     cameraState.scale = scale;
@@ -776,11 +783,11 @@ export function drawCastTelegraph(entity) {
   const castProgress = isCasting ? Math.min(1, 1 - entity.castTime / entity.totalCastTime) : 0;
   const visualProgress = isVisualCasting ? Math.min(1, 1 - entity.visualCastTime / entity.totalVisualCastTime) : 0;
   const progress = Math.max(castProgress, visualProgress);
-  const ability = entity.castingAbility || entity.visualCastingAbility;
+  const module = entity.castingmodule || entity.visualCastingmodule;
   const isHostile = entity !== player && entity !== playerClone;
   const time = performance.now() * 0.005;
   
-  const abilityColors = {
+  const moduleColors = {
     boltLinkJavelin: "#8fe8ff",
     swarmMissileRack: "#7ddcff",
     railShot: "#ffd279",
@@ -797,7 +804,7 @@ export function drawCastTelegraph(entity) {
     ultimate: "#ff8c67"
   };
 
-  const baseColor = abilityColors[ability] || (isHostile ? "#ff5050" : "#50c8ff");
+  const baseColor = moduleColors[module] || (isHostile ? "#ff5050" : "#50c8ff");
   const baseRadius = entity.radius + 24;
   const radius = baseRadius * (1 + Math.sin(time * 2.5) * 0.08);
 
@@ -809,12 +816,12 @@ export function drawCastTelegraph(entity) {
   ctx.shadowBlur = 0; // Keeping it sharp
   ctx.shadowColor = baseColor;
 
-  // 2. Ability-Specific Unique Geometry
+  // 2. module-Specific Unique Geometry
   ctx.strokeStyle = baseColor;
   ctx.lineWidth = 3.5;
   ctx.globalAlpha = 0.9 * progress;
   
-  switch (ability) {
+  switch (module) {
     case "javelin":
       drawTriangle(0, 0, radius * 1.1, entity.facing, ctx);
       break;
@@ -851,7 +858,7 @@ export function drawCastTelegraph(entity) {
     case "hologramDecoy":
       drawTwinSilhouette(radius, progress, time, ctx);
       break;
-    case "ultimate":
+    case "core":
       drawNestedRunes(radius, progress, time, ctx);
       break;
     default:
@@ -2057,8 +2064,8 @@ export function drawWorld() {
     drawBot(bot);
   }
 
-  if (abilityState.grapple.phase === "flying" && abilityState.grapple.projectile) {
-    const grapple = abilityState.grapple.projectile;
+  if (moduleState.vGripHarpoon.phase === "flying" && moduleState.vGripHarpoon.projectile) {
+    const grapple = moduleState.vGripHarpoon.projectile;
     ctx.save();
     ctx.translate(grapple.x, grapple.y);
     ctx.rotate(Math.atan2(grapple.vy, grapple.vx));
@@ -2133,8 +2140,8 @@ export function drawWorld() {
   drawCastTelegraph(player);
   drawWeaponTelegraph(player);
 
-  const parryStartup = abilityState.reflexAegis.startupTime > 0;
-  const parryActive = abilityState.reflexAegis.activeTime > 0;
+  const parryStartup = moduleState.reflexAegis.startupTime > 0;
+  const parryActive = moduleState.reflexAegis.activeTime > 0;
   const parryVisible = parryStartup || parryActive;
   const parryIntensity = parryActive ? 1 : parryStartup ? 0.62 : 0;
   const parryPulse = 0.5 + Math.sin(performance.now() * (parryActive ? 0.03 : 0.018)) * 0.5;
@@ -2156,8 +2163,8 @@ export function drawWorld() {
   );
   ctx.rotate(player.facing);
   const playerInBushStealth = player.combatTimer <= 0 && isEntityInBush(player);
-  if (player.ghostTime > 0 || abilityState.phaseShift.time > 0 || playerInBushStealth) {
-    ctx.globalAlpha = abilityState.phaseShift.time > 0 ? 0.34 : playerInBushStealth ? 0.52 : 0.5;
+  if (player.ghostTime > 0 || moduleState.ghostDriftModule.time > 0 || playerInBushStealth) {
+    ctx.globalAlpha = moduleState.ghostDriftModule.time > 0 ? 0.34 : playerInBushStealth ? 0.52 : 0.5;
   }
   if (player.lastStandTime > 0) {
     ctx.save();
@@ -2232,7 +2239,7 @@ export function drawWorld() {
   drawActorFrame(
     player,
     {
-      body: player.flash > 0 || abilityState.dash.invulnerabilityTime > 0 ? "#f6fdff" : parryVisible ? "#dff8ff" : avatar.bodyColor,
+      body: player.flash > 0 || moduleState.dash.invulnermoduleTime > 0 ? "#f6fdff" : parryVisible ? "#dff8ff" : avatar.bodyColor,
       accent: parryVisible ? "#fff2b2" : avatar.accentColor,
       detail: parryVisible ? "#98dfff" : avatar.detailColor,
       variant: avatar.key,
@@ -2255,17 +2262,17 @@ export function drawWorld() {
     ctx.arc(0, 0, player.radius + 8, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (abilityState.phaseShift.time > 0) {
+  if (moduleState.ghostDriftModule.time > 0) {
     ctx.strokeStyle = "rgba(220, 245, 255, 0.9)";
     ctx.lineWidth = 2.8;
     ctx.beginPath();
     ctx.arc(0, 0, player.radius + 14 + Math.sin(performance.now() * 0.022) * 1.2, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (abilityState.reflexAegis.successFlash > 0) {
-    ctx.strokeStyle = `rgba(225, 252, 255, ${0.42 + abilityState.reflexAegis.successFlash * 1.6})`;
+  if (moduleState.reflexAegis.successFlash > 0) {
+    ctx.strokeStyle = `rgba(225, 252, 255, ${0.42 + moduleState.reflexAegis.successFlash * 1.6})`;
     ctx.beginPath();
-    ctx.arc(0, 0, player.radius + 16 + (1 - abilityState.reflexAegis.successFlash / 0.24) * 18, 0, Math.PI * 2);
+    ctx.arc(0, 0, player.radius + 16 + (1 - moduleState.reflexAegis.successFlash / 0.24) * 18, 0, Math.PI * 2);
     ctx.stroke();
   }
   if (player.reflexAegisHitBonusTime > 0) {
@@ -2284,8 +2291,8 @@ export function drawWorld() {
   }
   ctx.restore();
 
-  if (!playerClone.active && (abilityState.ultimate.phantomTime > 0 || player.decoyTime > 0)) {
-    const ghostAlpha = Math.max(abilityState.ultimate.phantomTime, player.decoyTime) / 2.2;
+  if (!playerClone.active && (moduleState.core.phantomTime > 0 || player.decoyTime > 0)) {
+    const ghostAlpha = Math.max(moduleState.core.phantomTime, player.decoyTime) / 2.2;
     ctx.save();
     ctx.globalAlpha = ghostAlpha * 0.35;
     ctx.translate(player.x - 44, player.y + 18);
@@ -2328,11 +2335,11 @@ export function drawWorld() {
 }
 
 export function drawJavelinRecastUI() {
-  if (!abilityState.javelin.recastReady || abilityState.javelin.activeTime <= 0) {
+  if (!moduleState.boltLinkJavelin.recastReady || moduleState.boltLinkJavelin.activeTime <= 0) {
     return;
   }
 
-  const target = getAllBots().find(b => b.kind === abilityState.javelin.targetKind && b.alive);
+  const target = getAllBots().find(b => b.kind === moduleState.boltLinkJavelin.targetKind && b.alive);
   if (!target) return;
 
   const pulse = 1 + Math.sin(performance.now() * 0.015) * 0.1;

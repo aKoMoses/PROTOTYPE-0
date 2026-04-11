@@ -10,33 +10,33 @@
     "metaFallback": "Arme"
   },
   {
-    "key": "abilities",
-    "label": "Capacités",
+    "key": "modules",
+    "label": "Modules",
     "eyebrow": "Système tactique",
     "copy": "Modules assignés à Q, E et F pour le contrôle du tempo.",
     "accent": "#0bc4e3",
     "iconType": "ability",
     "metaFields": ["role", "category"],
-    "metaFallback": "Capacité"
+    "metaFallback": "Module"
   },
   {
-    "key": "perks",
-    "label": "Bonus passifs",
+    "key": "implants",
+    "label": "Implants",
     "eyebrow": "Matrice passive",
-    "copy": "Modificateurs permanents qui orientent le duel en votre faveur.",
+    "copy": "Modificateurs neuronaux qui orientent le duel en votre faveur.",
     "accent": "#c89b3c",
     "iconType": "perk",
     "metaFields": ["category"],
-    "metaFallback": "Passif"
+    "metaFallback": "Implant"
   },
   {
-    "key": "ultimates",
-    "label": "Ultimates",
+    "key": "cores",
+    "label": "Cores",
     "eyebrow": "Protocoles terminaux",
-    "copy": "Failsafes rares et outils d'escalade décisive en fin de round.",
+    "copy": "Protocoles de réacteur et outils d'escalade décisive en fin de round.",
     "accent": "#f06aff",
     "iconType": "ultimate",
     "metaFields": ["category"],
-    "metaFallback": "Ultimate"
+    "metaFallback": "Core"
   }
 ]

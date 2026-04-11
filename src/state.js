@@ -83,11 +83,11 @@ export const player = {
   defenseRuneShieldCooldown: 0,
   castTime: 0,
   totalCastTime: 0,
-  castingAbility: null,
+  castingModule: null,
   castParams: null,
   visualCastTime: 0,
   totalVisualCastTime: 0,
-  visualCastingAbility: null,
+  visualCastingModule: null,
   weaponChargeTime: 0,
   totalWeaponChargeTime: 0,
   weaponCasting: null,
@@ -115,7 +115,7 @@ export const playerClone = {
   weaponSkin: "stock",
   loadout: {
     weapon: weapons.pulse.key,
-    abilities: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
+    modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
   },
   damageScale: config.phantomDamageScale,
   shieldScale: config.phantomShieldScale,
@@ -137,7 +137,7 @@ export const playerClone = {
 };
 
 
-export const abilityState = {
+export const moduleState = {
   dash: {
     inputHeld: false,
     holdTime: 0,
@@ -287,7 +287,7 @@ export function createBot({
       weapon: weapons.pulse.key,
       modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
     },
-    abilityCooldowns: {
+    moduleCooldowns: {
       vGripHarpoon: 0,
       hexPlateProjector: 0,
       overdriveServos: 0,
@@ -317,11 +317,11 @@ export function createBot({
     combatTimer: 0,
     castTime: 0,
     totalCastTime: 0,
-    castingAbility: null,
+    castingModule: null,
     castParams: null,
     visualCastTime: 0,
     totalVisualCastTime: 0,
-    visualCastingAbility: null,
+    visualCastingModule: null,
     weaponChargeTime: 0,
     totalWeaponChargeTime: 0,
     weaponCasting: null,
@@ -475,7 +475,7 @@ export const enemyBoltLinkJavelins = [];
 export const explosions = [];
 export const orbitalDistorterFields = [];
 export const absorbBursts = [];
-export const abilityProjectiles = [];
+export const moduleProjectiles = [];
 export const deployableTraps = [];
 export const deployableTurrets = [];
 export const supportZones = [];

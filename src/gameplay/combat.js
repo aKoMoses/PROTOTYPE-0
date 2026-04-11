@@ -2,19 +2,19 @@
 import { arena, config, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
 import { statusLine } from "../dom.js";
-import { player, playerClone, enemy, trainingBots, bots, abilityState, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, bots, moduleState, sandbox, matchState, input,
   bullets, enemyBullets, impacts, tracers, combatTexts, afterimages, slashEffects,
   boltLinkJavelins, enemyBoltLinkJavelins, explosions, orbitalDistorterFields, absorbBursts,
-  abilityProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
+  moduleProjectiles, deployableTraps, deployableTurrets, supportZones, beamEffects,
   mapEffects, mapState, globals, survivalEnemies, survivalState, allyBot, teamEnemies, createTeamDuelEntities } from "../state.js";
 import { loadout, botBuildState, trainingToolState } from "../state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance, approach } from "../utils.js";
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
-import { getBuildStats, hasPerk, getRuneValue, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
+import { getBuildStats, hasImplant, getRuneValue, getPerkDamageMultiplier, getModuleBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration, hasRuneShard } from "../build/loadout.js";
 import { finishDuelRound, finishTeamDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
-import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playAbilityCue } from "../audio.js";
+import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playModuleCue } from "../audio.js";
 import { applyPhantomDamage, resetPhantomClone } from "./phantom.js";
 export { getActiveMoveSpeed } from "../build/loadout.js";
 export { resize } from "./renderer.js";
@@ -147,7 +147,7 @@ function getProjectileTargetsForTeam(team) {
   if (team === "player") {
     return getAllBots().filter((bot) => bot.alive && (bot.team ?? "enemy") === "enemy");
   }
-  return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && abilityState.ghostDriftModule.time > 0));
+  return getFriendlyCombatTargets().filter((target) => target.alive && !(target === player && moduleState.ghostDriftModule.time > 0));
 }
 
 function applySwarmMissileRackGuidance(projectile, team, dt) {
@@ -251,11 +251,11 @@ function isShieldGuardActive(entity) {
 }
 
 function isReflexAegisWindowActive() {
-  return abilityState.reflexAegis.startupTime <= 0 && abilityState.reflexAegis.activeTime > 0;
+  return moduleState.reflexAegis.startupTime <= 0 && moduleState.reflexAegis.activeTime > 0;
 }
 
 function isReflexAegisResolving() {
-  return abilityState.reflexAegis.resolveLockTime > 0;
+  return moduleState.reflexAegis.resolveLockTime > 0;
 }
 
 function getReflexAegisAttackerFacing(attacker) {
@@ -330,12 +330,12 @@ export function tryTriggerReflexAegis(attacker, source = "hit") {
 
   const previousX = player.x;
   const previousY = player.y;
-  abilityState.reflexAegis.startupTime = 0;
-  abilityState.reflexAegis.activeTime = 0;
-  abilityState.reflexAegis.recoveryTime = 0;
-  abilityState.reflexAegis.cooldown = config.reflexAegisCooldown;
-  abilityState.reflexAegis.resolveLockTime = 0.1;
-  abilityState.reflexAegis.successFlash = 0.24;
+  moduleState.reflexAegis.startupTime = 0;
+  moduleState.reflexAegis.activeTime = 0;
+  moduleState.reflexAegis.recoveryTime = 0;
+  moduleState.reflexAegis.cooldown = config.reflexAegisCooldown;
+  moduleState.reflexAegis.resolveLockTime = 0.1;
+  moduleState.reflexAegis.successFlash = 0.24;
   placePlayerForReflexAegis(attacker);
   player.shield = Math.max(player.shield, config.reflexAegisShield);
   player.shieldTime = Math.max(player.shieldTime, config.reflexAegisShieldDuration);
@@ -353,7 +353,7 @@ export function tryTriggerReflexAegis(attacker, source = "hit") {
   addImpact(player.x, player.y, "#fff0b8", 28);
   addExplosion(player.x, player.y, 34, "#d7f6ff");
   addShake(7.4);
-  playAbilityCue("reflexAegisSuccess");
+  playModuleCue("reflexAegisSuccess");
   statusLine.textContent = source === "grapple"
     ? "Reflex Aegis denied the catch and opened a counter window."
     : "Reflex Aegis caught the hit. Counter from behind.";
@@ -386,7 +386,7 @@ function finalizePlayerWeaponAttack(attackId) {
 }
 
 export function beginPlayerWeaponAttack(projectileCount = 1) {
-  if (!hasPerk("precisionMomentum")) {
+  if (!hasImplant("precisionMomentum")) {
     return null;
   }
 
@@ -677,7 +677,7 @@ export function applyStatusEffect(entity, type, duration, magnitude = 0) {
     }
   }
 
-  if (entity === player && (abilityState.ghostDriftModule.time > 0 || isReflexAegisResolving())) {
+  if (entity === player && (moduleState.ghostDriftModule.time > 0 || isReflexAegisResolving())) {
     return null;
   }
 
@@ -808,7 +808,7 @@ export function clearCombatArtifacts() {
   explosions.length = 0;
   orbitalDistorterFields.length = 0;
   absorbBursts.length = 0;
-  abilityProjectiles.length = 0;
+  moduleProjectiles.length = 0;
   deployableTraps.length = 0;
   deployableTurrets.length = 0;
   supportZones.length = 0;
@@ -876,7 +876,7 @@ export function updateSupportZones(dt) {
       if (entityTeam === zone.team) {
         continue;
       }
-      if (entity === player && abilityState.phaseShift.time > 0) {
+      if (entity === player && moduleState.phaseShift.time > 0) {
         continue;
       }
 
@@ -918,7 +918,7 @@ export function getZoneEffectsForEntity(entity, dt = 0) {
       zone.type === "gravity" &&
       inside &&
       zone.team !== (entity.team ?? "player") &&
-      !(entity === player && abilityState.phaseShift.time > 0)
+      !(entity === player && moduleState.phaseShift.time > 0)
     ) {
       slowMultiplier = Math.min(slowMultiplier, 1 - (zone.slow ?? 0.34));
     }
@@ -990,20 +990,20 @@ export function respawnBot(bot) {
   bot.activeMeleeStrike = null;
   bot.injectorMarks = 0;
   bot.injectorMarkTime = 0;
-  bot.abilityCooldowns.grapple = 0;
-  bot.abilityCooldowns.shield = 0;
-  bot.abilityCooldowns.booster = 0;
-  bot.abilityCooldowns.emp = 0;
-  bot.abilityCooldowns.backstep = 0;
-  bot.abilityCooldowns.chainLightning = 0;
-  bot.abilityCooldowns.blink = 0;
-  bot.abilityCooldowns.phaseDash = 0;
-  bot.abilityCooldowns.swarmMissileRack = 0;
-  bot.abilityCooldowns.railShot = 0;
-  bot.abilityCooldowns.voidCoreSingularity = 0;
-  bot.abilityCooldowns.phaseShift = 0;
-  bot.abilityCooldowns.hologramDecoy = 0;
-  bot.abilityCooldowns.overdriveServos = 0;
+  bot.moduleCooldowns.grapple = 0;
+  bot.moduleCooldowns.shield = 0;
+  bot.moduleCooldowns.booster = 0;
+  bot.moduleCooldowns.emp = 0;
+  bot.moduleCooldowns.backstep = 0;
+  bot.moduleCooldowns.chainLightning = 0;
+  bot.moduleCooldowns.blink = 0;
+  bot.moduleCooldowns.phaseDash = 0;
+  bot.moduleCooldowns.swarmMissileRack = 0;
+  bot.moduleCooldowns.railShot = 0;
+  bot.moduleCooldowns.voidCoreSingularity = 0;
+  bot.moduleCooldowns.phaseShift = 0;
+  bot.moduleCooldowns.hologramDecoy = 0;
+  bot.moduleCooldowns.overdriveServos = 0;
   clearStatusEffects(bot);
 }
 
@@ -1024,7 +1024,7 @@ export function damageBot(bot, damage, color, impactX, impactY, energyGain) {
       bot.shieldGuardTime = 0;
       if (bot.shieldBreakRefundReady) {
         bot.shieldBreakRefundReady = false;
-        bot.abilityCooldowns.shield = Math.max(0, bot.abilityCooldowns.shield * (1 - config.shieldBreakRefund));
+        bot.moduleCooldowns.shield = Math.max(0, bot.moduleCooldowns.shield * (1 - config.shieldBreakRefund));
         addImpact(bot.x, bot.y, "#d9efff", 16);
       }
     }
@@ -1347,7 +1347,7 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
       continue;
     }
 
-    if (abilityState.dash.invulnerabilityTime > 0 && !isDirectTarget) {
+    if (moduleState.dash.invulnermoduleTime > 0 && !isDirectTarget) {
       continue;
     }
 
@@ -1376,7 +1376,7 @@ function triggerCannonExplosion(projectile, impactX, impactY, team = "player", d
         effect.statusType === "stun" ? 1 : effect.statusMagnitude ?? 0.2,
       );
     }
-    if ((effect.pushMax ?? 0) > 0 && target === player && abilityState.ghostDriftModule.time <= 0) {
+    if ((effect.pushMax ?? 0) > 0 && target === player && moduleState.ghostDriftModule.time <= 0) {
       const intensity = 1 - clamp(distance / Math.max(1, effect.splashRadius ?? 72), 0, 1);
       const pushDistance = (effect.pushMin ?? 0) + ((effect.pushMax ?? 0) - (effect.pushMin ?? 0)) * intensity;
       const pushDirection = distance > 0 ? normalize(target.x - impactX, target.y - impactY) : normalize(target.x - enemy.x, target.y - enemy.y);
@@ -1483,7 +1483,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
     return false;
   }
 
-  if (abilityState.ghostDriftModule.time > 0 || abilityState.phaseDash.time > 0) {
+  if (moduleState.ghostDriftModule.time > 0 || moduleState.phaseDash.time > 0) {
     addImpact(player.x, player.y, "#d3f6ff", 18);
     playDamageCue("player", 0, source, true);
     return false;
@@ -1503,7 +1503,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
       player.shieldGuardTime = 0;
       if (player.shieldBreakRefundReady) {
         player.shieldBreakRefundReady = false;
-        abilityState.hexPlateProjector.cooldown = Math.max(0, abilityState.hexPlateProjector.cooldown * (1 - config.shieldBreakRefund));
+        moduleState.hexPlateProjector.cooldown = Math.max(0, moduleState.hexPlateProjector.cooldown * (1 - config.shieldBreakRefund));
         addAbsorbBurst(player.x, player.y, 20, "#c1e8ff");
         addImpact(player.x, player.y, "#d7f0ff", 18);
         statusLine.textContent = "Energy Shield broke, but the timing shaved cooldown off the next cast.";
@@ -1532,13 +1532,13 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
     addImpact(player.x, player.y, "#b5ddff", 18);
   }
 
-  if (hasPerk("arcFeedback") && previousHp - player.hp >= 18) {
+  if (hasImplant("arcFeedback") && previousHp - player.hp >= 18) {
     player.shield = Math.max(player.shield, getBuildStats().shieldOnBurst);
     player.shieldTime = Math.max(player.shieldTime, 1.8);
   }
 
   if (player.hp <= 0) {
-    if (hasPerk("lastStandBuffer") && player.failsafeReady) {
+    if (hasImplant("lastStandBuffer") && player.failsafeReady) {
       player.failsafeReady = false;
       player.hp = getBuildStats().maxHp;
       player.lastStandTime = config.lastStandDuration;
@@ -1560,7 +1560,7 @@ export function applyPlayerDamage(amount, source = "hit", attacker = null) {
       return false;
     }
 
-    if (hasPerk("cloneFailover") && player.decoyTime <= 0) {
+    if (hasImplant("cloneFailover") && player.decoyTime <= 0) {
       player.hp = Math.max(1, getBuildStats().maxHp * 0.18);
       player.decoyTime = 2.4;
       player.ghostTime = 0.55;
@@ -1677,7 +1677,7 @@ export function resolveCombat() {
         applyProjectileEffectToPlayer(bullet, target);
         triggerCannonExplosion(bullet, bullet.x, bullet.y, "enemy", target);
         statusLine.textContent = "Phantom copy intercepted enemy fire.";
-      } else if (abilityState.dash.invulnerabilityTime <= 0) {
+      } else if (moduleState.dash.invulnermoduleTime <= 0) {
         if (tryTriggerReflexAegis(bullet.ownerRef ?? enemy, bullet.source ?? "bullet")) {
           if (!bullet.piercing) {
             releaseSwarmMissileRackProjectile(bullet);
@@ -1822,19 +1822,19 @@ export function applyBotLoadout(bot, loadoutConfig) {
   bot.attackCommitY = 0;
   bot.attackCommitSpeed = 0;
   bot.activeMeleeStrike = null;
-  bot.abilityCooldowns.vGripHarpoon = 0;
-  bot.abilityCooldowns.hexPlateProjector = 0;
-  bot.abilityCooldowns.overdriveServos = 0;
-  bot.abilityCooldowns.emPulseEmitter = 0;
-  bot.abilityCooldowns.jetBackThruster = 0;
-  bot.abilityCooldowns.chainLightning = 0;
-  bot.abilityCooldowns.blink = 0;
-  bot.abilityCooldowns.phaseDash = 0;
-  bot.abilityCooldowns.swarmMissileRack = 0;
-  bot.abilityCooldowns.railShot = 0;
-  bot.abilityCooldowns.voidCoreSingularity = 0;
-  bot.abilityCooldowns.ghostDriftModule = 0;
-  bot.abilityCooldowns.spectreProjector = 0;
+  bot.moduleCooldowns.vGripHarpoon = 0;
+  bot.moduleCooldowns.hexPlateProjector = 0;
+  bot.moduleCooldowns.overdriveServos = 0;
+  bot.moduleCooldowns.emPulseEmitter = 0;
+  bot.moduleCooldowns.jetBackThruster = 0;
+  bot.moduleCooldowns.chainLightning = 0;
+  bot.moduleCooldowns.blink = 0;
+  bot.moduleCooldowns.phaseDash = 0;
+  bot.moduleCooldowns.swarmMissileRack = 0;
+  bot.moduleCooldowns.railShot = 0;
+  bot.moduleCooldowns.voidCoreSingularity = 0;
+  bot.moduleCooldowns.ghostDriftModule = 0;
+  bot.moduleCooldowns.spectreProjector = 0;
   bot.boltLinkJavelinCooldown = 0.8;
   bot.orbitalDistorterCooldown = 1.8;
 }
@@ -1904,11 +1904,11 @@ export function resetBotsForMode(mode = sandbox.mode) {
       bot.injectorMarkTime = 0;
       bot.castTime = 0;
       bot.totalCastTime = 0;
-      bot.castingAbility = null;
+      bot.castingmodule = null;
       bot.castParams = null;
       bot.visualCastTime = 0;
       bot.totalVisualCastTime = 0;
-      bot.visualCastingAbility = null;
+      bot.visualCastingmodule = null;
       bot.weaponChargeTime = 0;
       bot.totalWeaponChargeTime = 0;
       bot.weaponCasting = null;
@@ -1978,19 +1978,19 @@ export function resetBotsForMode(mode = sandbox.mode) {
     bot.injectorMarks = 0;
     bot.injectorMarkTime = 0;
     if (bot.role === "hunter") {
-      bot.abilityCooldowns.vGripHarpoon = 0;
-      bot.abilityCooldowns.hexPlateProjector = 0;
-      bot.abilityCooldowns.overdriveServos = 0;
-      bot.abilityCooldowns.emPulseEmitter = 0;
-      bot.abilityCooldowns.jetBackThruster = 0;
-      bot.abilityCooldowns.chainLightning = 0;
-      bot.abilityCooldowns.blink = 0;
-      bot.abilityCooldowns.phaseDash = 0;
-      bot.abilityCooldowns.swarmMissileRack = 0;
-      bot.abilityCooldowns.railShot = 0;
-      bot.abilityCooldowns.voidCoreSingularity = 0;
-      bot.abilityCooldowns.ghostDriftModule = 0;
-      bot.abilityCooldowns.spectreProjector = 0;
+      bot.moduleCooldowns.vGripHarpoon = 0;
+      bot.moduleCooldowns.hexPlateProjector = 0;
+      bot.moduleCooldowns.overdriveServos = 0;
+      bot.moduleCooldowns.emPulseEmitter = 0;
+      bot.moduleCooldowns.jetBackThruster = 0;
+      bot.moduleCooldowns.chainLightning = 0;
+      bot.moduleCooldowns.blink = 0;
+      bot.moduleCooldowns.phaseDash = 0;
+      bot.moduleCooldowns.swarmMissileRack = 0;
+      bot.moduleCooldowns.railShot = 0;
+      bot.moduleCooldowns.voidCoreSingularity = 0;
+      bot.moduleCooldowns.ghostDriftModule = 0;
+      bot.moduleCooldowns.spectreProjector = 0;
       bot.boltLinkJavelinCooldown = 0.8;
       bot.orbitalDistorterCooldown = 1.8;
     }

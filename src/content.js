@@ -272,7 +272,7 @@ export const content = {
     },
     phaseDash: { key: "phaseDash", name: "Phase Dash", role: "Mobility", description: "Retired from the competitive pool. Defensive timing now lives on cleaner tools like Phase Shift and Energy Parry.", icon: "ability-phase", category: "mobility", state: "locked" },
     slideBooster: { key: "slideBooster", name: "Slide Booster", role: "Mobility", description: "Ground slide for spacing.", icon: "ability-slide", category: "mobility", state: "locked" },
-    jetBackThruster: { key: "jetBackThruster", name: "JET-BACK Thruster", role: "Mobility", description: "Massive leg-mounted nozzles that provide a fast reverse burst for breathing room.", icon: "ability-backstep", category: "mobility", state: "playable" },
+    jetBackThruster: { key: "jetBackThruster", name: "JET-BACK Thruster", role: "Mobility", description: "Massive leg-mounted nozzles that provide a fast reverse burst for breathing room.", icon: "ability-jetBackThruster", category: "mobility", state: "playable" },
     jetLeap: { key: "jetLeap", name: "Jet Leap", role: "Mobility", description: "Short leap with air drift.", icon: "ability-jump", category: "mobility", state: "locked" },
     markReturn: { key: "markReturn", name: "Mark-and-Return Teleport", role: "Mobility", description: "Set a return point then snap back.", icon: "ability-return", category: "mobility", state: "locked" },
     boltLinkJavelin: {
@@ -314,7 +314,7 @@ export const content = {
       category: "control",
       state: "playable",
     },
-    voidCoreSingularity: { key: "voidCoreSingularity", name: "VOID-CORE Singularity", role: "Control", description: "Bypasses safety limits to generate a living singularity that drags targets inward.", icon: "ability-gravity", category: "control", state: "playable" },
+    voidCoreSingularity: { key: "voidCoreSingularity", name: "VOID-CORE Singularity", role: "Control", description: "Retired from the competitive pool. Its gravity curve was deemed too oppressive in the current arena layout.", icon: "ability-voidCoreSingularity", category: "control", state: "locked" },
     shockwavePush: { key: "shockwavePush", name: "Shockwave Push", role: "Control", description: "Knockback pulse for disengage.", icon: "ability-push", category: "control", state: "locked" },
     rootTrap: { key: "rootTrap", name: "Root Trap", role: "Control", description: "Ground trap that roots targets.", icon: "ability-root", category: "control", state: "locked" },
     silencePulse: { key: "silencePulse", name: "Silence Pulse", role: "Control", description: "Short anti-cast pulse.", icon: "ability-silence", category: "control", state: "locked" },
@@ -346,11 +346,11 @@ export const content = {
       input: "F",
       role: "Defense / Counter",
       description: "Quick-opening kinetic plating. If hit, it triggers a tactical blink behind the attacker and empowers your next strike.",
-      icon: "ability-phaseshift",
+      icon: "ability-reflexAegis",
       category: "defense",
       state: "playable",
     },
-    ghostDriftModule: { key: "ghostDriftModule", name: "GHOST-DRIFT Module", role: "Defense", description: "A high-frequency rotation coil that makes the chassis vibrate into intangibility.", icon: "ability-phaseshift", category: "defense", state: "playable" },
+    ghostDriftModule: { key: "ghostDriftModule", name: "GHOST-DRIFT Module", role: "Defense", description: "Retired from the pool. Direct invisibility/intangibility shifted the focus too far from active spacing.", icon: "ability-ghostDriftModule", category: "defense", state: "locked" },
     healPulse: { key: "healPulse", name: "Heal Pulse", role: "Defense", description: "Short combat heal burst.", icon: "ability-heal", category: "defense", state: "locked" },
     regenZone: { key: "regenZone", name: "Regen Zone", role: "Defense", description: "Zone that restores health over time.", icon: "ability-regen", category: "defense", state: "locked" },
     reflectBarrier: { key: "reflectBarrier", name: "Reflect Barrier", role: "Defense", description: "Reflects incoming fire briefly.", icon: "ability-reflect", category: "defense", state: "locked" },
@@ -367,22 +367,22 @@ export const content = {
     },
     cooldownReset: { key: "cooldownReset", name: "Partial Cooldown Reset", role: "Utility", description: "Shave time off active cooldowns.", icon: "ability-reset", category: "utility", state: "locked" },
     visionScan: { key: "visionScan", name: "Vision Scan", role: "Utility", description: "Read enemy position and intent.", icon: "ability-scan", category: "utility", state: "locked" },
-    spectreProjector: { key: "spectreProjector", name: "SPECTRE Projector", role: "Utility", description: "Shoulder-mounted laser scanner that projects a deceptive digital double.", icon: "ability-decoy", category: "utility", state: "playable" },
-    overdriveServos: { key: "overdriveServos", name: "OVERDRIVE Servos", role: "Utility", description: "Injects high-pressure fluid into leg joints for a sudden movement surge.", icon: "ability-speed", category: "utility", state: "playable" },
+    spectreProjector: { key: "spectreProjector", name: "SPECTRE Projector", role: "Utility", description: "Retired from the pool. Holographic decoys led to visual clutter in high-rank squad play.", icon: "ability-spectreProjector", category: "utility", state: "locked" },
+    overdriveServos: { key: "overdriveServos", name: "OVERDRIVE Servos", role: "Utility", description: "Retired from the pool. Raw speed is now exclusively tied to core energy management and the Dash system.", icon: "ability-overdriveServos", category: "utility", state: "locked" },
     resourceConverter: { key: "resourceConverter", name: "Resource Converter", role: "Utility", description: "Convert pressure into energy or sustain.", icon: "ability-convert", category: "utility", state: "locked" },
   },
   implants: {
-    bioDrainLink: { key: "bioDrainLink", name: "BIO-DRAIN Link", description: "Neural implant linked to a back-mounted green canister that siphons energy from confirmed damage.", icon: "perk-vamp", state: "playable" },
-    critScanRelay: { key: "critScanRelay", name: "CRIT-SCAN Relay", description: "Side-mounted calculation module with flashing red LEDs that optimizes damage vs slowed targets.", icon: "perk-execution", state: "playable" },
-    adrenalInjector: { key: "adrenalInjector", name: "ADRENAL Injector", description: "Pneumatic piston that releases steam and boosts attack speed after mobility maneuvers.", icon: "perk-adrenal", state: "playable" },
-    predatorLens: { key: "predatorLens", name: "PREDATOR Lens", description: "Multi-lens visor that adjusts with a mechanical hiss to target low-health units.", icon: "perk-predator", state: "playable" },
+    bioDrainLink: { key: "bioDrainLink", name: "BIO-DRAIN Link", description: "Neural implant linked to a back-mounted green canister that siphons energy from confirmed damage.", icon: "ability-bioDrainLink", state: "playable" },
+    critScanRelay: { key: "critScanRelay", name: "CRIT-SCAN Relay", description: "Side-mounted calculation module with flashing red LEDs that optimizes damage vs slowed targets.", icon: "ability-critScanRelay", state: "playable" },
+    adrenalInjector: { key: "adrenalInjector", name: "ADRENAL Injector", description: "Pneumatic piston that releases steam and boosts attack speed after mobility maneuvers.", icon: "ability-adrenalInjector", state: "playable" },
+    predatorLens: { key: "predatorLens", name: "PREDATOR Lens", description: "Multi-lens visor that adjusts with a mechanical hiss to target low-health units.", icon: "ability-predatorLens", state: "playable" },
     comboDriver: { key: "comboDriver", name: "Combo Driver", description: "Retired niche perk removed from the competitive perk pool.", icon: "perk-combo", state: "locked" },
     scavengerPlates: { key: "scavengerPlates", name: "SCAVENGER Plates", description: "Additional bolted plates that increase the chassis maximum HP capacity.", icon: "perk-plates", state: "playable" },
     reactiveArmor: { key: "reactiveArmor", name: "REACTIVE Armor", description: "Kinetic-sensitive armor plates that reduce incoming damage on impact.", icon: "perk-armor", state: "playable" },
     combatRecovery: { key: "combatRecovery", name: "Combat Recovery", description: "Recover health when disengaged using internal repair nanites.", icon: "perk-recovery", state: "playable" },
     shockBuffer: { key: "shockBuffer", name: "Shock Buffer", description: "Electrical surge protection that reduces crowd-control duration.", icon: "perk-buffer", state: "playable" },
-    lastStandProtocol: { key: "lastStandProtocol", name: "LAST-STAND Protocol", description: "Imposing spinal capacitor that triggers a 3-second emergency overdrive upon lethal damage.", icon: "perk-laststand", state: "playable" },
-    seqShotCalculator: { key: "seqShotCalculator", name: "SEQ-SHOT Calculator", description: "Eye-mounted laser scanner that calculates momentum to stack damage on consecutive hits.", icon: "perk-momentum", state: "playable" },
+    lastStandProtocol: { key: "lastStandProtocol", name: "LAST-STAND Protocol", description: "Imposing spinal capacitor that triggers a 3-second emergency overdrive upon lethal damage.", icon: "ability-lastStandProtocol", state: "playable" },
+    seqShotCalculator: { key: "seqShotCalculator", name: "SEQ-SHOT Calculator", description: "Eye-mounted laser scanner that calculates momentum to stack damage on consecutive hits.", icon: "ability-seqShotCalculator", state: "playable" },
     dashCoolingLoop: { key: "dashCoolingLoop", name: "DASH-COOLING Loop", description: "Optimized coolant flow that reduces thruster recharge time.", icon: "perk-cooling", state: "playable" },
     ghostCircuit: { key: "ghostCircuit", name: "Ghost Circuit", description: "Brief phasing after dash.", icon: "perk-ghost", state: "playable" },
     overdriveCapacitor: { key: "overdriveCapacitor", name: "Overdrive Capacitor", description: "Legacy perk retired from the competitive ruleset.", icon: "perk-capacitor", state: "locked" },
@@ -413,7 +413,7 @@ export const content = {
       key: "phantomCore",
       name: "PHANTOM Core",
       description: "Rotating holographic projectors orbit the reactor core to forage a live echoing clone.",
-      icon: "ultimate-phantom",
+      icon: "ultimate-phantomCore",
       state: "playable",
     },
     empCataclysmCore: {
@@ -434,7 +434,7 @@ export const content = {
       key: "rebootProtocol",
       name: "REBOOT Protocol",
       description: "Heavy emergency shielding locks around the core to perform an automated combat restart.",
-      icon: "ultimate-revival",
+      icon: "ability-rebootProtocol",
       state: "playable",
     },
   },
@@ -542,6 +542,11 @@ export const content = {
   },
 };
 
+// Backward-compatible aliases: the industrial rebranding renamed these categories
+// but many consumers still reference the old names.
+content.abilities = content.modules;
+content.perks = content.implants;
+content.ultimates = content.cores;
 
 export const weapons = content.weapons;
 

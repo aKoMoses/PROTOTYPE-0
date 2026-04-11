@@ -1,11 +1,11 @@
-import { config, abilityConfig } from "../config.js";
+import { config, moduleConfig } from "../config.js";
 import { approach } from "../utils.js";
 
 /**
  * Starts a purely visual cast telegraph that does NOT block actions.
  */
-export function startVisualCast(entity, abilityKey, duration = 0.24) {
-  entity.visualCastingAbility = abilityKey;
+export function startVisualCast(entity, moduleKey, duration = 0.24) {
+  entity.visualCastingmodule = moduleKey;
   entity.visualCastTime = duration;
   entity.totalVisualCastTime = duration;
 }
@@ -21,20 +21,20 @@ export function startWeaponTelegraph(entity, weaponKey, duration = 0.08) {
 
 /**
  * Starts a cast wind-up for an entity.
- * @param {Object} entity - The actor casting the ability (player or enemy).
- * @param {string} abilityKey - The key of the ability from config.castTimes.
+ * @param {Object} entity - The actor casting the module (player or enemy).
+ * @param {string} moduleKey - The key of the module from config.castTimes.
  * @param {Function} executeFn - The function to call when the cast completes.
  * @param {Object} params - Parameters to pass to the executeFn.
  */
-export function startCast(entity, abilityKey, executeFn, params = {}) {
-  const castDuration = abilityConfig.castTimes[abilityKey] || 0;
+export function startCast(entity, moduleKey, executeFn, params = {}) {
+  const castDuration = moduleConfig.castTimes[moduleKey] || 0;
   
   if (castDuration <= 0) {
     executeFn(params);
     return;
   }
 
-  entity.castingAbility = abilityKey;
+  entity.castingmodule = moduleKey;
   entity.castTime = castDuration;
   entity.totalCastTime = castDuration;
   entity.castParams = params;
@@ -49,8 +49,8 @@ export function startCast(entity, abilityKey, executeFn, params = {}) {
  * @param {boolean} isDashing - Whether the entity is currently dashing (to bypass friction).
  */
 export function updateCasting(entity, dt, isDashing = false) {
-  if (!entity.castingAbility || entity.castTime <= 0) {
-    entity.castingAbility = null;
+  if (!entity.castingmodule || entity.castTime <= 0) {
+    entity.castingmodule = null;
     return;
   }
 
@@ -68,7 +68,7 @@ export function updateCasting(entity, dt, isDashing = false) {
     if (entity.castExecuteFn) {
       entity.castExecuteFn(entity.castParams);
     }
-    entity.castingAbility = null;
+    entity.castingmodule = null;
     entity.castExecuteFn = null;
     entity.castParams = null;
   }
@@ -83,7 +83,7 @@ export function updateVisualTimers(entity, dt) {
   if (entity.visualCastTime > 0) {
     entity.visualCastTime = Math.max(0, entity.visualCastTime - dt);
     if (entity.visualCastTime <= 0) {
-      entity.visualCastingAbility = null;
+      entity.visualCastingmodule = null;
     }
   }
 

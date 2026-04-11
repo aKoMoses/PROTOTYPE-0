@@ -227,7 +227,7 @@ function createSurvivalEnemy(classKey) {
     archetype.ai === "caster" ? weapons.staff.key
       : archetype.ai === "ranged" ? weapons.pulse.key
         : weapons.axe.key;
-  bot.loadout = { weapon: bot.weapon, abilities: [] };
+  bot.loadout = { weapon: bot.weapon, modules: [] };
   bot.shootCooldown = 0.35 + Math.random() * 0.4;
   bot.cadence = archetype.attackCooldown;
   return bot;

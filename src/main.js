@@ -18,7 +18,7 @@ import { bindSurvivalDeps, startSurvivalRun, updateSurvivalEnemies, updateSurviv
 import { drawWorld, resize } from "./gameplay/renderer.js";
 import { updateHud } from "./gameplay/hud.js";
 import { setupInputListeners } from "./gameplay/input.js";
-import { startDashInput, releaseDashInput, startAbilityInput, releaseAbilityInput, castUltimate } from "./gameplay/abilities.js";
+import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castCore } from "./gameplay/modules.js";
 import { updatePhantomClone } from "./gameplay/phantom.js";
 import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, syncPrematchState } from "./build/ui.js";
 import { applySavedPlayerLoadout, setBotBuildMode } from "./build/loadout.js";

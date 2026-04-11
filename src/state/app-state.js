@@ -51,7 +51,7 @@ export const botBuildState = {
   custom: {
     weapon: weapons.pulse.key,
     modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
-    implant: "reactiveArmor",
+    implants: "reactiveArmor",
     core: "rebootProtocol",
     runes: createInitialRuneAllocation(),
     presetKey: null,
@@ -59,7 +59,7 @@ export const botBuildState = {
   current: {
     weapon: weapons.pulse.key,
     modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
-    implant: "reactiveArmor",
+    implants: "reactiveArmor",
     core: "rebootProtocol",
     runes: createInitialRuneAllocation(),
     presetKey: null,

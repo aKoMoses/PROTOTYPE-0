@@ -259,7 +259,7 @@ export const sandboxModes = {
   },
 };
 
-export const abilityConfig = {
+export const moduleConfig = {
   dash: {
     tapDuration: config.dashDuration,
     tapInvulnerability: config.dashInvulnerability,

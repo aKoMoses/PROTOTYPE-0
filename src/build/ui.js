@@ -1,15 +1,15 @@
 // Prematch / Build Lab UI rendering
-import { config, sandboxModes, abilityConfig } from "../config.js";
+import { config, sandboxModes, moduleConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { abilityState, sandbox, matchState, input, trainingBots } from "../state.js";
+import { moduleState, sandbox, matchState, input, trainingBots } from "../state.js";
 import { loadout, uiState, botBuildState, matchSettings, trainingToolState } from "../state/app-state.js";
 import * as dom from "../dom.js";
 import { sanitizeIconClass } from "../utils.js";
 import { mapChoices, duelMapRegistry, buildLabVisiblePools, getSelectableMapsForMode, normalizeSelectedMap, getSelectedMapMeta, getMapLayout } from "../maps.js";
-import { getContentItem, getAbilityBySlot, getVisibleContentItems, normalizeLoadoutSelections,
-  hasPerk, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneUltimateTree,
+import { getContentItem, getModuleBySlot, getVisibleContentItems, normalizeLoadoutSelections,
+  hasImplant, getRuneValue, getBuildStats, getSpentRunePoints, getRemainingRunePoints, getSelectedRuneCoreTree,
   getIconMarkup, ensureBotLoadoutFilled, createRandomBotLoadout, getCurrentBotBuildPreview,
-  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomAbility, getPulseMagazineSize, getAbilityCooldown, getWeaponCooldown, getStatusDuration,
+  setBotBuildMode, applyBotCustomWeapon, toggleBotCustomModule, getPulseMagazineSize, getModuleCooldown, getWeaponCooldown, getStatusDuration,
   applySavedPlayerLoadout, getBotPresets, applyBotPreset } from "./loadout.js";
 import { clearCombatArtifacts, getAllBots, resetBotsForMode, getPlayerSpawn } from "../gameplay/combat.js";
 import { getAxeComboProfile } from "../gameplay/weapons.js";
@@ -150,10 +150,10 @@ export function openPrematch(step = "mode") {
   input.keys.clear();
   input.firing = false;
   _releaseDashInput();
-  abilityState.boltLinkJavelin.recastReady = false;
-  abilityState.boltLinkJavelin.activeTime = 0;
-  abilityState.boltLinkJavelin.pendingCooldown = false;
-  abilityState.orbitalDistorter.charging = false;
+  moduleState.boltLinkJavelin.recastReady = false;
+  moduleState.boltLinkJavelin.activeTime = 0;
+  moduleState.boltLinkJavelin.pendingCooldown = false;
+  moduleState.orbitalDistorter.charging = false;
   setPrematchStep(step);
   dom.prematchOverlay.classList.remove("is-hidden");
   syncPrematchState();
@@ -213,7 +213,7 @@ export function updatePrematchSummary() {
   const selectedMap = getSelectedMapMeta(uiState.selectedMode, uiState.selectedMap);
   const selectedWeapon = weapons[loadout.weapon] ?? null;
   const remainingPoints = getRemainingRunePoints();
-  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  const selectedCoreTree = getSelectedRuneCoreTree();
   const selectedAvatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
   if (dom.selectedModeLabel) {
@@ -232,8 +232,8 @@ export function updatePrematchSummary() {
     dom.runePointsInline.textContent = `${remainingPoints} points remaining`;
   }
   if (dom.runeUltimateInline) {
-    dom.runeUltimateInline.textContent = selectedUltimateTree
-      ? `${content.runeTrees[selectedUltimateTree].name} Main Shard active`
+    dom.runeUltimateInline.textContent = selectedCoreTree
+      ? `${content.runeTrees[selectedCoreTree].name} Main Shard active`
       : "No Main Shard selected";
   }
   if (dom.continueRunes) {
@@ -371,11 +371,11 @@ export function getPrematchCategoryItems(category) {
   switch (category) {
     case "weapon":
       return getVisibleContentItems("weapons");
-    case "ability":
+    case "module":
       return getVisibleContentItems("modules");
-    case "perk":
+    case "implant":
       return getVisibleContentItems("implants");
-    case "ultimate":
+    case "core":
       return getVisibleContentItems("cores");
     default:
       return [];
@@ -391,24 +391,24 @@ export function getPrematchCategoryConfig(category) {
       selectedKeys: [loadout.weapon].filter(Boolean),
       compatibleSlots: ["weapon"],
     },
-    ability: {
+    module: {
       title: "Active Modules",
       hint: "Pick a tool, then snap it into Module 1, 2, or 3. Replacing a slot is instant.",
-      iconType: "ability",
+      iconType: "module",
       selectedKeys: loadout.modules.filter(Boolean),
-      compatibleSlots: ["ability-0", "ability-1", "ability-2"],
+      compatibleSlots: ["module-0", "module-1", "module-2"],
     },
-    perk: {
+    implant: {
       title: "Passive Implants",
       hint: "Lock one balancing implant for this test pass so its effect is easy to read in combat.",
-      iconType: "perk",
+      iconType: "implant",
       selectedKeys: loadout.implants.slice(0, 1).filter(Boolean),
       compatibleSlots: ["perk-0"],
     },
-    ultimate: {
+    core: {
       title: "Reactor Cores",
       hint: "Lock one round-defining spike from the current balancing set.",
-      iconType: "ultimate",
+      iconType: "core",
       selectedKeys: [loadout.core].filter(Boolean),
       compatibleSlots: ["ultimate"],
     },
@@ -419,18 +419,18 @@ export function getPrematchCategoryConfig(category) {
 
 export function getSlotCategory(slotKey) {
   if (slotKey === "weapon") return "weapon";
-  if (slotKey === "ultimate") return "ultimate";
-  if (slotKey.startsWith("ability")) return "ability";
-  if (slotKey.startsWith("perk")) return "perk";
+  if (slotKey === "ultimate") return "core";
+  if (slotKey.startsWith("module")) return "module";
+  if (slotKey.startsWith("perk")) return "implant";
   return "weapon";
 }
 
 export function getSlotDisplayName(slotKey) {
   const map = {
     weapon: "Weapon slot selected",
-    "ability-0": "Module 1 selected",
-    "ability-1": "Module 2 selected",
-    "ability-2": "Module 3 selected",
+    "module-0": "Module 1 selected",
+    "module-1": "Module 2 selected",
+    "module-2": "Module 3 selected",
     "perk-0": "Implant 1 selected",
     ultimate: "Reactor Core selected",
   };
@@ -447,7 +447,7 @@ export function getLoadoutItemForSlot(slotKey) {
   if (slotKey === "ultimate") {
     return getContentItem("cores", loadout.core);
   }
-  if (slotKey === "ability-0" || slotKey === "ability-1" || slotKey === "ability-2") {
+  if (slotKey === "module-0" || slotKey === "module-1" || slotKey === "module-2") {
     const index = Number(slotKey.split("-")[1]);
     return getContentItem("modules", loadout.modules[index]) ?? null;
   }
@@ -591,8 +591,8 @@ function getWeaponValueLines(item) {
   return [];
 }
 
-function getAbilityValueLines(item) {
-  const systemsShardActive = getSelectedRuneUltimateTree() === "systems";
+function getModuleValueLines(item) {
+  const systemsShardActive = getSelectedRuneCoreTree() === "systems";
 
   switch (item.key) {
     case "reflexAegis":
@@ -600,19 +600,19 @@ function getAbilityValueLines(item) {
         `Startup: ${formatSeconds(config.reflexAegisStartup)}. Active parry: ${formatSeconds(config.reflexAegisWindow)}. Fail recovery: ${formatSeconds(config.reflexAegisFailRecovery)}.`,
         `If struck during the window: negate the hit, blink behind the attacker, gain ${formatNumber(config.reflexAegisShield)} shield for ${formatSeconds(config.reflexAegisShieldDuration)}.`,
         `Success buff: +${formatPercent(config.reflexAegisMoveBonus)} move speed for ${formatSeconds(config.reflexAegisMoveDuration)} and next hit +${formatNumber(config.reflexAegisHitBonusDamage)} within ${formatSeconds(config.reflexAegisHitBonusDuration)}.`,
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.reflexAegisCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.reflexAegisCooldown))}.`,
         "Role: high-skill defensive counter that punishes predictable burst and engages.",
       ];
     case "boltLinkJavelin":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boltLinkJavelinCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.boltLinkJavelinCooldown))}.`,
         `Initial hit: ${config.boltLinkJavelinDamage} damage and ${formatPercent(config.boltLinkJavelinSlow)} electrified slow for ${formatSeconds(getStatusDuration(config.boltLinkJavelinSlowDuration))}.`,
         `Recast window: while the target is electrified, blink ${formatNumber(config.boltLinkJavelinRecastDistance)} units behind them once.`,
         "Role: two-step engage tool for outplay, chase correction and burst setup.",
       ];
     case "orbitalDistorter":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.orbitalDistorterCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.orbitalDistorterCooldown))}.`,
         `Tap cast: ${formatNumber(config.orbitalDistorterTapRadius)} radius on you for ${formatSeconds(config.orbitalDistorterTapDuration)}, ${formatPercent(config.orbitalDistorterTapProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterTapProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterTapDamageReduction)} mitigation.`,
         `Charged cast: ${formatNumber(config.orbitalDistorterHoldRadius)} radius at target point for ${formatSeconds(config.orbitalDistorterHoldDuration + (systemsShardActive ? 0.6 : 0))}, ${formatPercent(config.orbitalDistorterHoldProjectileSlowEdge)} to ${formatPercent(config.orbitalDistorterHoldProjectileSlowCore)} projectile slow, and ${formatPercent(config.orbitalDistorterHoldSlow + (systemsShardActive ? 0.08 : 0))} movement slow.`,
         "Enemy projectiles are dragged while inside the field instead of being deleted, making dodge windows readable and fair.",
@@ -620,7 +620,7 @@ function getAbilityValueLines(item) {
       ];
     case "vGripHarpoon":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.vGripHarpoonCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.vGripHarpoonCooldown))}.`,
         `Hook shot: ${formatNumber(config.vGripHarpoonRange)} range at ${formatNumber(config.vGripHarpoonProjectileSpeed)} speed.`,
         `On hit: drags the target toward you and applies ${formatPercent(config.vGripHarpoonSnare)} snare for ${formatSeconds(getStatusDuration(config.vGripHarpoonSnareDuration))}.`,
         "Recast during pull: cut the drag early to place the target exactly where you want.",
@@ -628,7 +628,7 @@ function getAbilityValueLines(item) {
       ];
     case "hexPlateProjector":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.shieldCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.shieldCooldown))}.`,
         `Grants ${formatNumber(config.shieldValue + getRuneValue("defense", "primary") * 3)} shield for ${formatSeconds(config.shieldDuration)}.`,
         "While the shield still exists, incoming slow, snare, shock and stun effects are denied.",
         `If enemies break the shield, HEX-PLATE Projector refunds about ${formatPercent(config.shieldBreakRefund)} of its cooldown.`,
@@ -636,35 +636,35 @@ function getAbilityValueLines(item) {
       ];
     case "emPulseEmitter":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.boosterCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.boosterCooldown))}.`,
         "Radius: 120.",
         `Applies ${formatPercent(0.38)} slow for ${formatSeconds(getStatusDuration(1))} and delays bot fire by 0.8s.`,
         "Destroys enemy projectiles inside the pulse.",
       ];
     case "chainLightning":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.4))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(5.4))}.`,
         "Range: 520 first snap, then up to 2 extra hops within 220.",
         "Damage: 28 first hit, then each hop deals 72% of the previous hit.",
         `Applies 18 to 26% slow for ${formatSeconds(getStatusDuration(0.55))}.`,
       ];
     case "blink":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(3.4))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(3.4))}.`,
         "Teleports 148 units to your aim.",
         "No damage, pure spacing and outplay.",
         "Role: instant reposition without commit frames.",
       ];
     case "phaseDash":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(4.6))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(4.6))}.`,
         "Dash speed: 1580 for 0.18s.",
         "Untargetable for 0.42s during the pass.",
         "Role: projectile break and hard timing outplay.",
       ];
     case "swarmMissileRack":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.swarmMissileRackCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.swarmMissileRackCooldown))}.`,
         `Fires ${config.swarmMissileRackMissiles} pulse missiles at ${formatNumber(config.swarmMissileRackBaseDamage)} base damage each.`,
         "Missiles lightly auto-guide toward the first visible enemy in front of them, but can still be dodged and are destroyed by terrain.",
         `Each extra missile on the same target deals exponentially more damage at x${formatNumber(config.swarmMissileRackDamageGrowth)} growth per connect.`,
@@ -673,35 +673,35 @@ function getAbilityValueLines(item) {
       ];
     case "railShot":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(5.1))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(5.1))}.`,
         "Deals 46 damage and pierces.",
         `Applies ${formatPercent(0.22)} slow for ${formatSeconds(getStatusDuration(0.8))}.`,
         "Role: high-commit punish line that cashes in on clean aim.",
       ];
     case "voidCoreSingularity":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.voidCoreSingularityCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.voidCoreSingularityCooldown))}.`,
         `Creates a live singularity with ${formatNumber(config.voidCoreSingularityRadius)} radius for ${formatSeconds(config.voidCoreSingularityDuration)}.`,
         `Inside the zone: ${formatPercent(config.voidCoreSingularitySlow)} slow and steady pull toward the core.`,
         "Role: trap movement, stack follow-up skillshots and punish late exits.",
       ];
     case "ghostDriftModule":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(config.ghostDriftModuleCooldown))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(config.ghostDriftModuleCooldown))}.`,
         `Intangible for ${formatSeconds(config.ghostDriftModuleDuration)} and purges active debuffs on cast.`,
         "While phased: no damage taken, no control taken, no attacks, no modules. Dash only.",
         "Role: pure defensive outplay and reset timing, not an engage tool.",
       ];
     case "spectreProjector":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(6.2))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(6.2))}.`,
         `Creates a false read for ${formatSeconds(2.8)}.`,
         "Pairs well with sharp sidesteps and Phantom Core.",
         "Role: information denial and focus break.",
       ];
     case "overdriveServos":
       return [
-        `Cooldown: ${formatSeconds(getAbilityCooldown(4.2))}.`,
+        `Cooldown: ${formatSeconds(getModuleCooldown(4.2))}.`,
         `Haste window: ${formatSeconds(2.2)}.`,
         `After-dash tempo extension: ${formatSeconds(1.2)}.`,
         "Role: tempo spike for chase, disengage or reset.",
@@ -715,19 +715,19 @@ function getFallbackDetailKey(type) {
   if (type === "weapon") {
     return loadout.weapon ?? getPrematchCategoryItems("weapon")[0]?.key ?? buildLabVisiblePools.weapons[0];
   }
-  if (type === "ability") {
-    return loadout.modules.find(Boolean) ?? getPrematchCategoryItems("ability")[0]?.key ?? buildLabVisiblePools.modules[0];
+  if (type === "module") {
+    return loadout.modules.find(Boolean) ?? getPrematchCategoryItems("module")[0]?.key ?? buildLabVisiblePools.modules[0];
   }
-  if (type === "perk") {
-    return loadout.implants[0] ?? getPrematchCategoryItems("perk")[0]?.key ?? buildLabVisiblePools.implants[0];
+  if (type === "implant") {
+    return loadout.implants[0] ?? getPrematchCategoryItems("implant")[0]?.key ?? buildLabVisiblePools.implants[0];
   }
-  if (type === "ultimate") {
-    return loadout.core ?? getPrematchCategoryItems("ultimate")[0]?.key ?? buildLabVisiblePools.cores[0];
+  if (type === "core") {
+    return loadout.core ?? getPrematchCategoryItems("core")[0]?.key ?? buildLabVisiblePools.cores[0];
   }
   return null;
 }
 
-function getPerkValueLines(item) {
+function getImplantValueLines(item) {
   switch (item.key) {
     case "scavengerPlates":
       return ["+30 max HP.", "Role: pure durability and easier mistake survival."];
@@ -738,7 +738,7 @@ function getPerkValueLines(item) {
     case "executionRelay":
       return ["+18% damage to slowed targets.", "+4% more per Attack Core point.", "Role: turns control into real punish."];
     case "omnivampCore":
-      return ["Heal for 7% of confirmed damage dealt.", "Works on both weapon and ability damage.", "Role: broad sustain for clean traders and brawlers."];
+      return ["Heal for 7% of confirmed damage dealt.", "Works on both weapon and module damage.", "Role: broad sustain for clean traders and brawlers."];
     case "lastStandBuffer":
       return [
         `Once per round, lethal damage triggers ${formatSeconds(config.lastStandDuration)} of overloaded survival.`,
@@ -758,7 +758,7 @@ function getPerkValueLines(item) {
   }
 }
 
-function getUltimateValueLines(item) {
+function getCoreValueLines(item) {
   switch (item.key) {
     case "phantomCore":
       return [
@@ -802,9 +802,9 @@ function getUltimateValueLines(item) {
 
 function getDetailValueLines(item, type) {
   if (type === "weapon") return getWeaponValueLines(item);
-  if (type === "ability") return getAbilityValueLines(item);
-  if (type === "perk") return getPerkValueLines(item);
-  if (type === "ultimate") return getUltimateValueLines(item);
+  if (type === "module") return getModuleValueLines(item);
+  if (type === "implant" || type === "perk") return getImplantValueLines(item);
+  if (type === "core" || type === "ultimate") return getCoreValueLines(item);
   return [];
 }
 
@@ -812,16 +812,16 @@ export function updateDetailPanel() {
   const detail = uiState.selectedDetail ?? { type: "weapon", key: getFallbackDetailKey("weapon") };
   const resolvedKey =
     detail.key ??
-    (["weapon", "ability", "perk", "ultimate"].includes(detail.type)
+    (["weapon", "module", "perk", "ultimate"].includes(detail.type)
       ? getFallbackDetailKey(detail.type)
       : null);
   const collectionName =
-    detail.type === "ability"
-      ? "abilities"
-      : detail.type === "perk"
-        ? "perks"
-        : detail.type === "ultimate"
-          ? "ultimates"
+    detail.type === "module" || detail.type === "module"
+      ? "modules"
+      : detail.type === "implant" || detail.type === "perk"
+        ? "implants"
+        : detail.type === "core" || detail.type === "ultimate"
+          ? "cores"
           : detail.type === "avatar"
             ? "avatars"
             : detail.type === "skin"
@@ -876,12 +876,12 @@ export function syncDetailPanelEnhancements() {
   return;
   const detail = uiState.selectedDetail ?? { type: "weapon", key: getFallbackDetailKey("weapon") };
   const collectionName =
-    detail.type === "ability"
-      ? "abilities"
-      : detail.type === "perk"
-        ? "perks"
-        : detail.type === "ultimate"
-          ? "ultimates"
+    detail.type === "module" || detail.type === "module"
+      ? "modules"
+      : detail.type === "implant" || detail.type === "perk"
+        ? "implants"
+        : detail.type === "core" || detail.type === "ultimate"
+          ? "cores"
           : detail.type === "avatar"
             ? "avatars"
             : detail.type === "skin"
@@ -921,8 +921,8 @@ function getBuildSlotState(slotKey = uiState.selectedLoadoutSlot ?? getCurrentBu
 
 function getEmptySlotLabel(slotKey) {
   if (slotKey === "weapon") return "Empty weapon slot";
-  if (slotKey === "ultimate") return "Empty ultimate slot";
-  if (slotKey === "perk-0") return "Empty perk slot";
+  if (slotKey === "core") return "Empty core slot";
+  if (slotKey === "implant-0") return "Empty implant slot";
   return `${STEP_LABELS[slotKey] ?? "Empty slot"}`;
 }
 
@@ -961,18 +961,18 @@ export function unlockLoadoutSlot(slotKey = uiState.selectedLoadoutSlot ?? getCu
 
   if (slotKey === "weapon") {
     loadout.weapon = null;
-  } else if (slotKey === "ultimate") {
-    loadout.ultimate = null;
-  } else if (slotKey === "perk-0") {
-    loadout.perks = [null];
-  } else if (slotKey.startsWith("ability")) {
+  } else if (slotKey === "ultimate" || slotKey === "core") {
+    loadout.core = null;
+  } else if (slotKey === "perk-0" || slotKey === "implant-0") {
+    loadout.implants = [null];
+  } else if (slotKey.startsWith("module")) {
     const index = Number(slotKey.split("-")[1]);
-    const nextAbilities = [...loadout.abilities];
-    while (nextAbilities.length < 3) {
-      nextAbilities.push(null);
+    const nextModules = [...loadout.modules];
+    while (nextModules.length < 3) {
+      nextModules.push(null);
     }
-    nextAbilities[index] = null;
-    loadout.abilities = nextAbilities.slice(0, 3);
+    nextModules[index] = null;
+    loadout.modules = nextModules.slice(0, 3);
   } else {
     return false;
   }
@@ -1002,7 +1002,7 @@ function updateDetailActions() {
   }
 
   const slotState = getBuildSlotState();
-  const buildDetailActive = ["weapon", "ability", "perk", "ultimate"].includes(
+  const buildDetailActive = ["weapon", "module", "implant", "core"].includes(
     uiState.selectedDetail?.type ?? slotState.category,
   );
   dom.detailActions.classList.toggle("is-hidden", uiState.prematchStep !== "build" || !buildDetailActive);
@@ -1053,15 +1053,15 @@ export function renderValidationChips(container, items, type) {
 }
 
 const STEP_LABELS = {
-  weapon: "Weapon",
-  "ability-0": "Ability 1 [Q]",
-  "ability-1": "Ability 2 [F]",
-  "ability-2": "Ability 3 [E]",
-  "perk-0": "Passive Perk",
-  ultimate: "Ultimate",
+  weapon: "Weapon Chassis",
+  "module-0": "Technical Module 1 [Q]",
+  "module-1": "Technical Module 2 [F]",
+  "module-2": "Technical Module 3 [E]",
+  "perk-0": "Passive Implant",
+  ultimate: "Reactor Core",
 };
 
-const WIZARD_SEQUENCE = ["weapon", "ability-0", "ability-1", "ability-2", "perk-0", "ultimate"];
+const WIZARD_SEQUENCE = ["weapon", "module-0", "module-1", "module-2", "perk-0", "ultimate"];
 
 function clearPreviewSelection() {
   uiState.previewSelection = null;
@@ -1093,12 +1093,12 @@ function isPreviewPendingForSlot(slotKey) {
 
 function applyLoadoutItemSelection(category, slotKey, itemKey) {
   const item = getContentItem(
-    category === "ability"
-      ? "abilities"
-      : category === "perk"
-        ? "perks"
-        : category === "ultimate"
-          ? "ultimates"
+    category === "module" || category === "module"
+      ? "modules"
+      : category === "implant" || category === "perk"
+        ? "implants"
+        : category === "core" || category === "ultimate"
+          ? "cores"
           : "weapons",
     itemKey,
   );
@@ -1109,20 +1109,20 @@ function applyLoadoutItemSelection(category, slotKey, itemKey) {
 
   if (category === "weapon") {
     loadout.weapon = itemKey;
-  } else if (category === "ultimate") {
-    loadout.ultimate = itemKey;
-  } else if (category === "ability") {
+  } else if (category === "core" || category === "ultimate") {
+    loadout.core = itemKey;
+  } else if (category === "module" || category === "module") {
     const targetIndex = Number(slotKey.split("-")[1]);
-    const nextAbilities = Array.from({ length: 3 }, (_, index) => loadout.abilities[index] ?? null);
-    for (let index = 0; index < nextAbilities.length; index += 1) {
-      if (nextAbilities[index] === itemKey) {
-        nextAbilities[index] = null;
+    const nextModules = Array.from({ length: 3 }, (_, index) => loadout.modules[index] ?? null);
+    for (let index = 0; index < nextModules.length; index += 1) {
+      if (nextModules[index] === itemKey) {
+        nextModules[index] = null;
       }
     }
-    nextAbilities[targetIndex] = itemKey;
-    loadout.abilities = nextAbilities;
-  } else if (category === "perk") {
-    loadout.perks = [itemKey];
+    nextModules[targetIndex] = itemKey;
+    loadout.modules = nextModules;
+  } else if (category === "implant" || category === "perk") {
+    loadout.implants = [itemKey];
   }
 
   uiState.selectedLoadoutSlot = slotKey;
@@ -1230,25 +1230,25 @@ export function renderTrainingBotPanel() {
         {
           key: "training-range",
           name: "5 Static Bots",
-          icon: "ability-decoy",
+          icon: "module-decoy",
           category: "utility",
         },
         {
           key: trainingToolState.botsFire ? "live-fire" : "silent-line",
           name: trainingToolState.botsFire ? "Live Fire" : "Silent Range",
-          icon: trainingToolState.botsFire ? "weapon-pulse" : "ability-shield",
+          icon: trainingToolState.botsFire ? "weapon-pulse" : "module-shield",
           category: trainingToolState.botsFire ? "offense" : "defense",
         },
       ],
-      "ability",
+      "module",
     );
     return;
   }
 
   const previewBuild = getCurrentBotBuildPreview();
   const previewWeapon = getContentItem("weapons", previewBuild.weapon) ?? weapons.pulse;
-  const previewAbilities = previewBuild.abilities
-    .map((abilityKey) => getContentItem("abilities", abilityKey))
+  const previewAbilities = previewBuild.modules
+    .map((moduleKey) => getContentItem("modules", moduleKey))
     .filter(Boolean);
 
   dom.botConfigLabel.textContent = "Duel Tool";
@@ -1275,20 +1275,20 @@ export function renderTrainingBotPanel() {
   );
 
   renderSelectionGrid(
-    dom.botAbilityGrid,
-    getVisibleContentItems("abilities", { ignoreProgression: true }),
-    botBuildState.custom.abilities,
-    (abilityKey) => toggleBotCustomAbility(abilityKey),
+    dom.botModuleGrid,
+    getVisibleContentItems("modules", { ignoreProgression: true }),
+    botBuildState.custom.modules,
+    (moduleKey) => toggleBotCustomModule(moduleKey),
     {
-      iconType: "ability",
-      activeKeys: previewBuild.abilities,
+      iconType: "module",
+      activeKeys: previewBuild.modules,
     },
   );
 
   renderValidationChips(
     dom.botBuildSummary,
     [previewWeapon, ...previewAbilities],
-    "ability",
+    "module",
   );
 }
 
@@ -1359,15 +1359,15 @@ function renderPresetButtons(container, presets, activeKey, onApply, options = {
 function getSavedLoadoutSummary(entry) {
   const build = normalizeStoredBuild(entry.build);
   const weaponName = content.weapons[build.weapon]?.name ?? "Unknown weapon";
-  const perkName = content.perks[build.perks[0]]?.name ?? "No perk";
-  const abilityNames = build.abilities
-    .map((abilityKey) => content.abilities[abilityKey]?.name ?? null)
+  const perkName = content.implants[build.implants[0]]?.name ?? "No perk";
+  const moduleNames = build.modules
+    .map((moduleKey) => content.modules[moduleKey]?.name ?? null)
     .filter(Boolean)
     .slice(0, 2)
     .join(" / ");
 
-  if (abilityNames) {
-    return `${weaponName} · ${abilityNames} · ${perkName}`;
+  if (moduleNames) {
+    return `${weaponName} · ${moduleNames} · ${perkName}`;
   }
 
   return `${weaponName} · ${perkName}`;
@@ -1378,31 +1378,27 @@ function getSavedLoadoutTooltip(entry) {
   const weaponName = content.weapons[build.weapon]?.name ?? "Unknown weapon";
   const weaponDesc = content.weapons[build.weapon]?.description ?? "";
 
-  const abilityNames = build.abilities.map((abilityKey) => content.abilities[abilityKey]?.name ?? "None");
-  const abilityDescs = build.abilities.map((abilityKey) => content.abilities[abilityKey]?.description ?? "");
+  const moduleNames = build.modules.map((moduleKey) => content.modules[moduleKey]?.name ?? "None");
+  const moduleDescs = build.modules.map((moduleKey) => content.modules[moduleKey]?.description ?? "");
 
-  const perkKey = build.perks[0] ?? null;
-  const perkName = perkKey ? (content.perks[perkKey]?.name ?? "None") : "None";
-  const perkDesc = perkKey ? (content.perks[perkKey]?.description ?? "") : "";
+  const perkKey = build.implants?.[0] || null;
+  const perkName = perkKey ? (content.implants[perkKey]?.name ?? "None") : "None";
+  const perkDesc = perkKey ? (content.implants[perkKey]?.description ?? "") : "";
 
-  const ultimateKey = build.ultimate ?? null;
-  const ultimateName = ultimateKey ? (content.ultimates[ultimateKey]?.name ?? "None") : "None";
-  const ultimateDesc = ultimateKey ? (content.ultimates[ultimateKey]?.description ?? "") : "";
+  const ultimateKey = build.cores?.[0] || null;
+  const ultimateName = ultimateKey ? (content.cores[ultimateKey]?.name ?? "None") : "None";
+  const ultimateDesc = ultimateKey ? (content.cores[ultimateKey]?.description ?? "") : "";
 
   const lines = [entry.name ?? "Loadout", ""];
 
   appendTooltipSection(lines, "W", weaponName, buildTooltipMeta("weapon", build.weapon), weaponDesc);
-  appendTooltipSection(lines, "Q", abilityNames[0] ?? "None", buildTooltipMeta("ability", build.abilities[0]), abilityDescs[0] ?? "");
-  appendTooltipSection(lines, "E", abilityNames[1] ?? "None", buildTooltipMeta("ability", build.abilities[1]), abilityDescs[1] ?? "");
-  appendTooltipSection(lines, "F", abilityNames[2] ?? "None", buildTooltipMeta("ability", build.abilities[2]), abilityDescs[2] ?? "");
-  appendTooltipSection(lines, "P", perkName, buildTooltipMeta("perk", perkKey), perkDesc);
-  appendTooltipSection(lines, "R", ultimateName, buildTooltipMeta("ultimate", ultimateKey), ultimateDesc);
+  appendTooltipSection(lines, "Q", moduleNames[0] ?? "None", buildTooltipMeta("module", build.modules[0]), moduleDescs[0] ?? "");
+  appendTooltipSection(lines, "E", moduleNames[1] ?? "None", buildTooltipMeta("module", build.modules[1]), moduleDescs[1] ?? "");
+  appendTooltipSection(lines, "F", moduleNames[2] ?? "None", buildTooltipMeta("module", build.modules[2]), moduleDescs[2] ?? "");
+  appendTooltipSection(lines, "P", perkName, buildTooltipMeta("implant", perkKey), perkDesc);
+  appendTooltipSection(lines, "R", ultimateName, buildTooltipMeta("core", ultimateKey), ultimateDesc);
 
-  while (lines[lines.length - 1] === "") {
-    lines.pop();
-  }
-
-  return lines.join("\n");
+  return lines.join("\n").replace(/\n+$/, "");
 }
 
 function appendTooltipSection(lines, slotKey, name, metaLines, desc) {
@@ -1429,7 +1425,7 @@ function buildTooltipMeta(type, key) {
     if (typeof item.cooldown === "number") lines.push(`Cadence: ${formatSecondsTooltip(item.cooldown)}s`);
   }
 
-  if (type === "ability") {
+  if (type === "module") {
     if (item.input) lines.push(`Input: ${item.input}`);
     if (item.role) lines.push(`Role: ${item.role}`);
     if (item.category) lines.push(`Category: ${formatTooltipLabel(item.category)}`);
@@ -1445,11 +1441,11 @@ function buildTooltipMeta(type, key) {
 function getContentItemByType(type, key) {
   const group = type === "weapon"
     ? "weapons"
-    : type === "ability"
-      ? "abilities"
-      : type === "perk"
-        ? "perks"
-        : "ultimates";
+    : type === "module"
+      ? "modules"
+      : type === "implant"
+        ? "implants"
+        : "cores";
   return content[group]?.[key] ?? null;
 }
 
@@ -1468,9 +1464,9 @@ function findActiveSavedLoadoutKey(savedLoadouts) {
   return savedLoadouts.find((entry) => {
     const build = normalizeStoredBuild(entry.build);
     return loadout.weapon === build.weapon
-      && loadout.ultimate === build.ultimate
-      && (loadout.perks[0] ?? null) === (build.perks[0] ?? null)
-      && loadout.abilities.every((abilityKey, index) => abilityKey === build.abilities[index]);
+      && loadout.core === build.core
+      && (loadout.implants[0] ?? null) === (build.implants[0] ?? null)
+      && loadout.modules.every((moduleKey, index) => moduleKey === build.modules[index]);
   })?.key ?? null;
 }
 
@@ -1544,7 +1540,7 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
   if (treeKey === "attack" && nodeKey === "secondary") {
     return [
       `Current: +${formatPercent(points * 0.015)} damage.`,
-      "Per point: +1.5% weapon and ability damage.",
+      "Per point: +1.5% weapon and module damage.",
       "Use it for cleaner punish thresholds and faster round closes.",
     ];
   }
@@ -1585,13 +1581,7 @@ function getRuneNodeValueLines(treeKey, nodeKey) {
     ];
   }
 
-  if (treeKey === "spells" && nodeKey === "secondary") {
-    const reduction = Math.min(0.18, points * 0.03);
-    return [
-      `Current: -${formatPercent(reduction)} ability cooldowns.`,
-      `Current: +${formatPercent(points * 0.03)} status duration.`,
-      "Per point: -3% cooldowns and +3% status duration.",
-    ];
+
   if (treeKey === "systems" && nodeKey === "secondary") {
     return [
       "+8% Module cooldown reduction per point.",
@@ -1662,7 +1652,7 @@ function renderRuneDetailPanel() {
 
 export function renderRuneTrees() {
   dom.runeGrid.textContent = "";
-  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  const selectedUltimateTree = getSelectedRuneCoreTree();
 
   Object.values(content.runeTrees).forEach((tree) => {
     const treeState = loadout.runes[tree.key];
@@ -1776,7 +1766,7 @@ export function toggleRuneUltimate(treeKey) {
     return;
   }
 
-  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  const selectedUltimateTree = getSelectedRuneCoreTree();
 
   if (treeState.ultimate > 0) {
     treeState.ultimate = 0;
@@ -1826,7 +1816,7 @@ function canRemoveRuneNode(treeKey, nodeKey) {
 function canSelectRuneUltimate(treeKey) {
   const tree = content.runeTrees[treeKey];
   const treeState = loadout.runes[treeKey];
-  const selectedUltimateTree = getSelectedRuneUltimateTree();
+  const selectedUltimateTree = getSelectedRuneCoreTree();
   if (!tree || !treeState) {
     return false;
   }
@@ -1891,11 +1881,14 @@ export function resetRuneAllocation() {
 }
 
 export function renderPrematch() {
+  if (!dom.prematchOverlay) return;
+
   syncPrematchLoadoutSurface();
   normalizeLoadoutSelections({ preserveEmptySlots: true });
+
   if (
     uiState.selectedDetail &&
-    ["weapon", "ability", "perk", "ultimate"].includes(uiState.selectedDetail.type) &&
+    ["weapon", "module", "implant", "core"].includes(uiState.selectedDetail.type) &&
     (
       !uiState.selectedDetail.key ||
       !getPrematchCategoryItems(uiState.selectedDetail.type).some((item) => item.key === uiState.selectedDetail.key)
@@ -1906,19 +1899,26 @@ export function renderPrematch() {
       key: getFallbackDetailKey(uiState.selectedDetail.type),
     };
   }
+
   dom.modeDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.duel.key);
   dom.modeSurvival.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.survival.key);
   dom.modeTeamDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.teamDuel.key);
   dom.modeTraining.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.training.key);
-  const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
 
+  const avatar = content.avatars[loadout.avatar] ?? content.avatars.drifter;
   setPreviewAvatar(dom.cosmeticAvatarPreview, avatar);
+
   renderMapSelection();
   renderTrainingBotPanel();
   renderRuneTrees();
   updatePrematchSummary();
   updateTrainingBuildButton();
 }
+
+// Global listener for cross-module UI updates
+window.addEventListener("p0-loadout-changed", () => {
+  renderPrematch();
+});
 
 export function toggleHelpPanel(forceOpen) {
   sandbox.helpOpen = forceOpen ?? !sandbox.helpOpen;

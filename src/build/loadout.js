@@ -1,12 +1,12 @@
 // Loadout, build stats, rune calculations, bot loadout management
-import { config, arena, abilityConfig } from "../config.js";
+import { config, arena, moduleConfig } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, abilityState } from "../state.js";
+import { player, enemy, moduleState } from "../state.js";
 import { loadout, botBuildState, uiState, createInitialRuneAllocation } from "../state/app-state.js";
 import { buildLabVisiblePools } from "../maps.js";
 import { sanitizeIconClass } from "../utils.js";
 import { getStatusState } from "../gameplay/combat.js";
-import { renderPrematch } from "./ui.js";
+// import { renderPrematch } from "./ui.js";
 import { createPresetRunes } from "../loadouts/catalog.js";
 import { normalizeStoredBuild } from "../loadouts/storage.js";
 import { canEquipStoredLoadout, getMissingUnlocksForBuild, getVisibleUnlockedKeys, isContentUnlocked } from "../progression.js";
@@ -36,7 +36,7 @@ const botPresetLibrary = [
     loadout: {
       weapon: weapons.sniper.key,
       modules: ["boltLinkJavelin", "orbitalDistorter", "ghostDriftModule"],
-      implants: ["dashCoolingLoop"],
+      implants: ["dashCooling"],
       core: "phantomCore",
       runes: createPresetRunes({
         attack: { secondary: 2, primary: 0, ultimate: 0 },
@@ -53,7 +53,7 @@ const botPresetLibrary = [
     loadout: {
       weapon: weapons.axe.key,
       modules: ["vGripHarpoon", "hexPlateProjector", "swarmMissileRack"],
-      implants: ["bioDrainLink"],
+      implants: ["omnivampCore"],
       core: "berserkCore",
       runes: createPresetRunes({
         attack: { secondary: 5, primary: 3, ultimate: 1 },
@@ -69,12 +69,12 @@ const botPresetLibrary = [
     description: "Closes fast, unloads burst damage, then slips out before you can trade back.",
     loadout: {
       weapon: weapons.shotgun.key,
-      abilities: ["magneticGrapple", "shockJavelin", "phaseShift"],
-      perk: "executionRelay",
-      ultimate: "phantomSplit",
+      modules: ["vGripHarpoon", "boltLinkJavelin", "ghostDriftModule"],
+      implants: ["executionRelay"],
+      core: "phantomCore",
       runes: createPresetRunes({
         attack: { secondary: 5, primary: 3, ultimate: 1 },
-        spells: { secondary: 3, primary: 0, ultimate: 0 },
+        systems: { secondary: 3, primary: 0, ultimate: 0 },
         support: { secondary: 4, primary: 0, ultimate: 0 },
       }),
     },
@@ -127,12 +127,12 @@ export function normalizeLoadoutSelections({ preserveEmptySlots = false } = {}) 
 
   const seenAbilities = new Set();
   const normalizedAbilities = Array.from({ length: 3 }, (_, index) => {
-    const abilityKey = loadout.modules[index] ?? null;
-    if (!unlockedAbilities.includes(abilityKey) || seenAbilities.has(abilityKey)) {
+    const moduleKey = loadout.modules[index] ?? null;
+    if (!unlockedAbilities.includes(moduleKey) || seenAbilities.has(moduleKey)) {
       return null;
     }
-    seenAbilities.add(abilityKey);
-    return abilityKey;
+    seenAbilities.add(moduleKey);
+    return moduleKey;
   });
 
   if (!preserveEmptySlots) {
@@ -161,7 +161,7 @@ export function getContentItem(group, key) {
   return content[group]?.[key] ?? null;
 }
 
-export function getAbilityBySlot(slotIndex) {
+export function getModuleBySlot(slotIndex) {
   return getContentItem("modules", loadout.modules[slotIndex]) ?? null;
 }
 
@@ -169,19 +169,19 @@ export function getPlayableWeaponItems() {
   return Object.values(content.weapons).filter((weapon) => weapon.state === "playable");
 }
 
-export function getPlayableAbilityItems() {
-  return Object.values(content.modules).filter((ability) => ability.state === "playable");
+export function getPlayableModuleItems() {
+  return Object.values(content.modules).filter((module) => module.state === "playable");
 }
 
 export function ensureBotLoadoutFilled(loadoutConfig) {
   const weaponKey = getContentItem("weapons", loadoutConfig.weapon)?.state === "playable"
     ? loadoutConfig.weapon
     : weapons.pulse.key;
-  const playableAbilityKeys = getPlayableAbilityItems().map((ability) => ability.key);
-  const uniqueAbilities = [...new Set((loadoutConfig.modules ?? loadoutConfig.abilities ?? []).filter((abilityKey) => playableAbilityKeys.includes(abilityKey)))];
+  const playableModuleKeys = getPlayableModuleItems().map((module) => module.key);
+  const uniqueAbilities = [...new Set((loadoutConfig.modules ?? loadoutConfig.abilities ?? []).filter((moduleKey) => playableModuleKeys.includes(moduleKey)))];
 
   for (const fallback of ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector", "vGripHarpoon", "emPulseEmitter", "ghostDriftModule"]) {
-    if (!uniqueAbilities.includes(fallback) && playableAbilityKeys.includes(fallback)) {
+    if (!uniqueAbilities.includes(fallback) && playableModuleKeys.includes(fallback)) {
       uniqueAbilities.push(fallback);
     }
     if (uniqueAbilities.length >= 3) {
@@ -189,17 +189,17 @@ export function ensureBotLoadoutFilled(loadoutConfig) {
     }
   }
 
-  const perkKey = getContentItem("implants", loadoutConfig.implant ?? loadoutConfig.perk)?.state === "playable"
-    ? loadoutConfig.implant ?? loadoutConfig.perk
-    : buildLabVisiblePools.implants[0];
-  const ultimateKey = getContentItem("cores", loadoutConfig.core ?? loadoutConfig.ultimate)?.state === "playable"
-    ? loadoutConfig.core ?? loadoutConfig.ultimate
+  const implantKeys = [getContentItem("implants", loadoutConfig.implants?.[0] ?? loadoutConfig.implant)?.state === "playable"
+    ? (loadoutConfig.implants?.[0] ?? loadoutConfig.implant)
+    : buildLabVisiblePools.implants[0]];
+  const ultimateKey = getContentItem("cores", loadoutConfig.core)?.state === "playable"
+    ? loadoutConfig.core
     : buildLabVisiblePools.cores[0];
 
   return {
     weapon: weaponKey,
     modules: uniqueAbilities.slice(0, 3),
-    implant: perkKey,
+    implants: implantKeys,
     core: ultimateKey,
     runes: cloneRuneAllocation(loadoutConfig.runes),
     presetKey: loadoutConfig.presetKey ?? null,
@@ -238,8 +238,8 @@ export function getBotConfiguredLoadout() {
     : createRandomBotLoadout();
 }
 
-export function enemyHasAbility(abilityKey) {
-  return enemy.loadout?.modules?.includes(abilityKey);
+export function enemyHasModule(moduleKey) {
+  return enemy.loadout?.modules?.includes(moduleKey);
 }
 
 export function setBotBuildMode(mode) {
@@ -249,7 +249,7 @@ export function setBotBuildMode(mode) {
   } else {
     botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
   }
-  renderPrematch();
+  window.dispatchEvent(new CustomEvent("p0-loadout-changed"));
 }
 
 export function applyBotCustomWeapon(weaponKey) {
@@ -257,12 +257,12 @@ export function applyBotCustomWeapon(weaponKey) {
   if (botBuildState.mode === "custom") {
     botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
   }
-  renderPrematch();
+  window.dispatchEvent(new CustomEvent("p0-loadout-changed"));
 }
 
-export function toggleBotCustomAbility(abilityKey) {
+export function toggleBotCustomModule(moduleKey) {
   const selected = [...(botBuildState.custom.modules ?? [])];
-  const existingIndex = selected.indexOf(abilityKey);
+  const existingIndex = selected.indexOf(moduleKey);
 
   if (existingIndex >= 0) {
     if (selected.length <= 1) {
@@ -271,9 +271,9 @@ export function toggleBotCustomAbility(abilityKey) {
     selected.splice(existingIndex, 1);
   } else if (selected.length >= 3) {
     selected.shift();
-    selected.push(abilityKey);
+    selected.push(moduleKey);
   } else {
-    selected.push(abilityKey);
+    selected.push(moduleKey);
   }
 
   botBuildState.custom.modules = ensureBotLoadoutFilled({
@@ -283,7 +283,7 @@ export function toggleBotCustomAbility(abilityKey) {
   if (botBuildState.mode === "custom") {
     botBuildState.current = ensureBotLoadoutFilled(botBuildState.custom);
   }
-  renderPrematch();
+  window.dispatchEvent(new CustomEvent("p0-loadout-changed"));
 }
 
 export function getCurrentBotBuildPreview() {
@@ -337,7 +337,7 @@ export function applyBotPreset(presetKey) {
 }
 
 
-export function hasPerk(key) {
+export function hasImplant(key) {
   return loadout.implants.slice(0, 1).includes(key);
 }
 
@@ -350,10 +350,10 @@ export function getStatusDuration(duration) {
 }
 
 export function hasRuneShard(treeKey) {
-  return getSelectedRuneUltimateTree() === treeKey;
+  return getSelectedRuneCoreTree() === treeKey;
 }
 
-export function getAbilityCooldown(baseCooldown) {
+export function getModuleCooldown(baseCooldown) {
   const reduction = Math.min(0.18, getRuneValue("systems", "secondary") * 0.03);
   return baseCooldown * (1 - reduction);
 }
@@ -367,7 +367,7 @@ export function getIconMarkup(item, type) {
 export function getPerkDamageMultiplier(target = null) {
   let multiplier = 1 + getRuneValue("attack", "secondary") * 0.015;
 
-  if (hasPerk("critScanRelay") && target) {
+  if (hasImplant("critScanRelay") && target) {
     const targetStatus = getStatusState(target);
     if (targetStatus.slow > 0) {
       multiplier *= 1.12;
@@ -377,7 +377,7 @@ export function getPerkDamageMultiplier(target = null) {
     }
   }
 
-  if (hasPerk("predatorLens") && target && target.hp / target.maxHp <= 0.35) {
+  if (hasImplant("predatorLens") && target && target.hp / target.maxHp <= 0.35) {
     multiplier *= 1.1;
   }
 
@@ -387,7 +387,7 @@ export function getPerkDamageMultiplier(target = null) {
 export function getWeaponDamageMultiplier(target = null) {
   let multiplier = getPerkDamageMultiplier(target);
 
-  if (hasPerk("seqShotCalculator") && player.precisionMomentumStacks > 0) {
+  if (hasImplant("seqShotCalculator") && player.precisionMomentumStacks > 0) {
     multiplier *= 1 + player.precisionMomentumStacks * config.precisionMomentumDamagePerStack;
   }
 
@@ -396,10 +396,10 @@ export function getWeaponDamageMultiplier(target = null) {
 
 export function getBuildStats() {
   return {
-    maxHp: config.playerMaxHp + (hasPerk("scavengerPlates") ? 30 : 0) + getRuneValue("defense", "secondary") * 5,
-    damageReduction: (hasPerk("reactiveArmor") ? 0.1 : 0) + getRuneValue("defense", "secondary") * 0.008,
-    ccReduction: (hasPerk("shockBuffer") ? 0.22 : 0) + getRuneValue("defense", "secondary") * 0.018,
-    dashCooldownMultiplier: hasPerk("dashCooling") ? 0.84 : 1,
+    maxHp: config.playerMaxHp + (hasImplant("scavengerPlates") ? 30 : 0) + getRuneValue("defense", "secondary") * 5,
+    damageReduction: (hasImplant("reactiveArmor") ? 0.1 : 0) + getRuneValue("defense", "secondary") * 0.008,
+    ccReduction: (hasImplant("shockBuffer") ? 0.22 : 0) + getRuneValue("defense", "secondary") * 0.018,
+    dashCooldownMultiplier: hasImplant("dashCooling") ? 0.84 : 1,
     hasteMultiplier:
       1 +
       (player.hasteTime > 0 ? 0.1 : 0) +
@@ -408,16 +408,16 @@ export function getBuildStats() {
       getRuneValue("support", "secondary") * 0.008,
     moveMultiplier:
       1 +
-      (hasPerk("staticMomentum") && player.hasteTime > 0 ? 0.06 : 0) +
+      (hasImplant("staticMomentum") && player.hasteTime > 0 ? 0.06 : 0) +
       (player.reflexAegisSpeedTime > 0 ? config.reflexAegisMoveBonus : 0) +
       (player.lastStandTime > 0 ? config.lastStandMoveBonus : 0) +
       getRuneValue("support", "secondary") * 0.012,
-    omnivamp: hasPerk("bioDrainLink") ? 0.07 : 0,
-    abilityLeech: hasPerk("abilityLeech") ? 4 : 0,
+    omnivamp: hasImplant("bioDrainLink") ? 0.07 : 0,
+    moduleLeech: hasImplant("moduleLeech") ? 4 : 0,
     finisherBonus: getRuneValue("attack", "primary") * 0.04,
     controlledBonus: getRuneValue("attack", "primary") * 0.03,
-    outOfCombatRegen: hasPerk("combatRecovery") ? 4 : 0,
-    shieldOnBurst: hasPerk("arcFeedback") ? 16 : 0,
+    outOfCombatRegen: hasImplant("combatRecovery") ? 4 : 0,
+    shieldOnBurst: hasImplant("arcFeedback") ? 16 : 0,
   };
 }
 
@@ -432,7 +432,7 @@ export function getRemainingRunePoints() {
   return Math.max(0, config.runePoints - getSpentRunePoints());
 }
 
-export function getSelectedRuneUltimateTree() {
+export function getSelectedRuneCoreTree() {
   return (
     Object.entries(loadout.runes).find(([, tree]) => tree.ultimate > 0)?.[0] ?? null
   );
@@ -446,21 +446,21 @@ export function getActiveDashCharges() {
   return 1;
 }
 
-export function getDashProfile(mode = abilityState.dash.mode) {
+export function getDashProfile(mode = moduleState.dash.mode) {
   if (mode === "hold") {
     return {
-      duration: abilityConfig.dash.holdDuration,
-      invulnerability: abilityConfig.dash.holdInvulnerability,
-      speed: abilityConfig.dash.holdSpeed,
+      duration: moduleConfig.dash.holdDuration,
+      invulnermodule: moduleConfig.dash.holdInvulnermodule,
+      speed: moduleConfig.dash.holdSpeed,
       trailColor: "#c8ffe4",
     };
   }
 
   return {
-    duration: abilityConfig.dash.tapDuration,
-    invulnerability: abilityConfig.dash.tapInvulnerability,
-    speed: abilityConfig.dash.tapSpeed,
-    trailColor: abilityConfig.dash.trailColor,
+    duration: moduleConfig.dash.tapDuration,
+    invulnermodule: moduleConfig.dash.tapInvulnermodule,
+    speed: moduleConfig.dash.tapSpeed,
+    trailColor: moduleConfig.dash.trailColor,
   };
 }
 
@@ -471,7 +471,7 @@ export function getWeaponCooldown(weaponKey) {
 
 export function getActiveMoveSpeed() {
   const buildStats = getBuildStats();
-  const fieldBoost = abilityState.orbitalDistorter.moveBoostTime > 0 ? config.orbitalDistorterMoveBoost : 1;
+  const fieldBoost = moduleState.orbitalDistorter.moveBoostTime > 0 ? config.orbitalDistorterMoveBoost : 1;
   return config.playerSpeed * fieldBoost * buildStats.moveMultiplier;
 }
 

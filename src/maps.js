@@ -1,6 +1,6 @@
 // Map layouts, portals, collision, and spatial helpers
 import { arena, config, sandboxModes } from "./config.js";
-import { mapState, player, abilityState, bots, sandbox, survivalEnemies } from "./state.js";
+import { mapState, player, moduleState, bots, sandbox, survivalEnemies } from "./state.js";
 import { uiState } from "./state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
 import { playMapCue } from "./audio.js";
@@ -37,7 +37,7 @@ export const duelMapRegistry = {
 
 export const buildLabVisiblePools = {
   weapons: ["pulse", "axe", "shotgun", "sniper", "staff", "injector", "lance", "cannon"],
-  abilities: [
+  modules: [
     "boltLinkJavelin",
     "orbitalDistorter",
     "vGripHarpoon",
@@ -48,7 +48,7 @@ export const buildLabVisiblePools = {
     "voidCoreSingularity",
     "phaseShift",
   ],
-  perks: [
+  implants: [
     "scavengerPlates",
     "reactiveArmor",
     "dashCooling",
@@ -58,7 +58,7 @@ export const buildLabVisiblePools = {
     "precisionMomentum",
     "shockBuffer",
   ],
-  ultimates: ["phantomSplit", "revivalProtocol", "empCataclysm"],
+  cores: ["phantomSplit", "revivalProtocol", "empCataclysm"],
 };
 
 export const mapChoices = {
@@ -437,7 +437,7 @@ export function resolveCharacterBodyBlocking() {
     return;
   }
 
-  const playerIntangible = abilityState.phaseShift.time > 0 || abilityState.phaseDash.time > 0 || player.ghostTime > 0;
+  const playerIntangible = moduleState.ghostDriftModule.time > 0 || player.ghostTime > 0;
   if (playerIntangible) {
     return;
   }

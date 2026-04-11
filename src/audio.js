@@ -760,14 +760,14 @@ export function playReloadCue(owner = "player") {
   playTone({ type: "square", frequency: owner === "enemy" ? 190 : 220, sweepTo: 170, duration: 0.1, gain: 0.022 });
 }
 
-export function playAbilityCue(abilityKey, owner = "player") {
+export function playModuleCue(moduleKey, owner = "player") {
   if (owner === "player") player.combatTimer = 3.0;
   if (owner === "enemy") enemy.combatTimer = 3.0;
 
   const pan = owner === "enemy" ? 0.26 : 0;
   addCombatImpulse(owner === "enemy" ? 0.016 : 0.028);
 
-  switch (abilityKey) {
+  switch (moduleKey) {
     case "dash":
     case "phaseDash":
     case "blink":
