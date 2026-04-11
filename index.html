@@ -363,33 +363,6 @@
 
               <div class="screen-actions screen-actions--split">
                 <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
-                <button class="primary-button" id="continue-runes" type="button" onclick="handlePrematchAction('continue-runes')">Continue to Runes →</button>
-              </div>
-            </div>
-
-            <!-- ═══ RUNE SCREEN ═══ -->
-            <div class="prematch-screen" id="rune-screen">
-              <div class="screen-header">
-                <h2 class="title-slab title-slab--purple">Runes</h2>
-              </div>
-              <div class="prematch-phase-timer timer-large" id="rune-phase-timer" style="display:none"></div>
-
-              <div class="rune-holo-layout">
-                <div class="rune-holo-tree">
-                  <div class="rune-holo-bar">
-                    <span class="rune-holo-bar__budget" id="rune-points-inline">15 points remaining</span>
-                    <span class="rune-holo-bar__ult" id="rune-ultimate-inline">No ultimate selected</span>
-                    <button class="rune-reset-btn" id="rune-reset-btn" type="button">Reset</button>
-                  </div>
-                  <div id="rune-grid" class="pcb-tree-container"></div>
-                </div>
-                <div class="rune-holo-detail" id="rune-node-detail">
-                  <p class="rune-holo-detail__placeholder">Click a node to view its effect</p>
-                </div>
-              </div>
-
-              <div class="screen-actions screen-actions--split">
-                <button class="secondary-button" id="back-build" type="button" onclick="handlePrematchAction('back-build')">← Back to Build</button>
                 <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Deploy Unit</button>
               </div>
             </div>
@@ -643,10 +616,8 @@
     <!-- AUTH / SESSION GATE -->
     <div class="auth-screen" id="auth-screen" role="dialog" aria-modal="true" aria-label="Connexion">
       <canvas class="auth-canvas" id="auth-canvas"></canvas>
-      <div class="auth-scanlines"></div>
 
       <div class="auth-card">
-        <div class="auth-card-scan"></div>
         <div class="auth-corner auth-corner--tl"></div>
         <div class="auth-corner auth-corner--tr"></div>
         <div class="auth-corner auth-corner--bl"></div>
@@ -655,37 +626,27 @@
         <div class="auth-brand">
           <div class="auth-eyebrow">
             <span class="auth-eyebrow__dot"></span>
-            TACTICAL&nbsp;AUTH&nbsp;GATEWAY
-            <span class="auth-eyebrow__dot"></span>
+            ARENA&nbsp;SHELL
           </div>
           <h1 class="auth-title" id="auth-title" data-text="PROTOTYPE-0">PROTOTYPE-0</h1>
-          <p class="auth-sub">ARENA&nbsp;SHELL&nbsp;·&nbsp;v0.1.0</p>
-        </div>
-
-        <div class="auth-status">
-          <span>SYS_INIT</span>
-          <div class="auth-status__bar"><div class="auth-status__bar-fill"></div></div>
-          <span>72%</span>
+          <p class="auth-sub">v0.1.0</p>
         </div>
 
         <form class="auth-form" id="auth-form" autocomplete="off" novalidate>
           <div class="auth-field">
-            <label class="auth-field__label" for="auth-identifier">// Identifiant</label>
+            <label class="auth-field__label" for="auth-identifier">Identifiant</label>
             <input class="auth-field__input" id="auth-identifier" type="text" placeholder="TAG ou adresse e-mail" autocomplete="username" spellcheck="false" />
           </div>
           <div class="auth-field">
-            <label class="auth-field__label" for="auth-password">// Mot de passe</label>
+            <label class="auth-field__label" for="auth-password">Mot de passe</label>
             <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••••••" autocomplete="current-password" />
           </div>
-          <button class="auth-submit-btn" type="submit">[ SE&nbsp;CONNECTER ]</button>
+          <button class="auth-submit-btn" type="submit">SE&nbsp;CONNECTER</button>
         </form>
 
-        <button class="auth-forgot-btn" type="button">RÉINITIALISER L'ACCÈS</button>
-
-        <div class="auth-divider"><span>ACCÈS DIRECT</span></div>
+        <div class="auth-divider"><span>ou</span></div>
 
         <button class="auth-connect-btn" id="auth-connect-btn" type="button">
-          <span class="auth-connect-btn__icon">▶</span>
           CONTINUER EN TANT QUE SAA_BOT
         </button>
       </div>

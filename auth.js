@@ -115,7 +115,7 @@ if (readAuth() === MOCK_IDENTITY) {
   }
 
   function drawNodeNetwork() {
-    const MAX_DIST = 130;
+    const MAX_DIST = 90;
 
     for (const n of nodes) {
       n.x += n.vx;
@@ -132,7 +132,7 @@ if (readAuth() === MOCK_IDENTITY) {
         const dy = nodes[i].y - nodes[j].y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < MAX_DIST) {
-          ctx.strokeStyle = `rgba(79, 195, 247, ${(1 - d / MAX_DIST) * 0.12})`;
+          ctx.strokeStyle = `rgba(79, 195, 247, ${(1 - d / MAX_DIST) * 0.06})`;
           ctx.lineWidth = 0.5;
           ctx.beginPath();
           ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -145,7 +145,7 @@ if (readAuth() === MOCK_IDENTITY) {
     for (const n of nodes) {
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(79, 195, 247, 0.45)";
+      ctx.fillStyle = "rgba(79, 195, 247, 0.18)";
       ctx.fill();
     }
   }
@@ -153,18 +153,17 @@ if (readAuth() === MOCK_IDENTITY) {
   function loop() {
     ctx.clearRect(0, 0, W, H);
     time += 0.016;
-    drawHexGrid();
     drawNodeNetwork();
     animFrame = requestAnimationFrame(loop);
   }
 
   resize();
-  createNodes(55);
+  createNodes(22);
   loop();
 
   window.addEventListener("resize", () => {
     resize();
-    createNodes(55);
+    createNodes(22);
   });
 
   // Stop canvas when auth is dismissed to save resources
