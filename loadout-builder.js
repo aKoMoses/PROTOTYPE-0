@@ -4,13 +4,12 @@
 // ================================================================
 
 import { content } from "./src/content.js";
-import { sanitizeIconClass } from "./src/utils.js";
 
 const BUILDER_STEPS = [
   { key: "weapon",  label: "WEAPON",   slotIndex: null, zone: "arms",  prompt: "Arm Your Killing Machine",  sub: "The instrument of absolute destruction" },
-  { key: "module0", label: "Q MODULE",  slotIndex: 0,    zone: "shoulderL", prompt: "Mount Primary System",    sub: "First strike — the opening move of annihilation" },
-  { key: "module1", label: "E MODULE",  slotIndex: 1,    zone: "shoulderR", prompt: "Install Secondary Core",  sub: "Adapt. Control. Dominate." },
-  { key: "module2", label: "F MODULE",  slotIndex: 2,    zone: "core",  prompt: "Embed Tactical Override",    sub: "The edge between survival and supremacy" },
+  { key: "ability0", label: "Q MODULE",  slotIndex: 0,    zone: "shoulderL", prompt: "Mount Primary System",    sub: "First strike — the opening move of annihilation" },
+  { key: "ability1", label: "E MODULE",  slotIndex: 1,    zone: "shoulderR", prompt: "Install Secondary Core",  sub: "Adapt. Control. Dominate." },
+  { key: "ability2", label: "F MODULE",  slotIndex: 2,    zone: "core",  prompt: "Embed Tactical Override",    sub: "The edge between survival and supremacy" },
   { key: "perk",     label: "IMPLANT",  slotIndex: null, zone: "spine", prompt: "Integrate Neural Implant", sub: "A passive upgrade fused into your combat DNA" },
   { key: "ultimate", label: "REACTOR CORE", slotIndex: null, zone: "head",  prompt: "Configure Reactor Core",   sub: "When activated — nothing survives" },
 ];
@@ -72,7 +71,7 @@ function createMechSVG() {
     </line>
     <text class="mech-zone-label" data-zone-label="head" x="170" y="106">ULT</text>
 
-    <!-- SHOULDER L — Q module -->
+    <!-- SHOULDER L — Q Ability -->
     <path class="mech-zone" data-zone="shoulderL" d="
       M 98 130
       L 80 126
@@ -85,7 +84,7 @@ function createMechSVG() {
     "/>
     <text class="mech-zone-label" data-zone-label="shoulderL" x="92" y="192">Q</text>
 
-    <!-- SHOULDER R — E module -->
+    <!-- SHOULDER R — E Ability -->
     <path class="mech-zone" data-zone="shoulderR" d="
       M 242 130
       L 260 126
@@ -98,7 +97,7 @@ function createMechSVG() {
     "/>
     <text class="mech-zone-label" data-zone-label="shoulderR" x="248" y="192">E</text>
 
-    <!-- CORE — F module -->
+    <!-- CORE — F Ability -->
     <path class="mech-zone" data-zone="core" d="
       M 132 170
       L 130 142
@@ -193,9 +192,9 @@ function createBuilderState() {
     name: "",
     selections: {
       weapon: null,
-      module0: null,
-      module1: null,
-      module2: null,
+      ability0: null,
+      ability1: null,
+      ability2: null,
       perk: null,
       ultimate: null,
     },
@@ -304,9 +303,9 @@ function getContentForStep(step) {
   switch (step.key) {
     case "weapon":
       return Object.values(weapons).filter(w => w.state === "playable");
-    case "module0":
-    case "module1":
-    case "module2":
+    case "ability0":
+    case "ability1":
+    case "ability2":
       return Object.values(abilities).filter(a => a.state === "playable");
     case "perk":
       return Object.values(perks).filter(p => p.state === "playable");
@@ -341,24 +340,26 @@ function renderPanel(step) {
 
   // Filter already-selected abilities to prevent duplicates
   const selectedAbilities = [
-    builderState.selections.module0,
-    builderState.selections.module1,
-    builderState.selections.module2,
+    builderState.selections.ability0,
+    builderState.selections.ability1,
+    builderState.selections.ability2,
   ].filter(Boolean);
 
   list.innerHTML = items.map(item => {
-    const ismoduleStep = step.key.startsWith("module");
-    const alreadyPicked = ismoduleStep && selectedAbilities.includes(item.key);
+    const isAbilityStep = step.key.startsWith("ability");
+    const alreadyPicked = isAbilityStep && selectedAbilities.includes(item.key);
+
+    const iconHtml = item.iconImg
+      ? `<div class="builder-piece__icon has-img-icon" style="background-image:url('${item.iconImg}')"></div>`
+      : "";
 
     return `
       <div class="builder-piece${alreadyPicked ? " is-locked" : ""}"
            data-piece-key="${item.key}"
            style="--piece-accent: ${item.accent || "#c62828"}">
         <div class="builder-piece__header">
-          <div class="builder-piece__icon-wrap">
-            <div class="builder-piece__icon content-icon content-icon--${sanitizeIconClass(item.icon)}"></div>
-          </div>
-          <div class="builder-piece__id">
+          ${iconHtml}
+          <div class="builder-piece__header-copy">
             <div class="builder-piece__name">${escapeHtml(item.name)}</div>
             <div class="builder-piece__role">${escapeHtml(item.role || item.slotLabel || item.category || "")}</div>
           </div>
@@ -719,9 +720,9 @@ function handleForge() {
   const build = {
     weapon: builderState.selections.weapon,
     modules: [
-      builderState.selections.module0,
-      builderState.selections.module1,
-      builderState.selections.module2,
+      builderState.selections.ability0,
+      builderState.selections.ability1,
+      builderState.selections.ability2,
     ],
     implants: builderState.selections.perk ? [builderState.selections.perk] : [],
     core: builderState.selections.ultimate,

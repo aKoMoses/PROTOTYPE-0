@@ -46,18 +46,26 @@ function normalizePresetUnlockLevel(value) {
 
 export function normalizeStoredBuild(source = {}) {
   const safeSource = source && typeof source === "object" ? source : {};
-  
-  // Backward compatibility for legacy keys
-  const sourceModules = Array.isArray(safeSource.modules) ? safeSource.modules : (Array.isArray(safeSource.abilities) ? safeSource.abilities : []);
-  const implantKey = safeSource.implant ?? (Array.isArray(safeSource.implants) ? safeSource.implants[0] ?? null : (safeSource.perk ?? (Array.isArray(safeSource.perks) ? safeSource.perks[0] ?? null : null)));
+  const sourceModules = Array.isArray(safeSource.modules)
+    ? safeSource.modules
+    : (Array.isArray(safeSource.abilities) ? safeSource.abilities : []);
+  const implantKey = safeSource.implant
+    ?? safeSource.perk
+    ?? (Array.isArray(safeSource.implants) ? safeSource.implants[0] ?? null : null)
+    ?? (Array.isArray(safeSource.perks) ? safeSource.perks[0] ?? null : null);
   const coreKey = safeSource.core ?? safeSource.ultimate ?? null;
+  const modules = Array.from({ length: 3 }, (_, index) => sourceModules[index] ?? null);
+  const implants = implantKey ? [implantKey] : [];
 
   return {
     weapon: safeSource.weapon ?? null,
-    modules: Array.from({ length: 3 }, (_, index) => sourceModules[index] ?? null),
-    implants: implantKey ? [implantKey] : [],
-    cores: coreKey ? [coreKey] : [],
+    modules,
+    implants,
+    core: coreKey,
     runes: cloneRuneAllocation(safeSource.runes),
+    abilities: [...modules],
+    perks: [...implants],
+    ultimate: coreKey,
   };
 }
 

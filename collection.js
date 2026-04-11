@@ -13,6 +13,13 @@ import {
 } from "./src/progression.js";
 import { sanitizeIconClass } from "./src/utils.js";
 
+function buildIconDiv(item, iconClass, categoryClass) {
+  if (item.iconImg) {
+    return `<div class="content-icon has-img-icon${categoryClass}" style="background-image:url('${item.iconImg}')"></div>`;
+  }
+  return `<div class="content-icon content-icon--${iconClass}${categoryClass}"></div>`;
+}
+
 const CATEGORY_META = Object.fromEntries(collectionGroups.map((group) => [group.key, group]));
 
 const CATEGORY_ORDER = collectionGroups.map((group) => group.key);
@@ -157,7 +164,7 @@ function renderCollection() {
         <strong class="bp-current-card__title">Niveau ${currentLevel}</strong>
         <div class="bp-current-card__item">
           <div class="bp-current-card__icon-wrap">
-            <div class="content-icon content-icon--${iconClass}${categoryClass}"></div>
+            ${buildIconDiv(featuredEntry.item, iconClass, categoryClass)}
       </div>
           <div class="bp-current-card__item-copy">
             <span class="bp-current-card__item-state">${escapeHtml(stateLabel)}</span>
@@ -222,7 +229,7 @@ function renderBpNode(entry, currentLevel) {
         data-key="${escapeAttr(entry.key)}"
         aria-label="${escapeAttr(entry.item.name)}"
       >
-        <div class="content-icon content-icon--${iconClass}${categoryClass}"></div>
+        ${buildIconDiv(entry.item, iconClass, categoryClass)}
       </button>
       <span class="bp-node__name">${escapeHtml(entry.item.name)}</span>
     </div>
@@ -248,7 +255,7 @@ function openCard(group, key) {
     <div class="bp-card" style="--collection-accent: ${escapeAttr(accent)};">
       <div class="bp-card__visual">
         <div class="bp-card__icon-wrap">
-          <div class="content-icon content-icon--${iconClass}${categoryClass}"></div>
+          ${buildIconDiv(entry.item, iconClass, categoryClass)}
         </div>
         <span class="bp-card__state-badge ${entry.unlocked ? "is-unlocked" : "is-locked"}">
           ${entry.unlocked ? "Débloqué" : `Niv. ${entry.unlockLevel}`}
@@ -295,7 +302,7 @@ function getDetailChips(group, item) {
     return [item.rhythm, item.rangeProfile, item.commitment].filter(Boolean).slice(0, 3);
   }
 
-  if (group === "abilities") {
+  if (group === "modules") {
     return [item.role, item.input, item.category].filter(Boolean).slice(0, 3);
   }
 

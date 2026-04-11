@@ -34,9 +34,9 @@ function cloneRuneAllocation(source = null) {
 function clonePlayerLoadout(source = loadout) {
   return {
     weapon: source.weapon ?? null,
-    abilities: Array.isArray(source.abilities) ? [...source.abilities] : [],
-    perks: Array.isArray(source.perks) ? [...source.perks] : [],
-    ultimate: source.ultimate ?? null,
+    modules: Array.isArray(source.modules) ? [...source.modules] : (Array.isArray(source.abilities) ? [...source.abilities] : []),
+    implants: Array.isArray(source.implants) ? [...source.implants] : (Array.isArray(source.perks) ? [...source.perks] : []),
+    core: source.core ?? source.ultimate ?? null,
     avatar: source.avatar ?? "drifter",
     weaponSkin: source.weaponSkin ?? "stock",
     runes: cloneRuneAllocation(source.runes),
@@ -47,9 +47,9 @@ function cloneBotLoadout(source = null) {
   const safeSource = source ?? {};
   return {
     weapon: safeSource.weapon ?? null,
-    abilities: Array.isArray(safeSource.abilities) ? [...safeSource.abilities] : [],
-    perk: safeSource.perk ?? null,
-    ultimate: safeSource.ultimate ?? null,
+    modules: Array.isArray(safeSource.modules) ? [...safeSource.modules] : (Array.isArray(safeSource.abilities) ? [...safeSource.abilities] : []),
+    implant: safeSource.implant ?? safeSource.perk ?? null,
+    core: safeSource.core ?? safeSource.ultimate ?? null,
     presetKey: safeSource.presetKey ?? null,
     name: safeSource.name ?? null,
     role: safeSource.role ?? null,
@@ -65,9 +65,9 @@ function applyPlayerLoadout(source) {
   }
 
   loadout.weapon = source.weapon ?? loadout.weapon;
-  loadout.abilities = Array.isArray(source.abilities) ? [...source.abilities] : [...loadout.abilities];
-  loadout.perks = Array.isArray(source.perks) ? [...source.perks] : [...loadout.perks];
-  loadout.ultimate = source.ultimate ?? loadout.ultimate;
+  loadout.modules = Array.isArray(source.modules) ? [...source.modules] : (Array.isArray(source.abilities) ? [...source.abilities] : [...loadout.modules]);
+  loadout.implants = Array.isArray(source.implants) ? [...source.implants] : (Array.isArray(source.perks) ? [...source.perks] : [...loadout.implants]);
+  loadout.core = source.core ?? source.ultimate ?? loadout.core;
   loadout.avatar = source.avatar ?? loadout.avatar;
   loadout.weaponSkin = source.weaponSkin ?? loadout.weaponSkin;
   loadout.runes = cloneRuneAllocation(source.runes);

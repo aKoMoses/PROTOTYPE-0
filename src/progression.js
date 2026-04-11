@@ -10,21 +10,21 @@ const PROGRESSION_GROUPS = collectionGroups.map((group) => group.key);
 const INITIAL_UNLOCKS = {
   weapons: ["pulse", "shotgun", "sniper"],
   modules: [...buildLabVisiblePools.modules],
-  implants: ["reactiveArmor", "executionRelay", "dashCooling"],
-  cores: ["phantomSplit"],
+  implants: ["reactiveArmor", "dashCoolingLoop"],
+  cores: ["phantomCore"],
 };
 
 const LEVEL_UNLOCKS = [
   { level: 2, group: "weapons", key: "axe" },
   { level: 3, group: "implants", key: "scavengerPlates" },
-  { level: 4, group: "cores", key: "revivalProtocol" },
+  { level: 4, group: "cores", key: "rebootProtocol" },
   { level: 5, group: "weapons", key: "staff" },
-  { level: 6, group: "implants", key: "omnivampCore" },
-  { level: 7, group: "cores", key: "empCataclysm" },
+  { level: 6, group: "implants", key: "bioDrainLink" },
+  { level: 7, group: "cores", key: "empCataclysmCore" },
   { level: 8, group: "weapons", key: "injector" },
-  { level: 9, group: "implants", key: "lastStandBuffer" },
+  { level: 9, group: "implants", key: "lastStandProtocol" },
   { level: 10, group: "weapons", key: "lance" },
-  { level: 11, group: "implants", key: "precisionMomentum" },
+  { level: 11, group: "implants", key: "adrenalInjector" },
   { level: 12, group: "weapons", key: "cannon" },
   { level: 13, group: "implants", key: "shockBuffer" },
 ];
@@ -167,9 +167,9 @@ export function getProgressionSnapshot() {
     level: progressionState.level,
     unlockedKeys: {
       weapons: [...progressionState.unlockedKeys.weapons],
-      abilities: [...progressionState.unlockedKeys.abilities],
-      perks: [...progressionState.unlockedKeys.perks],
-      ultimates: [...progressionState.unlockedKeys.ultimates],
+      modules: [...(progressionState.unlockedKeys.modules ?? [])],
+      implants: [...(progressionState.unlockedKeys.implants ?? [])],
+      cores: [...(progressionState.unlockedKeys.cores ?? [])],
     },
   };
 }
@@ -241,14 +241,15 @@ export function getCollectionEntries(group) {
 
 function normalizeBuildLike(source = {}) {
   const safeSource = source && typeof source === "object" ? source : {};
-  const abilitySource = Array.isArray(safeSource.abilities) ? safeSource.abilities : [];
-  const perkKey = safeSource.perk ?? (Array.isArray(safeSource.perks) ? safeSource.perks[0] ?? null : null);
+  const moduleSource = Array.isArray(safeSource.modules) ? safeSource.modules : (Array.isArray(safeSource.abilities) ? safeSource.abilities : []);
+  const implantKey = safeSource.implant ?? safeSource.perk ?? (Array.isArray(safeSource.implants) ? safeSource.implants[0] ?? null : null) ?? (Array.isArray(safeSource.perks) ? safeSource.perks[0] ?? null : null);
+  const coreKey = safeSource.core ?? safeSource.ultimate ?? null;
 
   return {
     weapon: safeSource.weapon ?? null,
-    abilities: Array.from({ length: 3 }, (_, index) => abilitySource[index] ?? null),
-    perks: perkKey ? [perkKey] : [],
-    ultimate: safeSource.ultimate ?? null,
+    modules: Array.from({ length: 3 }, (_, index) => moduleSource[index] ?? null),
+    implants: implantKey ? [implantKey] : [],
+    core: coreKey,
   };
 }
 
@@ -270,13 +271,12 @@ export function getMissingUnlocksForBuild(source = {}) {
     });
   }
 
-  const modules = Array.isArray(normalized.modules) ? normalized.modules : [];
-  modules.forEach((moduleKey, index) => {
+  normalized.modules.forEach((moduleKey, index) => {
     if (!moduleKey || isContentUnlocked("modules", moduleKey)) {
       return;
     }
     missing.push({
-      slot: `Module ${index + 1}`,
+      slot: `Ability ${index + 1}`,
       group: "modules",
       key: moduleKey,
       requiredLevel: getUnlockLevelForContent("modules", moduleKey),
@@ -284,10 +284,10 @@ export function getMissingUnlocksForBuild(source = {}) {
     });
   });
 
-  const implantKey = (Array.isArray(normalized.implants) ? normalized.implants[0] : null) ?? null;
+  const implantKey = normalized.implants[0] ?? null;
   if (implantKey && !isContentUnlocked("implants", implantKey)) {
     missing.push({
-      slot: "Implant",
+      slot: "Perk",
       group: "implants",
       key: implantKey,
       requiredLevel: getUnlockLevelForContent("implants", implantKey),
@@ -295,14 +295,13 @@ export function getMissingUnlocksForBuild(source = {}) {
     });
   }
 
-  const coreKey = (Array.isArray(normalized.cores) ? normalized.cores[0] : null) ?? normalized.core ?? null;
-  if (coreKey && !isContentUnlocked("cores", coreKey)) {
+  if (normalized.core && !isContentUnlocked("cores", normalized.core)) {
     missing.push({
-      slot: "Core",
+      slot: "Ultimate",
       group: "cores",
-      key: coreKey,
-      requiredLevel: getUnlockLevelForContent("cores", coreKey),
-      name: content.cores[coreKey]?.name ?? coreKey,
+      key: normalized.core,
+      requiredLevel: getUnlockLevelForContent("cores", normalized.core),
+      name: content.cores[normalized.core]?.name ?? normalized.core,
     });
   }
 

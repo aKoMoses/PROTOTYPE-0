@@ -319,3 +319,5 @@ export const moduleConfig = {
     vGripHarpoon: 0.18,
   },
 };
+
+export const abilityConfig = moduleConfig;

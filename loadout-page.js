@@ -8,48 +8,33 @@ import { openBuilder } from "./loadout-builder.js";
 import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, writeStoredLoadouts } from "./src/loadouts/storage.js";
 import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "./src/progression.js";
 import { hideClickTooltip, registerClickTooltip } from "./src/ui/tooltip-manager.js";
+import { sanitizeIconClass } from "./src/utils.js";
 
 const GAMEPLAY_TAGS = ["aggro", "control", "poke", "burst", "tank", "support", "hybrid", "cheese"];
 
 let loadouts = readStoredLoadouts();
 let activeTagFilter = null;
 let confirmingDeleteId = null;
+
+const root = document.getElementById("loadout-root");
+const grid = document.getElementById("loadout-grid");
+const createBtn = document.getElementById("loadout-create-btn");
+const tagBar = document.getElementById("loadout-tag-bar");
+
 let activeModalId = null;
 
-let lpRoot, lpGrid, lpCreateBtn, lpTagBar;
-
-let initialized = false;
-
-export function init() {
-  lpRoot = document.getElementById("loadout-root");
-  lpGrid = document.getElementById("loadout-grid");
-  lpCreateBtn = document.getElementById("loadout-create-btn");
-  lpTagBar = document.getElementById("loadout-tag-bar");
-
-  if (!lpRoot || initialized) {
-    if (lpRoot) render();
-    return;
-  }
-
-  lpCreateBtn?.addEventListener("click", handleCreate);
-  lpTagBar?.addEventListener("click", handleTagBarClick);
-  lpGrid?.addEventListener("click", handleGridClick);
-  lpGrid?.addEventListener("focusout", handleNameBlur);
-  lpGrid?.addEventListener("keydown", handleNameKey);
+if (root) {
+  createBtn?.addEventListener("click", handleCreate);
+  tagBar?.addEventListener("click", handleTagBarClick);
+  grid?.addEventListener("click", handleGridClick);
+  grid?.addEventListener("focusout", handleNameBlur);
+  grid?.addEventListener("keydown", handleNameKey);
   window.addEventListener("builder-forge", handleBuilderForge);
   window.addEventListener("p0-loadouts-changed", syncStoredLoadouts);
   window.addEventListener(PROGRESSION_CHANGED_EVENT, render);
   document.addEventListener("click", handleModalClick);
-  
-  initialized = true;
   render();
 }
-
-// Auto-init if we happen to be in a context where the root is already present
-if (document.getElementById("loadout-root")) {
-  init();
-}
-
 
 function handleModalClick(event) {
   const modal = event.target.closest(".loadout-modal");
@@ -206,7 +191,7 @@ async function handleEquip(id) {
     render();
   }
 
-  const card = lpGrid?.querySelector(`[data-loadout-id="${id}"]`);
+  const card = grid?.querySelector(`[data-loadout-id="${id}"]`);
   const button = card?.querySelector(".loadout-card__equip");
   if (!button) {
     return;
@@ -319,7 +304,7 @@ function getFilteredLoadouts() {
 }
 
 function render() {
-  if (!lpGrid) {
+  if (!grid) {
     return;
   }
 
@@ -332,7 +317,7 @@ function render() {
 
   const filtered = getFilteredLoadouts();
   if (!filtered.length) {
-    lpGrid.innerHTML = `
+    grid.innerHTML = `
       <div class="loadout-empty">
         <div class="loadout-empty__icon">⬡</div>
         <span class="loadout-empty__text">${activeTagFilter ? "No loadouts with this tag" : "No loadouts yet — forge your first build"}</span>
@@ -340,7 +325,7 @@ function render() {
     return;
   }
 
-  lpGrid.innerHTML = filtered.map((entry) => renderCard(entry)).join("");
+  grid.innerHTML = filtered.map((entry) => renderCard(entry)).join("");
   
   if (activeModalId) {
     const modalEntry = loadouts.find((e) => e.id === activeModalId);
@@ -359,11 +344,11 @@ function bindLoadoutModalTooltips() {
 }
 
 function renderTagBar() {
-  if (!lpTagBar) {
+  if (!tagBar) {
     return;
   }
 
-  lpTagBar.innerHTML = GAMEPLAY_TAGS
+  tagBar.innerHTML = GAMEPLAY_TAGS
     .map((tag) => `<button class="loadout-tag${activeTagFilter === tag ? " is-active" : ""}" data-tag="${tag}">${tag}</button>`)
     .join("");
 }
@@ -382,16 +367,20 @@ function renderCard(entry) {
 
   const slotKeys = [
     { key: 'W', val: build.weapon, type: 'weapon' },
-    { key: 'Q', val: build.modules[0], type: 'module' },
-    { key: 'E', val: build.modules[1], type: 'module' },
-    { key: 'F', val: build.modules[2], type: 'module' },
-    { key: 'P', val: build.implants[0], type: 'implant' },
-    { key: 'R', val: build.cores[0], type: 'core' },
+    { key: 'Q', val: build.modules[0], type: 'ability' },
+    { key: 'E', val: build.modules[1], type: 'ability' },
+    { key: 'F', val: build.modules[2], type: 'ability' },
+    { key: 'P', val: build.implants[0], type: 'perk' },
+    { key: 'R', val: build.core, type: 'ultimate' },
   ];
 
   const previewSlots = slotKeys.map((s) => {
-    const filled = !!s.val;
-    return `<span class="loadout-card__slot${filled ? ' is-filled' : ''}" title="${filled ? escapeHtml(getContentName(s.type, s.val)) : 'Empty'}">${s.key}</span>`;
+    const name = s.val ? getContentName(s.type, s.val) : 'Empty';
+    return `
+      <span class="loadout-card__slot${s.val ? ' is-filled' : ''}" title="${escapeHtml(name)}">
+        <span class="loadout-card__slot-key">${s.key}</span>
+        ${renderContentIcon(s.type, s.val, 'loadout-card__slot-icon')}
+      </span>`;
   }).join('');
 
   return `
@@ -435,11 +424,11 @@ function renderModal(entry) {
 
         <div class="loadout-modal__build">
           ${renderBuildRow("W", build.weapon, "weapon")}
-          ${renderBuildRow("Q", build.modules[0], "module")}
-          ${renderBuildRow("E", build.modules[1], "module")}
-          ${renderBuildRow("F", build.modules[2], "module")}
-          ${renderBuildRow("P", build.implants[0], "implant")}
-          ${renderBuildRow("R", build.cores[0] || build.ultimate, "core")}
+          ${renderBuildRow("Q", build.modules[0], "ability")}
+          ${renderBuildRow("E", build.modules[1], "ability")}
+          ${renderBuildRow("F", build.modules[2], "ability")}
+          ${renderBuildRow("P", build.implants[0], "perk")}
+          ${renderBuildRow("R", build.core, "ultimate")}
         </div>
 
         <button class="loadout-modal__equip${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-action="view-details" ${isLocked ? "disabled" : ""}>${isLocked ? `LOCKED LV ${requiredLevel}` : "EQUIP"}</button>
@@ -453,7 +442,37 @@ function renderBuildRow(key, itemKey, type) {
   const desc = itemKey ? getContentDesc(type, itemKey) : null;
   const tooltipText = buildItemTooltip(key, type, itemKey, name, desc);
   const tooltip = tooltipText ? ` data-tooltip="${escapeHtml(tooltipText)}"` : "";
-  return `<div class="loadout-build-item"${tooltip}><span class="loadout-build-key">${key}</span><span class="loadout-build-label">${name || "—"}</span></div>`;
+  return `
+    <div class="loadout-build-item"${tooltip}>
+      <div class="loadout-build-item__head">
+        <span class="loadout-build-key">${key}</span>
+        ${renderContentIcon(type, itemKey, 'loadout-build-item__icon')}
+      </div>
+      <span class="loadout-build-label">${name || "—"}</span>
+    </div>`;
+}
+
+function renderContentIcon(type, key, className = "") {
+  const item = key ? getContentItem(type, key) : null;
+  const classes = ["content-icon", className];
+
+  if (!item) {
+    classes.push("content-icon--empty-slot");
+    return `<span class="${classes.filter(Boolean).join(" ")}" aria-hidden="true"></span>`;
+  }
+
+  if (item.category) {
+    classes.push(`content-icon--${item.category}`);
+  }
+
+  if (item.iconImg) {
+    classes.push("has-img-icon");
+    return `<span class="${classes.filter(Boolean).join(" ")}" style="background-image:url('${item.iconImg}')" aria-hidden="true"></span>`;
+  }
+
+  const iconKey = sanitizeIconClass(item.icon ?? `${type}-${item.key}`);
+  classes.push(`content-icon--${iconKey}`);
+  return `<span class="${classes.filter(Boolean).join(" ")}" aria-hidden="true"></span>`;
 }
 
 function buildItemTooltip(slotKey, type, itemKey, name, desc) {
@@ -463,11 +482,11 @@ function buildItemTooltip(slotKey, type, itemKey, name, desc) {
 
   const typeLabel = type === "weapon"
     ? "Weapon"
-    : type === "module"
-      ? "Module"
-      : type === "implant"
-        ? "Implant"
-        : "Core reactor";
+    : type === "ability"
+      ? "Ability"
+      : type === "perk"
+        ? "Perk"
+        : "Ultimate";
 
   const item = getContentItem(type, itemKey);
   const lines = [`${slotKey} · ${typeLabel}: ${name}`];
@@ -480,7 +499,7 @@ function buildItemTooltip(slotKey, type, itemKey, name, desc) {
     if (typeof item?.cooldown === "number") lines.push(`Cadence: ${formatSeconds(item.cooldown)}s`);
   }
 
-  if (type === "module") {
+  if (type === "ability") {
     if (item?.input) lines.push(`Input: ${item.input}`);
     if (item?.role) lines.push(`Role: ${item.role}`);
     if (item?.category) lines.push(`Category: ${formatLabel(item.category)}`);
@@ -501,9 +520,9 @@ function buildItemTooltip(slotKey, type, itemKey, name, desc) {
 function getContentItem(type, key) {
   const group = type === "weapon"
     ? "weapons"
-    : type === "module" || type === "module"
+    : type === "ability"
       ? "modules"
-      : type === "implant" || type === "perk"
+      : type === "perk"
         ? "implants"
         : "cores";
 
@@ -572,9 +591,9 @@ function formatSeconds(value) {
 function getContentDesc(type, key) {
   const group = type === "weapon"
     ? "weapons"
-    : type === "module" || type === "module"
+    : type === "ability"
       ? "modules"
-      : type === "implant" || type === "perk"
+      : type === "perk"
         ? "implants"
         : "cores";
 
@@ -593,9 +612,9 @@ function renderSlot(type, key, fallback) {
 function getContentName(type, key) {
   const group = type === "weapon"
     ? "weapons"
-    : type === "module" || type === "module"
+    : type === "ability"
       ? "modules"
-      : type === "implant" || type === "perk"
+      : type === "perk"
         ? "implants"
         : "cores";
 

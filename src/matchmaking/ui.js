@@ -1,8 +1,9 @@
 import "./matchmaking.css";
 
 import { content, weapons } from "../content.js";
+import { sanitizeIconClass } from "../utils.js";
 
-function getmoduleName(key) {
+function getAbilityName(key) {
   return content.modules[key]?.name ?? key;
 }
 
@@ -18,6 +19,69 @@ function getWeaponName(key) {
   return weapons[key]?.name ?? key;
 }
 
+function normalizeRosterLoadout(source = {}) {
+  return {
+    weapon: source.weapon ?? null,
+    modules: Array.isArray(source.modules) ? source.modules : (Array.isArray(source.abilities) ? source.abilities : []),
+    implants: Array.isArray(source.implants) ? source.implants : (Array.isArray(source.perks) ? source.perks : []),
+    core: source.core ?? source.ultimate ?? null,
+    avatar: source.avatar ?? "drifter",
+  };
+}
+
+function getContentItem(type, key) {
+  const group = type === "weapon"
+    ? "weapons"
+    : type === "ability"
+      ? "modules"
+      : type === "perk"
+        ? "implants"
+        : "cores";
+
+  return content[group]?.[key] ?? null;
+}
+
+function renderContentIcon(type, key, className = "") {
+  const item = key ? getContentItem(type, key) : null;
+  const classes = ["content-icon", className];
+
+  if (!item) {
+    classes.push("content-icon--empty-slot");
+    return `<span class="${classes.filter(Boolean).join(" ")}" aria-hidden="true"></span>`;
+  }
+
+  if (item.category) {
+    classes.push(`content-icon--${item.category}`);
+  }
+
+  if (item.iconImg) {
+    classes.push("has-img-icon");
+    return `<span class="${classes.filter(Boolean).join(" ")}" style="background-image:url('${item.iconImg}')" aria-hidden="true"></span>`;
+  }
+
+  classes.push(`content-icon--${sanitizeIconClass(item.icon ?? `${type}-${item.key}`)}`);
+  return `<span class="${classes.filter(Boolean).join(" ")}" aria-hidden="true"></span>`;
+}
+
+function renderLoadoutSlot(slotKey, type, itemKey) {
+  const itemName = itemKey
+    ? (type === "weapon"
+      ? getWeaponName(itemKey)
+      : type === "ability"
+        ? getAbilityName(itemKey)
+        : type === "perk"
+          ? getPerkName(itemKey)
+          : getUltimateName(itemKey))
+    : "Empty";
+
+  return `
+    <div class="lobby-card__slot" title="${itemName}">
+      <span class="lobby-card__slot-key">${slotKey}</span>
+      ${renderContentIcon(type, itemKey, "lobby-card__slot-icon")}
+      <span class="lobby-card__slot-name">${itemName}</span>
+    </div>`;
+}
+
 export function renderMatchmakingRoster(container, roster) {
   if (!container) {
     return;
@@ -28,9 +92,8 @@ export function renderMatchmakingRoster(container, roster) {
     const card = document.createElement("article");
     card.className = "lobby-card";
     card.style.animationDelay = `${i * 100}ms`;
-    const avatarClass = `content-icon--avatar-${entry.loadout.avatar ?? "drifter"}`;
-    const moduleNames = (entry.loadout.modules ?? []).slice(0, 3).map(getmoduleName).join(", ");
-    const perkKey = entry.loadout.implants?.[0] ?? null;
+    const normalizedLoadout = normalizeRosterLoadout(entry.loadout);
+    const avatarClass = `content-icon--avatar-${normalizedLoadout.avatar}`;
     const readyClass = entry.ready ? "is-ready" : "is-waiting";
     const readyLabel = entry.ready ? "READY" : "NOT READY";
 
@@ -45,12 +108,14 @@ export function renderMatchmakingRoster(container, roster) {
         </div>
       </div>
       <span class="lobby-card__ready ${readyClass}" aria-label="${entry.name} is ${readyLabel.toLowerCase()}">${readyLabel}</span>
-      <ul class="lobby-card__loadout">
-        <li>WPN: ${getWeaponName(entry.loadout.weapon)}</li>
-        <li>MODS: ${moduleNames || "None"}</li>
-        <li>IMPL: ${perkKey ? getPerkName(perkKey) : "None"}</li>
-        <li>CORE: ${getUltimateName(entry.loadout.cores?.[0] || entry.loadout.core || entry.loadout.ultimate)}</li>
-      </ul>
+      <div class="lobby-card__loadout">
+        ${renderLoadoutSlot("W", "weapon", normalizedLoadout.weapon)}
+        ${renderLoadoutSlot("Q", "ability", normalizedLoadout.modules[0] ?? null)}
+        ${renderLoadoutSlot("E", "ability", normalizedLoadout.modules[1] ?? null)}
+        ${renderLoadoutSlot("F", "ability", normalizedLoadout.modules[2] ?? null)}
+        ${renderLoadoutSlot("P", "perk", normalizedLoadout.implants[0] ?? null)}
+        ${renderLoadoutSlot("R", "ultimate", normalizedLoadout.core)}
+      </div>
     `;
     container.appendChild(card);
   });

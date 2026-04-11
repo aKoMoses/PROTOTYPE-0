@@ -229,6 +229,8 @@ export const moduleState = {
   },
 };
 
+export const abilityState = moduleState;
+
 
 export function createBot({
   kind,
@@ -476,6 +478,7 @@ export const explosions = [];
 export const orbitalDistorterFields = [];
 export const absorbBursts = [];
 export const moduleProjectiles = [];
+export const abilityProjectiles = moduleProjectiles;
 export const deployableTraps = [];
 export const deployableTurrets = [];
 export const supportZones = [];

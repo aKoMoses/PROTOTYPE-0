@@ -1,10 +1,10 @@
 // Phantom Split clone runtime
-import { config, moduleConfig } from "../config.js";
+import { config, abilityConfig } from "../config.js";
 import { weapons } from "../content.js";
 import {
   player,
   playerClone,
-  moduleState,
+  abilityState,
   input,
   bullets,
   enemyBullets,
@@ -368,17 +368,17 @@ function executeCloneBoltLinkJavelin(action) {
 
 function executeCloneOrbitalDistorter(action) {
   const holdCast = action.mode === "hold";
-  const radius = holdCast ? Math.max(72, moduleConfig.field.hold.radius * 0.72) : Math.max(52, moduleConfig.field.tap.radius * 0.72);
+  const radius = holdCast ? Math.max(72, abilityConfig.field.hold.radius * 0.72) : Math.max(52, abilityConfig.field.tap.radius * 0.72);
   const centerX = holdCast ? action.aimX ?? playerClone.x : playerClone.x;
   const centerY = holdCast ? action.aimY ?? playerClone.y : playerClone.y;
   orbitalDistorterFields.push({
     x: centerX,
     y: centerY,
     radius,
-    duration: holdCast ? moduleConfig.field.hold.duration * 0.55 : moduleConfig.field.tap.duration * 0.7,
-    life: holdCast ? moduleConfig.field.hold.duration * 0.55 : moduleConfig.field.tap.duration * 0.7,
-    slow: holdCast ? moduleConfig.field.hold.slow * 0.6 : moduleConfig.field.tap.slow * 0.55,
-    damageReduction: holdCast ? 0 : moduleConfig.field.tap.damageReduction * 0.35,
+    duration: holdCast ? abilityConfig.field.hold.duration * 0.55 : abilityConfig.field.tap.duration * 0.7,
+    life: holdCast ? abilityConfig.field.hold.duration * 0.55 : abilityConfig.field.tap.duration * 0.7,
+    slow: holdCast ? abilityConfig.field.hold.slow * 0.6 : abilityConfig.field.tap.slow * 0.55,
+    damageReduction: holdCast ? 0 : abilityConfig.field.tap.damageReduction * 0.35,
     anchor: "world",
     color: holdCast ? "#b4c7ff" : "#9fdbff",
     glow: holdCast ? "#dce7ff" : "#dbf4ff",
@@ -547,8 +547,8 @@ function executeCloneOverdriveServos() {
   addCloneFlash("#9ef7cb", 18);
 }
 
-function executeCloneModule(action) {
-  switch (action.moduleKey) {
+function executeCloneAbility(action) {
+  switch (action.abilityKey) {
     case "boltLinkJavelin":
       executeCloneBoltLinkJavelin(action);
       break;
@@ -591,6 +591,9 @@ function executeCloneModule(action) {
     case "hologramDecoy":
       executeCloneHologram();
       break;
+    case "overdriveServos":
+      executeCloneOverdriveServos();
+      break;
     default:
       break;
   }
@@ -631,8 +634,8 @@ function executeCloneAction(action) {
   }
 
   playerClone.facing = action.facing ?? playerClone.facing;
-  if (action.type === "module") {
-    executeCloneModule(action);
+  if (action.type === "ability") {
+    executeCloneAbility(action);
     return;
   }
   if (action.type === "weapon") {
@@ -668,10 +671,10 @@ export function queuePhantomWeapon(action) {
   });
 }
 
-export function queuePhantomModule(moduleKey, action = {}) {
+export function queuePhantomAbility(abilityKey, action = {}) {
   queueCloneAction({
-    type: "module",
-    moduleKey,
+    type: "ability",
+    abilityKey,
     mode: action.mode ?? null,
     facing: action.facing ?? player.facing,
     aimX: action.aimX ?? input.mouseX,
@@ -699,7 +702,7 @@ export function resetPhantomClone({ silent = true } = {}) {
   playerClone.injectorMarks = 0;
   playerClone.injectorMarkTime = 0;
   clearStatusEffects(playerClone);
-  moduleState.core.phantomTime = 0;
+  abilityState.core.phantomTime = 0;
   if (!silent) {
     statusLine.textContent = "Phantom copy collapsed.";
   }
@@ -743,7 +746,7 @@ export function spawnPhantomClone() {
   playerClone.injectorMarkTime = 0;
   clearStatusEffects(playerClone);
 
-  moduleState.core.phantomTime = config.phantomDuration;
+  abilityState.core.phantomTime = config.phantomDuration;
   player.decoyTime = Math.max(player.decoyTime, config.phantomDuration);
   player.ghostTime = Math.max(player.ghostTime, 0.7);
   addAfterimage(player.x, player.y, player.facing, player.radius + 8, "#caa3ff");
@@ -797,7 +800,7 @@ export function updatePhantomClone(dt) {
   }
 
   playerClone.life = Math.max(0, playerClone.life - dt);
-  moduleState.ultimate.phantomTime = Math.max(moduleState.ultimate.phantomTime, playerClone.life);
+  abilityState.core.phantomTime = Math.max(abilityState.core.phantomTime, playerClone.life);
   playerClone.shieldTime = Math.max(0, playerClone.shieldTime - dt);
   playerClone.shieldGuardTime = Math.max(0, (playerClone.shieldGuardTime ?? 0) - dt);
   playerClone.ghostTime = Math.max(0, playerClone.ghostTime - dt);

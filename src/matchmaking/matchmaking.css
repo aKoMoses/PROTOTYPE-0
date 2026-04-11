@@ -120,12 +120,43 @@
 }
 
 .lobby-card__loadout {
-  margin: 0;
-  padding-left: 16px;
   display: grid;
-  gap: 3px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.lobby-card__slot {
+  display: grid;
+  grid-template-columns: 16px 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(201, 162, 39, 0.18);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lobby-card__slot-key {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--gothic-gold, #c9a227);
+  text-transform: uppercase;
+}
+
+.lobby-card__slot-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.lobby-card__slot-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--gothic-text-dimmed, rgba(232, 225, 215, 0.64));
-  font-size: 0.74rem;
+  font-size: 0.7rem;
 }
 
 @media (max-width: 680px) {

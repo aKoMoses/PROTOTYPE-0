@@ -1,6 +1,6 @@
 // Map layouts, portals, collision, and spatial helpers
 import { arena, config, sandboxModes } from "./config.js";
-import { mapState, player, moduleState, bots, sandbox, survivalEnemies } from "./state.js";
+import { mapState, player, abilityState, bots, sandbox, survivalEnemies } from "./state.js";
 import { uiState } from "./state/app-state.js";
 import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle, pointToSegmentDistance } from "./utils.js";
 import { playMapCue } from "./audio.js";
@@ -46,19 +46,24 @@ export const buildLabVisiblePools = {
     "emPulseEmitter",
     "swarmMissileRack",
     "voidCoreSingularity",
-    "phaseShift",
+    "ghostDriftModule",
+    "spectreProjector",
+    "overdriveServos",
+    "jetBackThruster",
   ],
   implants: [
     "scavengerPlates",
     "reactiveArmor",
-    "dashCooling",
-    "executionRelay",
-    "omnivampCore",
-    "lastStandBuffer",
-    "precisionMomentum",
+    "dashCoolingLoop",
+    "lastStandProtocol",
+    "seqShotCalculator",
     "shockBuffer",
+    "bioDrainLink",
+    "critScanRelay",
+    "adrenalInjector",
+    "predatorLens",
   ],
-  cores: ["phantomSplit", "revivalProtocol", "empCataclysm"],
+  cores: ["phantomCore", "rebootProtocol", "empCataclysmCore", "lockdownMatrix", "berserkCore"],
 };
 
 export const mapChoices = {
@@ -437,7 +442,7 @@ export function resolveCharacterBodyBlocking() {
     return;
   }
 
-  const playerIntangible = moduleState.ghostDriftModule.time > 0 || player.ghostTime > 0;
+  const playerIntangible = abilityState.phaseDash.time > 0 || player.ghostTime > 0;
   if (playerIntangible) {
     return;
   }

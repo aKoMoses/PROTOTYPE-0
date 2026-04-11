@@ -140,6 +140,7 @@ export const ruleMirrorOff = document.getElementById("rule-mirror-off");
 export const ruleMirrorOn = document.getElementById("rule-mirror-on");
 export const botWeaponGrid = document.getElementById("bot-weapon-grid");
 export const botModuleGrid = document.getElementById("bot-module-grid");
+export const botAbilityGrid = botModuleGrid;
 export const botBuildSummary = document.getElementById("bot-build-summary");
 export const botPresetGrid = document.getElementById("bot-preset-grid");
 export const playerPresetGrid = document.getElementById("player-preset-grid");

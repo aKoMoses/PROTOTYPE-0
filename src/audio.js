@@ -844,6 +844,8 @@ export function playModuleCue(moduleKey, owner = "player") {
   }
 }
 
+export const playAbilityCue = playModuleCue;
+
 export function playStatusCue(statusType, target = "enemy") {
   const pan = target === "player" ? -0.14 : 0.14;
   if (statusType === "stun") {

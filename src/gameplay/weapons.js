@@ -1,7 +1,7 @@
 // Weapon attack functions (all 6 weapons)
-import { config, moduleConfig, sandboxModes } from "../config.js";
+import { config, abilityConfig, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, enemy, moduleState, sandbox, bullets, input, orbitalDistorterFields } from "../state.js";
+import { player, enemy, abilityState, sandbox, bullets, input, orbitalDistorterFields } from "../state.js";
 import { loadout } from "../state/app-state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
@@ -653,4 +653,94 @@ export function attackElectricAxe() {
         : "Electro Axe finisher charging. Commit to the path.";
 }
 
-
+export function resetPlayer({ silent = false } = {}) {
+  const spawn = getPlayerSpawn();
+  const buildStats = getBuildStats();
+  player.x = spawn.x;
+  player.y = spawn.y;
+  player.hp = buildStats.maxHp;
+  player.alive = true;
+  player.weapon = loadout.weapon;
+  player.ammo = getPulseMagazineSize();
+  player.reloadTime = 0;
+  player.fireCooldown = 0;
+  player.velocityX = 0;
+  player.velocityY = 0;
+  player.attackStartupTime = 0;
+  player.attackCommitTime = 0;
+  player.attackCommitX = 0;
+  player.attackCommitY = 0;
+  player.attackCommitSpeed = 0;
+  player.activeAxeStrike = null;
+  player.pendingAxeStrike = null;
+  player.comboStep = 0;
+  player.comboTimer = 0;
+  player.lastMissTime = 0;
+  player.shield = 0;
+  player.shieldTime = 0;
+  player.hasteTime = 0;
+  player.afterDashHasteTime = 0;
+  player.hitReactionTime = 0;
+  player.hitReactionX = 0;
+  player.hitReactionY = 0;
+  player.ghostTime = 0;
+  player.failsafeReady = true;
+  player.defenseFailsafeReady = true;
+  player.lastStandTime = 0;
+  player.lastStandDecayPerSecond = 0;
+  player.precisionMomentumStacks = 0;
+  player.precisionMomentumFlash = 0;
+  player.revivalPrimed = 0;
+  player.decoyTime = 0;
+  player.injectorMarks = 0;
+  player.injectorMarkTime = 0;
+  resetPlayerWeaponMomentum();
+  clearStatusEffects(player);
+  abilityState.dash.inputHeld = false;
+  abilityState.dash.holdTime = 0;
+  abilityState.dash.activeTime = 0;
+  abilityState.dash.invulnerabilityTime = 0;
+  abilityState.dash.charges = 1;
+  abilityState.dash.rechargeTimer = 0;
+  abilityState.dash.upgraded = false;
+  abilityState.boltLinkJavelin.cooldown = 0;
+  abilityState.boltLinkJavelin.activeTime = 0;
+  abilityState.boltLinkJavelin.recastReady = false;
+  abilityState.boltLinkJavelin.targetKind = null;
+  abilityState.boltLinkJavelin.aimX = 0;
+  abilityState.boltLinkJavelin.aimY = 0;
+  abilityState.boltLinkJavelin.lastDirectionX = 0;
+  abilityState.boltLinkJavelin.lastDirectionY = 0;
+  abilityState.boltLinkJavelin.pendingCooldown = false;
+  abilityState.orbitalDistorter.cooldown = 0;
+  abilityState.orbitalDistorter.charging = false;
+  abilityState.orbitalDistorter.chargeTime = 0;
+  abilityState.orbitalDistorter.mode = "tap";
+  abilityState.orbitalDistorter.moveBoostTime = 0;
+  abilityState.vGripHarpoon.cooldown = 0;
+  abilityState.vGripHarpoon.phase = "idle";
+  abilityState.vGripHarpoon.projectile = null;
+  abilityState.vGripHarpoon.targetKind = null;
+  abilityState.vGripHarpoon.pullStopRequested = false;
+  abilityState.vGripHarpoon.tetherPulse = 0;
+  abilityState.hexPlateProjector.cooldown = 0;
+  abilityState.emPulseEmitter.cooldown = 0;
+  abilityState.jetBackThruster.cooldown = 0;
+  abilityState.chainLightning.cooldown = 0;
+  abilityState.blink.cooldown = 0;
+  abilityState.phaseDash.cooldown = 0;
+  abilityState.phaseDash.time = 0;
+  abilityState.swarmMissileRack.cooldown = 0;
+  abilityState.railShot.cooldown = 0;
+  abilityState.voidCoreSingularity.cooldown = 0;
+  abilityState.phaseDash.cooldown = 0;
+  abilityState.phaseDash.time = 0;
+  abilityState.spectreProjector.cooldown = 0;
+  abilityState.overdriveServos.cooldown = 0;
+  abilityState.core.cooldown = 0;
+  abilityState.core.phantomTime = 0;
+  orbitalDistorterFields.length = 0;
+  if (!silent) {
+    statusLine.textContent = "Player reset. Re-engage.";
+  }
+}
