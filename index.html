@@ -86,12 +86,25 @@
             <div class="home-center">
               <div class="home-tile-group home-tile-group--loadout">
                 <button class="home-tile home-tile--loadout" type="button" data-shell-view="loadouts" aria-label="Loadouts">
-                  <img class="home-tile__loadout-img" src="./assets/loadout_icon.png" alt="" />
+                  <div class="home-tile__corner home-tile__corner--tl"></div>
+                  <div class="home-tile__corner home-tile__corner--br"></div>
+                  <div class="home-tile__icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <polygon points="20,4 36,20 20,36 4,20" stroke="currentColor" stroke-width="1.6"/>
+                      <line x1="12" y1="16" x2="28" y2="16" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+                      <line x1="10" y1="20" x2="30" y2="20" stroke="currentColor" stroke-width="1.6"/>
+                      <line x1="12" y1="24" x2="28" y2="24" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+                      <circle cx="20" cy="4" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="20" cy="36" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="36" cy="20" r="1.5" fill="currentColor" opacity="0.7"/>
+                      <circle cx="4" cy="20" r="1.5" fill="currentColor" opacity="0.7"/>
+                    </svg>
+                  </div>
                 </button>
                 <div class="home-tile-label">
-                  <div class="home-tile-label__rule"></div>
-                  <span class="home-tile-label__name">LOADOUT</span>
-
+                  <div class="home-tile-label__rule home-tile-label__rule--purple"></div>
+                  <span class="home-tile-label__name home-tile-label__name--purple">LOADOUT</span>
+                  <span class="home-tile-label__sub">Builds &amp; Presets</span>
                 </div>
               </div>
             </div>
