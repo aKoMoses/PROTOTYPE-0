@@ -167,110 +167,6 @@
   animation-delay: 300ms;
 }
 
-/* QUEUE SCREEN: Center hexagon pulsing */
-#queue-screen.prematch-screen--active {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  padding: 60px 40px;
-}
-
-.queue-center-widget {
-  position: relative;
-  width: 280px;
-  height: 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.queue-hexagon {
-  position: absolute;
-  inset: 0;
-  border: 2px solid rgba(201, 162, 39, 0.4);
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  animation: rotate-slow 6s linear infinite, pulse-scale 2s ease-in-out infinite;
-}
-
-.queue-hexagon-inner {
-  position: absolute;
-  inset: 20px;
-  border: 1px solid rgba(201, 162, 39, 0.2);
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-}
-
-.queue-timer-display {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-}
-
-.queue-corner-widget {
-  position: absolute;
-  padding: 12px 16px;
-  background: rgba(15, 21, 32, 0.8);
-  border: 1px solid rgba(201, 162, 39, 0.25);
-  border-radius: 2px;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gothic-text-muted);
-}
-
-.queue-corner-widget.top-left {
-  top: 40px;
-  left: 40px;
-}
-
-.queue-corner-widget.top-right {
-  top: 40px;
-  right: 40px;
-}
-
-/* FOUND SCREEN: Full-screen alert overlay */
-#game-found-screen.prematch-screen--active {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 71, 87, 0.2) 0%,
-    rgba(255, 107, 53, 0.15) 100%
-  );
-  animation: none; /* Will add glitch effect via pseudo-elements */
-}
-
-.found-alert-box {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  max-width: 500px;
-  animation: slide-in-top 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-/* Scan-line effect overlay */
-.found-alert-box::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(255, 100, 70, 0.1) 0px,
-    rgba(255, 100, 70, 0.1) 2px,
-    transparent 2px,
-    transparent 4px
-  );
-  animation: shimmer-scan 0.3s linear infinite;
-}
-
 /* MAP SCREEN: Card cascade layout */
 #map-screen.prematch-screen--active {
   padding: 40px;
@@ -335,170 +231,6 @@
   border-radius: 2px;
 }
 
-/* LOBBY SCREEN: Full roster showcase */
-#lobby-screen.prematch-screen--active {
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
-}
-
-.lobby-header-info {
-  text-align: center;
-  animation: slide-in-top 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.lobby-roster {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-  width: 100%;
-  max-width: 1100px;
-}
-
-.lobby-card {
-  animation: slide-in-bottom 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-
-.lobby-card:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.lobby-card:nth-child(2) {
-  animation-delay: 100ms;
-}
-
-.lobby-card:nth-child(3) {
-  animation-delay: 200ms;
-}
-
-.lobby-card:nth-child(4) {
-  animation-delay: 300ms;
-}
-
-.lobby-card:nth-child(5) {
-  animation-delay: 400ms;
-}
-
-.lobby-card:nth-child(6) {
-  animation-delay: 500ms;
-}
-
-.lobby-ready-button {
-  padding: 16px 32px;
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  animation: pulse-glow 1.4s ease-in-out infinite;
-}
-
-/* LOADING SCREEN: Fullscreen cinematic */
-#loading-screen.prematch-screen--active {
-  padding: 0;
-  display: grid;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    135deg,
-    rgba(10, 14, 22, 0.95) 0%,
-    rgba(10, 16, 28, 0.98) 100%
-  );
-  position: relative;
-  overflow: hidden;
-}
-
-.loading-grid-overlay {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(0deg, transparent 24%, rgba(201, 162, 39, 0.05) 25%, rgba(201, 162, 39, 0.05) 26%, transparent 27%, transparent 74%, rgba(201, 162, 39, 0.05) 75%, rgba(201, 162, 39, 0.05) 76%, transparent 77%, transparent),
-    linear-gradient(90deg, transparent 24%, rgba(201, 162, 39, 0.05) 25%, rgba(201, 162, 39, 0.05) 26%, transparent 27%, transparent 74%, rgba(201, 162, 39, 0.05) 75%, rgba(201, 162, 39, 0.05) 76%, transparent 77%, transparent);
-  background-size: 60px 60px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.loading-scan-lines {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(255, 107, 53, 0.03) 0px,
-    rgba(255, 107, 53, 0.03) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-  z-index: 2;
-  animation: shimmer-scan 2s linear infinite;
-}
-
-.loading-main-content {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: center;
-}
-
-.loading-timer-huge {
-  font-size: clamp(3rem, 8vw, 5rem);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gothic-orange-bright);
-  font-family: "Courier New", monospace;
-  text-shadow: 0 0 30px rgba(255, 107, 53, 0.6);
-  animation: glitch-flicker 0.5s ease-in-out infinite;
-}
-
-.loading-roster-corners {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 5;
-  display: grid;
-  grid-template:
-    "tl . tr"
-    ". . ."
-    "bl . br" / 1fr 1fr 1fr;
-  padding: 40px;
-  gap: 20px;
-}
-
-.loading-portrait-slot {
-  width: 120px;
-  height: 120px;
-  animation: slide-in-top 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-
-.loading-portrait-slot.tl {
-  grid-area: tl;
-  animation-delay: 0ms;
-}
-
-.loading-portrait-slot.tr {
-  grid-area: tr;
-  animation-delay: 100ms;
-  animation-direction: reverse;
-}
-
-.loading-portrait-slot.bl {
-  grid-area: bl;
-  animation-delay: 200ms;
-  animation-direction: reverse;
-}
-
-.loading-portrait-slot.br {
-  grid-area: br;
-  animation-delay: 300ms;
-}
-
 /* ============================================
    RESPONSIVE BREAKPOINTS
    ============================================ */
@@ -508,15 +240,6 @@
   .map-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .lobby-roster {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .queue-corner-widget {
-    font-size: 0.65rem;
-    padding: 10px 12px;
-  }
 }
 
 @media (max-width: 768px) {
@@ -525,11 +248,8 @@
   }
 
   #mode-screen.prematch-screen--active,
-  #queue-screen.prematch-screen--active,
   #map-screen.prematch-screen--active,
-  #build-screen.prematch-screen--active,
-  #lobby-screen.prematch-screen--active,
-  #loading-screen.prematch-screen--active {
+  #build-screen.prematch-screen--active {
     padding: 24px;
     gap: 16px;
   }
@@ -545,50 +265,14 @@
     animation: slide-in-bottom 0.5s cubic-bezier(0.23, 1, 0.32, 1) both !important;
     animation-delay: 0ms !important;
   }
-
-  .lobby-roster {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-
-  .lobby-card {
-    animation: slide-in-bottom 0.5s cubic-bezier(0.23, 1, 0.32, 1) both !important;
-    animation-delay: 0ms !important;
-  }
-
-  .queue-hexagon,
-  .queue-hexagon-inner {
-    width: 200px;
-    height: 200px;
-  }
-
-  .queue-corner-widget {
-    display: none; /* Hide corner widgets on mobile */
-  }
-
-  .loading-roster-corners {
-    display: none; /* Stack portraits differently on mobile */
-  }
 }
 
 @media (max-width: 480px) {
   #mode-screen.prematch-screen--active,
-  #queue-screen.prematch-screen--active,
   #map-screen.prematch-screen--active,
-  #build-screen.prematch-screen--active,
-  #lobby-screen.prematch-screen--active,
-  #loading-screen.prematch-screen--active {
+  #build-screen.prematch-screen--active {
     padding: 16px;
     gap: 12px;
-  }
-
-  .queue-center-widget {
-    width: 180px;
-    height: 180px;
-  }
-
-  .lobby-roster {
-    grid-template-columns: 1fr;
   }
 
   .timer-large {
@@ -604,11 +288,7 @@
   .prematch-screen,
   .mode-card,
   .map-card,
-  .lobby-card,
-  .loading-portrait-slot,
-  .queue-hexagon,
-  .queue-hexagon-inner,
-  #queue-screen.prematch-screen--active .queue-center-widget {
+  #build-screen.prematch-screen--active {
     animation: none !important;
   }
 

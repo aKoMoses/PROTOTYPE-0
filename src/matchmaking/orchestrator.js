@@ -30,18 +30,6 @@ export class PrematchOrchestrator {
   }
 
   resetState() {
-    this.uiState.matchmaking.active = false;
-    this.uiState.matchmaking.phase = "idle";
-    this.uiState.matchmaking.queueRemaining = 0;
-    this.uiState.matchmaking.queueSafetyRemaining = 0;
-    this.uiState.matchmaking.foundRemaining = 0;
-    this.uiState.matchmaking.buildRemaining = 0;
-    this.uiState.matchmaking.lobbyRemaining = 0;
-    this.uiState.matchmaking.loadingRemaining = 0;
-    this.uiState.matchmaking.accepted = false;
-    this.uiState.matchmaking.playerReady = false;
-    this.uiState.matchmaking.mapKey = "electroGallery";
-    this.uiState.matchmaking.roster = [];
     this.previousPhaseKey = null;
   }
 

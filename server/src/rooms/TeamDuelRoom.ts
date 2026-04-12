@@ -8,6 +8,11 @@ import {
   type BotDifficulty,
   type CombatantSnapshot,
 } from "../../../src/lib/ai/teamDuelDecision";
+import {
+  getTeamDuelBotArchetypeForSlot,
+  type BotCombatRole,
+} from "../../../src/lib/ai/teamDuelArchetypes";
+import { weapons } from "../../../src/content.js";
 
 const ARENA_W = 1600;
 const ARENA_H = 900;
@@ -31,6 +36,10 @@ const PERSIST_BASE_RETRY_MS = 500;
 const TEAM_SIZE = 2;
 const REQUIRED_PLAYERS = TEAM_SIZE * 2;
 const BOT_SESSION_PREFIX = "bot:";
+const BOT_DASH_DURATION_MS = 220;
+const BOT_DASH_SPEED_MULTIPLIER = 2.15;
+const BOT_DASH_COOLDOWN_MS = 1_700;
+const BOT_BURST_FIRE_COOLDOWN_MS = 95;
 
 interface InputPayload {
   dx: number;
@@ -57,7 +66,19 @@ interface PlayerRuntimeState {
   team: number;
   slotIndex: number;
   isBot: boolean;
+  botRole: BotCombatRole | null;
   botDifficulty: BotDifficulty | null;
+  weaponKey: string | null;
+  hasGrapple: boolean;
+  hasShield: boolean;
+  hasEmp: boolean;
+  dashEndsAt: number;
+  dashCooldownUntil: number;
+  dashVectorX: number;
+  dashVectorY: number;
+  burstShotsRemaining: number;
+  focusTargetId: string | null;
+  postAttackMoveMultiplier: number;
 }
 
 interface ExpectedPlayerState {
@@ -215,7 +236,19 @@ export class TeamDuelRoom extends Room {
       team: expectedPlayer.team,
       slotIndex: expectedPlayer.slotIndex,
       isBot: false,
+      botRole: null,
       botDifficulty: null,
+      weaponKey: null,
+      hasGrapple: false,
+      hasShield: false,
+      hasEmp: false,
+      dashEndsAt: 0,
+      dashCooldownUntil: 0,
+      dashVectorX: 0,
+      dashVectorY: 0,
+      burstShotsRemaining: 0,
+      focusTargetId: null,
+      postAttackMoveMultiplier: 1,
     });
     this.participantUserIds.set(client.sessionId, auth.id);
     this.joinedUserIds.add(auth.id);
@@ -297,6 +330,14 @@ export class TeamDuelRoom extends Room {
       player.hp = PLAYER_MAX_HP;
       player.alive = true;
       player.connected = runtime.isBot ? true : player.connected;
+      runtime.lastFireAt = 0;
+      runtime.dashEndsAt = 0;
+      runtime.dashCooldownUntil = 0;
+      runtime.dashVectorX = 0;
+      runtime.dashVectorY = 0;
+      runtime.burstShotsRemaining = 0;
+      runtime.focusTargetId = null;
+      runtime.postAttackMoveMultiplier = 1;
     });
 
     this._broadcastBullets();
@@ -373,7 +414,7 @@ export class TeamDuelRoom extends Room {
       if (!input) return;
 
       player.facing = input.facing;
-      this._applyMovement(player, input.dx, input.dy, dtSec);
+      this._applyMovement(player, runtime, input.dx, input.dy, dtSec);
     });
 
     const survivingBullets: Bullet[] = [];
@@ -471,15 +512,15 @@ export class TeamDuelRoom extends Room {
     this._broadcastBullets();
   }
 
-  private _tryFire(sessionId: string, requestedAngle: unknown) {
-    if (this.state.phase !== "active") return;
+  private _tryFire(sessionId: string, requestedAngle: unknown, cooldownOverrideMs = FIRE_COOLDOWN_MS) {
+    if (this.state.phase !== "active") return false;
 
     const runtime = this.playerRuntime.get(sessionId);
     const player = this.state.players.get(sessionId);
-    if (!runtime || !player?.alive || !player.connected) return;
+    if (!runtime || !player?.alive || !player.connected) return false;
 
     const now = Date.now();
-    if (now - runtime.lastFireAt < FIRE_COOLDOWN_MS) return;
+    if (now - runtime.lastFireAt < cooldownOverrideMs) return false;
 
     const angle = this._normalizeAngle(
       Number.isFinite(requestedAngle as number) ? Number(requestedAngle) : player.facing,
@@ -496,6 +537,7 @@ export class TeamDuelRoom extends Room {
       vy: Math.sin(angle) * BULLET_SPEED,
       life: BULLET_LIFETIME,
     });
+    return true;
   }
 
   private _broadcastBullets() {
@@ -536,6 +578,7 @@ export class TeamDuelRoom extends Room {
     const team = slot < TEAM_SIZE ? 0 : 1;
     const slotIndex = slot % TEAM_SIZE;
     const spawn = this._getSpawnPosition(team, slotIndex);
+    const preset = getTeamDuelBotArchetypeForSlot(slot);
 
     const player = new PlayerState();
     player.x = spawn.x;
@@ -546,7 +589,7 @@ export class TeamDuelRoom extends Room {
     player.isBot = true;
     player.team = team;
     player.roundScore = 0;
-    player.displayName = `Bot IA ${slot + 1}`;
+    player.displayName = `${preset.displayName} ${slot + 1}`;
 
     this.state.players.set(sessionId, player);
     this.playerRuntime.set(sessionId, {
@@ -556,7 +599,19 @@ export class TeamDuelRoom extends Room {
       team,
       slotIndex,
       isBot: true,
+      botRole: preset.role,
       botDifficulty: difficulty,
+      weaponKey: preset.weaponKey,
+      hasGrapple: preset.hasGrapple,
+      hasShield: preset.hasShield,
+      hasEmp: preset.hasEmp,
+      dashEndsAt: 0,
+      dashCooldownUntil: 0,
+      dashVectorX: 0,
+      dashVectorY: 0,
+      burstShotsRemaining: 0,
+      focusTargetId: null,
+      postAttackMoveMultiplier: 1,
     });
   }
 
@@ -567,34 +622,80 @@ export class TeamDuelRoom extends Room {
       const player = this.state.players.get(sessionId);
       if (!player?.alive) return;
 
+      const allies = this._getCombatantSnapshots(sessionId, player.team, "ally");
+      const opponents = this._getCombatantSnapshots(sessionId, player.team, "opponent");
+      const focusTarget = this._selectBotFocusTarget(sessionId, allies, opponents, runtime.focusTargetId);
+      runtime.focusTargetId = focusTarget?.id ?? null;
+
+      const targetDistance = focusTarget
+        ? Math.hypot(focusTarget.x - player.x, focusTarget.y - player.y)
+        : null;
+      const lowHpThreshold = PLAYER_MAX_HP * 0.34;
+      const selfLow = player.hp <= lowHpThreshold;
+      const shouldPunish = Boolean(
+        focusTarget && ((focusTarget.isExposed ?? false) || (focusTarget.hp ?? PLAYER_MAX_HP) <= PLAYER_MAX_HP * 0.45),
+      );
+      const shouldPressure = Boolean(
+        focusTarget &&
+        (focusTarget.hasLineOfSight !== false) &&
+        targetDistance !== null &&
+        targetDistance <= 420 &&
+        (shouldPunish || !selfLow),
+      );
+      const shouldKite = Boolean(
+        focusTarget &&
+        targetDistance !== null &&
+        (selfLow || targetDistance < 230 || (focusTarget.threatLevel ?? 0) >= 0.22),
+      );
+
       const decision = decideTeamDuelBotAction({
         self: {
           ...this._toCombatantSnapshot(sessionId, player),
           cooldowns: {
-            primary: Math.max(0, FIRE_COOLDOWN_MS - (Date.now() - runtime.lastFireAt)),
+            primary: Math.max(0, Math.max(FIRE_COOLDOWN_MS, BOT_BURST_FIRE_COOLDOWN_MS) - (Date.now() - runtime.lastFireAt)),
           },
         },
-        allies: this._getCombatantSnapshots(player.team, "ally", sessionId),
-        opponents: this._getCombatantSnapshots(player.team, "opponent"),
+        allies,
+        opponents,
         difficulty: runtime.botDifficulty ?? "normal",
-        strafeDirection: this._getBotStrafeDirection(sessionId),
+        strafeDirection: this._getBotStrafeDirection(sessionId, player, allies, focusTarget),
         aimJitterRoll: Math.random() - 0.5,
+        weaponKey: runtime.weaponKey ?? weapons.pulse.key,
+        focusTargetId: runtime.focusTargetId,
+        shouldPunish,
+        shouldPressure,
+        shouldKite,
+        hasGrapple: runtime.hasGrapple,
+        hasShield: runtime.hasShield,
+        hasEmp: runtime.hasEmp,
+        postAttackMoveMultiplier: runtime.postAttackMoveMultiplier,
       });
 
       player.facing = decision.facing;
-      this._applyMovement(player, decision.movementX, decision.movementY, dtSec);
+      this._maybeTriggerBotDash(runtime, player, focusTarget, decision);
+      this._applyMovement(player, runtime, decision.movementX, decision.movementY, dtSec);
+      runtime.postAttackMoveMultiplier = decision.fireAngle !== null ? 1.2 : 1;
 
       if (decision.fireAngle !== null) {
-        this._tryFire(sessionId, decision.fireAngle);
+        const cooldownMs = runtime.burstShotsRemaining > 0 ? BOT_BURST_FIRE_COOLDOWN_MS : FIRE_COOLDOWN_MS;
+        if (this._tryFire(sessionId, decision.fireAngle, cooldownMs)) {
+          if (runtime.burstShotsRemaining > 0) {
+            runtime.burstShotsRemaining = Math.max(0, runtime.burstShotsRemaining - 1);
+          } else {
+            runtime.burstShotsRemaining = Math.max(0, decision.burstShots - 1);
+          }
+        }
+      } else {
+        runtime.burstShotsRemaining = 0;
       }
     });
   }
 
-  private _getCombatantSnapshots(team: number, relation: "ally" | "opponent", excludeSessionId?: string) {
+  private _getCombatantSnapshots(viewerSessionId: string, team: number, relation: "ally" | "opponent") {
     const snapshots: CombatantSnapshot[] = [];
 
     this.state.players.forEach((candidate, sessionId) => {
-      if (excludeSessionId && sessionId === excludeSessionId) {
+      if (sessionId === viewerSessionId) {
         return;
       }
 
@@ -603,13 +704,15 @@ export class TeamDuelRoom extends Room {
         return;
       }
 
-      snapshots.push(this._toCombatantSnapshot(sessionId, candidate));
+      snapshots.push(this._toCombatantSnapshot(sessionId, candidate, viewerSessionId));
     });
 
     return snapshots;
   }
 
-  private _toCombatantSnapshot(sessionId: string, player: PlayerState): CombatantSnapshot {
+  private _toCombatantSnapshot(sessionId: string, player: PlayerState, viewerSessionId?: string): CombatantSnapshot {
+    const runtime = this.playerRuntime.get(sessionId);
+    const viewerRuntime = viewerSessionId ? this.playerRuntime.get(viewerSessionId) : null;
     return {
       id: sessionId,
       team: player.team,
@@ -619,21 +722,266 @@ export class TeamDuelRoom extends Room {
       connected: player.connected,
       hp: player.hp,
       maxHp: PLAYER_MAX_HP,
-      hasLineOfSight: true,
-      isExposed: player.alive && player.connected,
+      hasLineOfSight: viewerSessionId ? this._hasLineOfSight(viewerSessionId, sessionId) : true,
+      isExposed: player.alive && player.connected && this._isCombatantExposed(sessionId),
+      threatLevel: this._getThreatLevel(sessionId, player),
+      targetPriorityBonus: viewerRuntime?.focusTargetId === sessionId ? 0.18 : runtime?.focusTargetId === sessionId ? 0.06 : 0,
     };
   }
 
-  private _getBotStrafeDirection(sessionId: string) {
+  private _getBotStrafeDirection(
+    sessionId: string,
+    player: PlayerState,
+    allies: CombatantSnapshot[],
+    target: CombatantSnapshot | null,
+  ) {
     let hash = 0;
     for (let index = 0; index < sessionId.length; index += 1) {
       hash = (hash * 31 + sessionId.charCodeAt(index)) | 0;
     }
 
-    return ((Math.floor(Date.now() / 900) + hash) & 1) === 0 ? -1 : 1;
+    const baselineDirection = ((Math.floor(Date.now() / 900) + hash) & 1) === 0 ? -1 : 1;
+    if (!target) {
+      return baselineDirection;
+    }
+
+    const targetDx = target.x - player.x;
+    const targetDy = target.y - player.y;
+    const targetDistance = Math.hypot(targetDx, targetDy) || 1;
+    const sideLeftX = targetDy / targetDistance;
+    const sideLeftY = -targetDx / targetDistance;
+    const sideRightX = -sideLeftX;
+    const sideRightY = -sideLeftY;
+
+    const leftScore = this._scoreBotStrafeSide(player, allies, sideLeftX, sideLeftY);
+    const rightScore = this._scoreBotStrafeSide(player, allies, sideRightX, sideRightY);
+
+    if (Math.abs(leftScore - rightScore) < 6) {
+      return baselineDirection;
+    }
+
+    return leftScore > rightScore ? -1 : 1;
   }
 
-  private _applyMovement(player: PlayerState, rawDx: number, rawDy: number, dtSec: number) {
+  private _selectBotFocusTarget(
+    sessionId: string,
+    allies: CombatantSnapshot[],
+    opponents: CombatantSnapshot[],
+    previousTargetId: string | null,
+  ) {
+    const previous = previousTargetId
+      ? opponents.find((candidate) => candidate.id === previousTargetId && candidate.alive)
+      : null;
+    if (previous && (previous.hasLineOfSight !== false || (previous.hp ?? PLAYER_MAX_HP) <= PLAYER_MAX_HP * 0.38)) {
+      return previous;
+    }
+
+    const coordinatedTargetId = this._getTeamFocusTargetId(sessionId);
+
+    return opponents
+      .filter((candidate) => candidate.alive)
+      .sort((left, right) => {
+        const leftScore =
+          (left.isExposed ? 2 : 0) +
+          ((left.hp ?? PLAYER_MAX_HP) <= PLAYER_MAX_HP * 0.45 ? 1 : 0) +
+          (left.hasLineOfSight !== false ? 1 : 0) +
+          (left.id === coordinatedTargetId ? 1.35 : 0) +
+          this._getBotPeelPriority(left, allies);
+        const rightScore =
+          (right.isExposed ? 2 : 0) +
+          ((right.hp ?? PLAYER_MAX_HP) <= PLAYER_MAX_HP * 0.45 ? 1 : 0) +
+          (right.hasLineOfSight !== false ? 1 : 0) +
+          (right.id === coordinatedTargetId ? 1.35 : 0) +
+          this._getBotPeelPriority(right, allies);
+        return rightScore - leftScore;
+      })[0] ?? null;
+  }
+
+  private _getTeamFocusTargetId(sessionId: string) {
+    const runtime = this.playerRuntime.get(sessionId);
+    if (!runtime) {
+      return null;
+    }
+
+    const focusCounts = new Map<string, number>();
+    this.playerRuntime.forEach((candidateRuntime, candidateSessionId) => {
+      if (candidateSessionId === sessionId || candidateRuntime.team !== runtime.team) {
+        return;
+      }
+
+      if (!candidateRuntime.focusTargetId) {
+        return;
+      }
+
+      focusCounts.set(candidateRuntime.focusTargetId, (focusCounts.get(candidateRuntime.focusTargetId) ?? 0) + 1);
+    });
+
+    let bestTargetId: string | null = null;
+    let bestCount = 0;
+    focusCounts.forEach((count, targetId) => {
+      if (count > bestCount) {
+        bestTargetId = targetId;
+        bestCount = count;
+      }
+    });
+
+    return bestTargetId;
+  }
+
+  private _getBotPeelPriority(candidate: CombatantSnapshot, allies: CombatantSnapshot[]) {
+    let bestPriority = 0;
+
+    for (const ally of allies) {
+      const allyMaxHp = Math.max(1, ally.maxHp ?? ally.hp ?? 1);
+      const allyHp = Math.max(0, ally.hp ?? allyMaxHp);
+      const healthRatio = allyHp / allyMaxHp;
+      if (healthRatio > 0.45) {
+        continue;
+      }
+
+      const distance = Math.hypot(candidate.x - ally.x, candidate.y - ally.y);
+      if (distance <= 320) {
+        bestPriority = Math.max(bestPriority, (1 - healthRatio) * 1.2);
+      }
+    }
+
+    return bestPriority;
+  }
+
+  private _scoreBotStrafeSide(player: PlayerState, allies: CombatantSnapshot[], directionX: number, directionY: number) {
+    const probeDistance = 88;
+    const probeX = player.x + directionX * probeDistance;
+    const probeY = player.y + directionY * probeDistance;
+    const edgePadding = Math.min(probeX, ARENA_W - probeX, probeY, ARENA_H - probeY);
+    let allyClearance = 0;
+
+    for (const ally of allies) {
+      const distance = Math.hypot(probeX - ally.x, probeY - ally.y);
+      allyClearance += Math.min(distance, 180);
+    }
+
+    return edgePadding + allyClearance * 0.35;
+  }
+
+  private _maybeTriggerBotDash(runtime: PlayerRuntimeState, player: PlayerState, target: CombatantSnapshot | null, decision: ReturnType<typeof decideTeamDuelBotAction>) {
+    if (!decision.abilityIntent.dash || Date.now() < runtime.dashCooldownUntil) {
+      return;
+    }
+
+    const targetDx = target ? target.x - player.x : Math.cos(player.facing);
+    const targetDy = target ? target.y - player.y : Math.sin(player.facing);
+    const distance = Math.hypot(targetDx, targetDy) || 1;
+    const forwardX = targetDx / distance;
+    const forwardY = targetDy / distance;
+    const strafeX = -forwardY;
+    const strafeY = forwardX;
+
+    switch (decision.abilityIntent.dashDirection) {
+      case "forward":
+        runtime.dashVectorX = forwardX;
+        runtime.dashVectorY = forwardY;
+        break;
+      case "backward":
+        runtime.dashVectorX = -forwardX;
+        runtime.dashVectorY = -forwardY;
+        break;
+      case "strafe-left":
+        runtime.dashVectorX = -strafeX;
+        runtime.dashVectorY = -strafeY;
+        break;
+      case "strafe-right":
+        runtime.dashVectorX = strafeX;
+        runtime.dashVectorY = strafeY;
+        break;
+      default:
+        return;
+    }
+
+    runtime.dashEndsAt = Date.now() + BOT_DASH_DURATION_MS;
+    runtime.dashCooldownUntil = Date.now() + BOT_DASH_COOLDOWN_MS;
+    runtime.postAttackMoveMultiplier = 1.28;
+  }
+
+  private _hasLineOfSight(sourceSessionId: string, targetSessionId: string) {
+    const source = this.state.players.get(sourceSessionId);
+    const target = this.state.players.get(targetSessionId);
+    if (!source?.alive || !target?.alive) {
+      return false;
+    }
+
+    let blocked = false;
+    this.state.players.forEach((candidate, candidateSessionId) => {
+      if (blocked || !candidate.alive) return;
+      if (candidateSessionId === sourceSessionId || candidateSessionId === targetSessionId) return;
+
+      const distance = this._distancePointToSegment(candidate.x, candidate.y, source.x, source.y, target.x, target.y);
+      const nearSource = Math.hypot(candidate.x - source.x, candidate.y - source.y) <= PLAYER_RADIUS * 1.5;
+      const nearTarget = Math.hypot(candidate.x - target.x, candidate.y - target.y) <= PLAYER_RADIUS * 1.5;
+      if (!nearSource && !nearTarget && distance < PLAYER_RADIUS * 1.2) {
+        blocked = true;
+      }
+    });
+
+    return !blocked;
+  }
+
+  private _isCombatantExposed(sessionId: string) {
+    const player = this.state.players.get(sessionId);
+    if (!player?.alive) {
+      return false;
+    }
+
+    let nearbyAllies = 0;
+    let visibleOpponents = 0;
+    this.state.players.forEach((candidate, candidateSessionId) => {
+      if (!candidate.alive || candidateSessionId === sessionId) return;
+      const distance = Math.hypot(candidate.x - player.x, candidate.y - player.y);
+      if (candidate.team === player.team) {
+        if (distance < 190) {
+          nearbyAllies += 1;
+        }
+        return;
+      }
+
+      if (distance < 560 && this._hasLineOfSight(candidateSessionId, sessionId)) {
+        visibleOpponents += 1;
+      }
+    });
+
+    return visibleOpponents > 0 && nearbyAllies === 0;
+  }
+
+  private _getThreatLevel(sessionId: string, player: PlayerState) {
+    let visibleOpponents = 0;
+    let closestOpponentDistance = Number.POSITIVE_INFINITY;
+
+    this.state.players.forEach((candidate, candidateSessionId) => {
+      if (!candidate.alive || candidate.team === player.team) return;
+      const distance = Math.hypot(candidate.x - player.x, candidate.y - player.y);
+      closestOpponentDistance = Math.min(closestOpponentDistance, distance);
+      if (this._hasLineOfSight(candidateSessionId, sessionId)) {
+        visibleOpponents += 1;
+      }
+    });
+
+    const pressure = closestOpponentDistance < 220 ? 0.26 : closestOpponentDistance < 380 ? 0.18 : 0.1;
+    return Math.min(0.38, pressure + visibleOpponents * 0.04);
+  }
+
+  private _distancePointToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx === 0 && dy === 0) {
+      return Math.hypot(px - x1, py - y1);
+    }
+
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+    const projX = x1 + dx * t;
+    const projY = y1 + dy * t;
+    return Math.hypot(px - projX, py - projY);
+  }
+
+  private _applyMovement(player: PlayerState, runtime: PlayerRuntimeState, rawDx: number, rawDy: number, dtSec: number) {
     let dx = rawDx;
     let dy = rawDy;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -642,8 +990,15 @@ export class TeamDuelRoom extends Room {
       dy /= length;
     }
 
-    player.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_W - PLAYER_RADIUS, player.x + dx * PLAYER_SPEED * dtSec));
-    player.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_H - PLAYER_RADIUS, player.y + dy * PLAYER_SPEED * dtSec));
+    let speedMultiplier = 1;
+    if (Date.now() < runtime.dashEndsAt) {
+      dx = runtime.dashVectorX;
+      dy = runtime.dashVectorY;
+      speedMultiplier = BOT_DASH_SPEED_MULTIPLIER;
+    }
+
+    player.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_W - PLAYER_RADIUS, player.x + dx * PLAYER_SPEED * speedMultiplier * dtSec));
+    player.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_H - PLAYER_RADIUS, player.y + dy * PLAYER_SPEED * speedMultiplier * dtSec));
   }
 
   private _getSpawnPosition(team: number, slotIndex: number) {

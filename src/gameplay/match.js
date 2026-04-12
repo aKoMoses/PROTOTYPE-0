@@ -48,18 +48,6 @@ export function bindMatchDeps({ resetPlayer, openPrematch, closePrematch, render
 
 function resetMatchmakingState() {
   getPrematchOrchestrator().resetState();
-  uiState.matchmaking.active = false;
-  uiState.matchmaking.phase = "idle";
-  uiState.matchmaking.queueRemaining = 0;
-  uiState.matchmaking.queueSafetyRemaining = 0;
-  uiState.matchmaking.buildRemaining = 0;
-  uiState.matchmaking.lobbyRemaining = 0;
-  uiState.matchmaking.loadingRemaining = 0;
-  uiState.matchmaking.foundRemaining = 0;
-  uiState.matchmaking.accepted = false;
-  uiState.matchmaking.playerReady = false;
-  uiState.matchmaking.mapKey = "electroGallery";
-  uiState.matchmaking.roster = [];
 }
 
 function persistCompletedMatch(mode, result) {
@@ -485,10 +473,7 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "step-mode" || buttonId === "back-mode") {
     playUiCue("click");
-    if (uiState.matchmaking.active) {
-      resetMatchmakingState();
-      _renderPrematch?.();
-    }
+    resetMatchmakingState();
     getPrematchOrchestrator().enterMode();
     dom.statusLine.textContent = "Mode select open.";
     return;

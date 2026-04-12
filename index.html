@@ -347,42 +347,6 @@
               </div>
             </div>
 
-            <div class="prematch-screen" id="queue-screen">
-              <div class="screen-header phase-panel__header">
-                <h2 class="title-slab title-slab--orange">Searching...</h2>
-              </div>
-              <div class="matchmaking-shell">
-                <div class="matchmaking-card is-searching" id="queue-card">
-                  <div class="matchmaking-card__head">
-                    <span class="phase-pill phase-pill--queue">Queue</span>
-                  </div>
-                  <div>
-                    <strong class="matchmaking-card__timer timer-large" id="queue-timer">5s</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="prematch-screen" id="game-found-screen">
-              <div class="screen-header phase-panel__header">
-                <h2 class="title-slab">Match Found</h2>
-              </div>
-              <div class="matchmaking-shell">
-                <div class="matchmaking-card" id="game-found-card">
-                  <div class="matchmaking-card__head">
-                    <span class="phase-pill phase-pill--found">Alert</span>
-                  </div>
-                  <div>
-                    <strong class="matchmaking-card__timer timer-large danger" id="found-timer">8s</strong>
-                  </div>
-                  <span class="matchmaking-card__copy" id="game-found-map-label"></span>
-                  <div class="screen-actions">
-                    <button class="primary-button" id="accept-match" type="button">Accept</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div class="prematch-screen" id="map-screen">
               <div class="phase-panel phase-panel--map">
                 <div class="screen-header phase-panel__header">
@@ -412,40 +376,6 @@
                 <button class="secondary-button" id="back-map" type="button" onclick="handlePrematchAction('back-map')">Back to Map Select</button>
                 <button class="primary-button" id="start-session" type="button" onclick="handlePrematchAction('start-session')">Deploy Unit</button>
               </div>
-            </div>
-
-            <div class="prematch-screen" id="lobby-screen">
-              <div class="screen-header phase-panel__header">
-                <h2 class="title-slab">Lobby</h2>
-              </div>
-              <div class="matchmaking-shell">
-                <div class="matchmaking-card" id="lobby-card">
-                  <div class="matchmaking-card__head">
-                    <span class="phase-pill phase-pill--lobby">Ready</span>
-                  </div>
-                  <div>
-                    <strong class="matchmaking-card__timer timer-large" id="lobby-timer">5s</strong>
-                  </div>
-                </div>
-              </div>
-              <div class="lobby-roster" id="lobby-roster"></div>
-            </div>
-
-            <div class="prematch-screen" id="loading-screen">
-              <div class="screen-header phase-panel__header">
-                <h2 class="title-slab title-slab--orange" id="loading-map-name">Loading...</h2>
-              </div>
-              <div class="matchmaking-shell">
-                <div class="matchmaking-card" id="loading-card">
-                  <div class="matchmaking-card__head">
-                    <span class="phase-pill phase-pill--loading">Deploy</span>
-                  </div>
-                  <div>
-                    <strong class="matchmaking-card__timer timer-large" id="loading-timer">20s</strong>
-                  </div>
-                </div>
-              </div>
-              <div class="lobby-roster" id="loading-roster"></div>
             </div>
 
             <!-- ─── CUSTOM GAME: Room Browser ─── -->

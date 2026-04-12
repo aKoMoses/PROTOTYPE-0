@@ -736,7 +736,7 @@ async function _submitCreateRoom(form) {
     .insert({
       room_id: room.id,
       player_id: userId,
-      display_name: profile?.display_name ?? "Pilot",
+      display_name: profile?.display_name ?? "Joueur",
       avatar_key: profile?.avatar_key ?? "vanguard",
       is_ready: false,
       is_host: true,
@@ -785,7 +785,7 @@ async function _joinRoom(roomId) {
       {
         room_id: room.id,
         player_id: userId,
-        display_name: profile?.display_name ?? "Pilot",
+        display_name: profile?.display_name ?? "Joueur",
         avatar_key: profile?.avatar_key ?? "vanguard",
         is_ready: false,
         is_host: false,

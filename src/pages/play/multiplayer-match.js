@@ -130,7 +130,7 @@ export class MultiplayerMatch {
 
     const opts = {
       token,
-      displayName: snapshot?.profile?.display_name ?? "Pilot",
+      displayName: snapshot?.profile?.display_name ?? "Joueur",
       lobbyRoomId: this.supabaseRoom?.id ?? null,
     };
 

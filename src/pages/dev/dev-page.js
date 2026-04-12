@@ -61,9 +61,9 @@ function parseLatestUpdate(markdown) {
 
   const update = {
     date,
-    author: "Inconnu",
-    branch: "N/A",
-    type: "N/A",
+    author: null,
+    branch: null,
+    type: null,
     summary: [],
     files: [],
     notes: [],
@@ -249,16 +249,19 @@ function parseArchitecture(codeBlock) {
 
 function renderStatusStrip(documentation, latestUpdate) {
   const stackLabels = documentation.stack.map((row) => `${row[0]}: ${row[1]}`);
+  const latestPassLabel = latestUpdate.type ?? "Mise a jour doc";
+  const branchLabel = latestUpdate.branch ?? "Branche non indiquee";
+  const authorLabel = latestUpdate.author ?? "Auteur non indique";
   statusStrip.innerHTML = `
     <article class="status-card status-card--accent">
       <span class="status-card__label">Dernière passe</span>
-      <strong>${escapeHtml(latestUpdate.type)}</strong>
+      <strong>${escapeHtml(latestPassLabel)}</strong>
       <span>${escapeHtml(latestUpdate.date)}</span>
     </article>
     <article class="status-card">
       <span class="status-card__label">Branche</span>
-      <strong>${escapeHtml(latestUpdate.branch)}</strong>
-      <span>${escapeHtml(latestUpdate.author)}</span>
+      <strong>${escapeHtml(branchLabel)}</strong>
+      <span>${escapeHtml(authorLabel)}</span>
     </article>
     <article class="status-card">
       <span class="status-card__label">Périmètre</span>
@@ -318,25 +321,29 @@ function renderOverview(documentation, latestUpdate) {
 }
 
 function renderLatestUpdate(latestUpdate) {
+  const meta = [latestUpdate.date, latestUpdate.author, latestUpdate.branch].filter(Boolean);
+  const summaryMarkup = latestUpdate.summary.length
+    ? `<ul class="bullet-list">${latestUpdate.summary.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : `<p class="muted">Le dernier changelog ne contient pas encore de resume structure.</p>`;
+  const filesMarkup = latestUpdate.files.length
+    ? `<article class="list-card"><h3>Fichiers mentionnés</h3><ul class="file-list">${latestUpdate.files.map((file) => `<li>${escapeHtml(file)}</li>`).join("")}</ul></article>`
+    : "";
+  const notesMarkup = latestUpdate.notes.length
+    ? `<article class="list-card"><h3>Notes</h3><ul class="bullet-list">${latestUpdate.notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></article>`
+    : "";
+
   latestUpdatePanel.innerHTML = `
     <div class="panel-header">
       <span class="eyebrow">Latest Pass</span>
       <h2>Changelog</h2>
     </div>
-    <div class="update-meta">
-      <span>${escapeHtml(latestUpdate.date)}</span>
-      <span>${escapeHtml(latestUpdate.author)}</span>
-      <span>${escapeHtml(latestUpdate.branch)}</span>
-    </div>
+    ${meta.length ? `<div class="update-meta">${meta.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>` : ""}
     <article class="list-card">
-      <h3>${escapeHtml(latestUpdate.type)}</h3>
-      <ul class="bullet-list">${latestUpdate.summary.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      <h3>${escapeHtml(latestUpdate.type ?? "Mise a jour consignée")}</h3>
+      ${summaryMarkup}
     </article>
-    <article class="list-card">
-      <h3>Fichiers mentionnés</h3>
-      <ul class="file-list">${latestUpdate.files.map((file) => `<li>${escapeHtml(file)}</li>`).join("")}</ul>
-    </article>
-    ${latestUpdate.notes.length ? `<article class="list-card"><h3>Notes</h3><ul class="bullet-list">${latestUpdate.notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></article>` : ""}
+    ${filesMarkup}
+    ${notesMarkup}
   `;
 }
 

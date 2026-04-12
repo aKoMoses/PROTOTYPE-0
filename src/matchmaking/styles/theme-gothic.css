@@ -688,21 +688,6 @@
 }
 
 /* ============================================
-   PORTRAIT-FRAME IN LOBBY CARDS
-   ============================================ */
-
-.lobby-card .portrait-frame {
-  padding: 4px;
-  border-width: 1.5px;
-}
-
-.lobby-card .portrait-circle {
-  width: 42px;
-  height: 42px;
-  font-size: 1.4rem;
-}
-
-/* ============================================
    REDUCED MOTION: phase-enter + timer-critical
    ============================================ */
 

@@ -59,8 +59,8 @@ function renderProfile(snapshot) {
     root.innerHTML = `
       <section class="profile-banner">
         <div class="profile-identity">
-          <h1 class="profile-name">Compte requis</h1>
-          <p class="profile-title">Crée ou connecte un compte permanent pour générer un joueur côté serveur.</p>
+          <h1 class="profile-name">Connexion requise</h1>
+          <p class="profile-title">Connecte un compte persistant pour retrouver ton profil, ta progression et ton historique de match.</p>
         </div>
       </section>
     `;
@@ -101,7 +101,7 @@ function renderProfile(snapshot) {
       </div>
 
       <div class="profile-identity">
-        <h1 class="profile-name">${escapeHtml(profile.display_name ?? "Pilot")}</h1>
+        <h1 class="profile-name">${escapeHtml(profile.display_name ?? "Joueur")}</h1>
         <p class="profile-title">Pilote enregistré côté serveur</p>
         <div class="profile-rank-line">
           <span class="profile-rank-badge">NIVEAU ${progression.level}</span>
@@ -241,22 +241,7 @@ function formatHistoryBuild(build = {}) {
     parts.push(formatBuildToken(build.core));
   }
 
-  return parts.join(" • ") || "Build non disponible";
-}
-
-function mergeHistoryEntries(serverHistory, localHistory) {
-  const merged = [...serverHistory, ...localHistory];
-  const seen = new Set();
-  return merged
-    .filter((entry) => {
-      const key = entry?.id ?? `${entry?.date ?? ""}:${entry?.score ?? ""}:${entry?.result ?? ""}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    })
-    .sort((a, b) => new Date(b?.date ?? 0).getTime() - new Date(a?.date ?? 0).getTime());
+  return parts.join(" • ") || "Build indisponible";
 }
 
 function formatBuildToken(value) {

@@ -99,12 +99,10 @@ export function setPrematchStep(step) {
       step === "game-found" ? "found" : step;
   }
   dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
-  dom.queueScreen?.classList.toggle("prematch-screen--active", step === "queue");
-  dom.gameFoundScreen?.classList.toggle("prematch-screen--active", step === "game-found");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
-  dom.lobbyScreen?.classList.toggle("prematch-screen--active", step === "lobby");
-  dom.loadingScreen?.classList.toggle("prematch-screen--active", step === "loading");
+  dom.roomBrowserScreen?.classList.toggle("prematch-screen--active", step === "room-browser");
+  dom.customLobbyScreen?.classList.toggle("prematch-screen--active", step === "custom-lobby");
   dom.stepMode?.classList.toggle("is-active", step === "mode");
   dom.stepMap?.classList.toggle("is-active", step === "map");
   dom.stepBuild?.classList.toggle("is-active", step === "build");
@@ -698,10 +696,6 @@ function getDetailValueLines(item, type) {
   return [];
 }
 
-export function updateDetailPanel() {}
-
-export function syncDetailPanelEnhancements() {}
-
 function getBuildSlotState(slotKey = uiState.selectedLoadoutSlot ?? getCurrentBuildStep().slotKey) {
   const resolvedSlotKey = slotKey ?? "weapon";
   const category = getSlotCategory(resolvedSlotKey);
@@ -1106,10 +1100,7 @@ function _updateDeckQuickBtn() {
   const label = document.getElementById("deck-quick-label");
   if (!btn) return;
 
-  const matchmakingBuild =
-    uiState.matchmaking?.active && uiState.prematchStep === "build";
-
-  btn.classList.toggle("is-hidden", !matchmakingBuild);
+  btn.classList.toggle("is-hidden", uiState.prematchStep !== "build");
 
   if (label) {
     if (uiState.selectedLoadoutId) {

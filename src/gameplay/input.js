@@ -6,7 +6,7 @@ import { uiState, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, rematchButton,
   modeDuel, modeSurvival, modeTraining, modeCustom, stepMode, stepMap, stepBuild, continueMap, continueBuild,
   backMode, backMap, startSession, moveJoystick, moveStick, aimJoystick, aimStick, statusLine,
-  trainingBuildButton, acceptMatchButton, slotDash, slotModule1, slotModule2, slotModule3, coreSlot } from "../dom.js";
+  trainingBuildButton, slotDash, slotModule1, slotModule2, slotModule3, coreSlot } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castReactorCore } from "./modules.js";
 import { setWeapon } from "./player.js";
@@ -452,7 +452,6 @@ bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
-bindPrematchButton(acceptMatchButton, "accept-match");
 
 trainingBuildButton?.addEventListener("click", () => {
   unlockAudio();
@@ -516,7 +515,7 @@ canvas.addEventListener("mousedown", (event) => {
       document.dispatchEvent(new CustomEvent('training-bot-selected', { detail: closestBot.kind }));
       statusLine.textContent = `Bot selected: ${closestBot.kind}.`;
     } else {
-      statusLine.textContent = "No target found near cursor. Try again.";
+      statusLine.textContent = "Aucune cible detectee sous le curseur. Reessaie.";
     }
     return;
   }
@@ -540,67 +539,4 @@ canvas.addEventListener("mouseleave", () => {
   input.firing = false;
   input.altFiring = false;
 });
-
-canvas.addEventListener(
-  "touchstart",
-  (event) => {
-    if (isGameplayInputBlocked()) {
-      return;
-    }
-    for (const touch of event.changedTouches) {
-      if (touch.clientX < window.innerWidth * 0.5 && input.moveTouchId === null) {
-        input.moveTouchId = touch.identifier;
-        moveJoystick.classList.add("active");
-        updateJoystick(touch.clientX, touch.clientY);
-      } else {
-        input.firing = true;
-        updatePointer(touch.clientX, touch.clientY);
-      }
-    }
-  },
-  { passive: true },
-);
-
-canvas.addEventListener(
-  "touchmove",
-  (event) => {
-    if (isGameplayInputBlocked()) {
-      return;
-    }
-    for (const touch of event.changedTouches) {
-      if (touch.identifier === input.moveTouchId) {
-        updateJoystick(touch.clientX, touch.clientY);
-      } else {
-        updatePointer(touch.clientX, touch.clientY);
-      }
-    }
-  },
-  { passive: true },
-);
-
-canvas.addEventListener(
-  "touchend",
-  (event) => {
-    for (const touch of event.changedTouches) {
-      if (touch.identifier === input.moveTouchId) {
-        clearJoystick();
-      } else if (touch.identifier === aimTouchId) {
-        clearAimJoystick();
-      } else {
-        input.firing = false;
-      }
-    }
-  },
-  { passive: true },
-);
-
-canvas.addEventListener(
-  "touchcancel",
-  () => {
-    input.firing = false;
-    clearJoystick();
-    clearAimJoystick();
-  },
-  { passive: true },
-);
 }

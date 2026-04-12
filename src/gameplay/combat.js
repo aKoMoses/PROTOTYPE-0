@@ -12,6 +12,7 @@ import { clamp, length, normalize, circleIntersectsRect, circleIntersectsCircle,
 import { addImpact, addDamageText, addHealingText, addShake, addAfterimage, addExplosion, addBeamEffect, applyHitReaction, addAbsorbBurst, addSlashEffect } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity, isEntityInBush, resetMapState, getPylonFallRect } from "../maps.js";
 import { getBuildStats, hasPerk, getPerkDamageMultiplier, getAbilityBySlot, getPulseMagazineSize, getActiveDashCooldown, getBotConfiguredLoadout, ensureBotLoadoutFilled, getStatusDuration } from "../build/loadout.js";
+import { getTeamDuelBotArchetypeForSlot } from "../lib/ai/teamDuelArchetypes.ts";
 import { finishDuelRound, finishTeamDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
 import { playDamageCue, playStatusCue, playMapCue, playReloadCue, playAbilityCue } from "../audio.js";
@@ -1803,13 +1804,26 @@ export function resetBotsForMode(mode = sandbox.mode) {
 
     const participants = [allyBot, ...teamEnemies].filter(Boolean);
     for (const [index, bot] of participants.entries()) {
+      const preset = getTeamDuelBotArchetypeForSlot(index);
+      const modules = [
+        preset.hasGrapple ? "vGripHarpoon" : null,
+        preset.hasShield ? "hexPlateProjector" : null,
+        preset.hasEmp ? "emPulseEmitter" : null,
+        "orbitalDistorter",
+      ].filter(Boolean).slice(0, 3);
       bot.maxHp = config.enemyMaxHp;
       bot.armor = 0;
       bot.tenacity = 0;
-      bot.weapon = weapons.pulse.key;
+      bot.weapon = preset.weaponKey;
+      bot.role = preset.role;
+      bot.hasGrapple = preset.hasGrapple;
+      bot.hasShield = preset.hasShield;
+      bot.hasEmp = preset.hasEmp;
+      bot.focusTargetId = null;
+      bot.postAttackMoveMultiplier = 1;
       bot.loadout = {
-        weapon: weapons.pulse.key,
-        abilities: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
+        weapon: preset.weaponKey,
+        modules,
       };
       bot.spawnX = bot.x;
       bot.spawnY = bot.y;

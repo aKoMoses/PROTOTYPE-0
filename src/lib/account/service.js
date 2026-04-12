@@ -76,7 +76,7 @@ function getDisplayNameFromUser(user) {
     return email.split("@")[0].slice(0, 24);
   }
 
-  return "Pilot";
+  return "Joueur";
 }
 
 function normalizeProfile(profile, user) {
@@ -265,7 +265,7 @@ async function hydrateFromSession(session) {
       profile: null,
       progression: null,
       matchHistory: [],
-      error: formatAuthError(error, "Failed to load the player account."),
+      error: formatAuthError(error, "Impossible de charger le compte joueur."),
     });
     return null;
   }
@@ -298,7 +298,7 @@ function normalizeMatchHistoryEntry(entry) {
     mode: safeEntry.mode ?? "duel",
     result: safeEntry.result ?? "loss",
     mapKey: safeEntry.map_key ?? "unknown",
-    mapName: safeEntry.map_name ?? "Unknown Arena",
+    mapName: safeEntry.map_name ?? "Arene inconnue",
     score: safeEntry.score ?? `${Number(safeEntry.rounds_won ?? 0)}-${Number(safeEntry.rounds_lost ?? 0)}`,
     wave: 0,
     xpDelta: Number(safeEntry.xp_delta ?? 0),
@@ -367,7 +367,7 @@ export async function initAccountService() {
         initialized: true,
         loading: false,
         isAuthenticated: false,
-        error: formatAuthError(error, "Failed to read the current session."),
+        error: formatAuthError(error, "Impossible de lire la session active."),
       });
       return cloneState();
     }
@@ -442,7 +442,7 @@ export async function signOutAccount() {
 
 export async function updatePlayerProfile(updates) {
   if (!accountState.user?.id) {
-    throw new Error("No authenticated player session.");
+    throw new Error("Aucune session joueur authentifiee.");
   }
 
   const payload = {};
@@ -473,7 +473,7 @@ export async function updatePlayerProfile(updates) {
 
 export async function updatePlayerProgression(updates) {
   if (!accountState.user?.id) {
-    throw new Error("No authenticated player session.");
+    throw new Error("Aucune session joueur authentifiee.");
   }
 
   const currentProgression = normalizeProgression(accountState.progression);

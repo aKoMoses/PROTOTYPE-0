@@ -29,12 +29,8 @@ function _emitPhase(phaseKey, stepKey) {
 
 const SCREEN_MAP = {
   mode: "modeScreen",
-  queue: "queueScreen",
-  "game-found": "gameFoundScreen",
   map: "mapScreen",
   build: "buildScreen",
-  lobby: "lobbyScreen",
-  loading: "loadingScreen",
   "room-browser": "roomBrowserScreen",
   "custom-lobby": "customLobbyScreen",
 };

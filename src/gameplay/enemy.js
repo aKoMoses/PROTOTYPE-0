@@ -105,60 +105,59 @@ export function getEnemyWeaponKey() {
   return enemy.weapon ?? enemy.loadout?.weapon ?? weapons.pulse.key;
 }
 
-export function getEnemyTargetRange() {
-  const weaponKey = getEnemyWeaponKey();
-  const hasGrapple = enemyHasAbility("vGripHarpoon");
-  const hasShield = enemyHasAbility("hexPlateProjector");
-  if (weaponKey === weapons.axe.key) {
-    return enemy.hp <= 72 ? 272 : hasGrapple ? 196 : 218;
+function getDuelTargetId(target) {
+  return target === playerClone ? "player-clone" : "player";
+}
+
+function isDuelTargetExposed(target) {
+  if (target === playerClone) {
+    return playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04;
   }
 
-  function getDuelTargetId(target) {
-    return target === playerClone ? "player-clone" : "player";
+  return (player.lastMissTime ?? 0) > 0 ||
+    player.fireCooldown > 0.16 ||
+    player.attackStartupTime > 0 ||
+    player.attackCommitTime > 0 ||
+    player.activeAxeStrike !== null ||
+    player.pendingAxeStrike !== null;
+}
+
+function getEnemyAbilityCooldownFloor(keys) {
+  return keys.reduce((minValue, key) => {
+    const value = enemy.abilityCooldowns?.[key] ?? Number.POSITIVE_INFINITY;
+    return Math.min(minValue, value);
+  }, Number.POSITIVE_INFINITY);
+}
+
+function getEnemyFocusTarget() {
+  if (!playerClone.active || !playerClone.alive) {
+    enemy.focusTarget = "player";
+    enemy.focusTime = 0;
+    return player;
   }
 
-  function isDuelTargetExposed(target) {
-    if (target === playerClone) {
-      return playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04;
-    }
-
-    return (player.lastMissTime ?? 0) > 0 ||
-      player.fireCooldown > 0.16 ||
-      player.attackStartupTime > 0 ||
-      player.attackCommitTime > 0 ||
-      player.activeAxeStrike !== null ||
-      player.pendingAxeStrike !== null;
+  if (enemy.focusTime > 0) {
+    return enemy.focusTarget === "clone" ? playerClone : player;
   }
 
-  function getEnemyAbilityCooldownFloor(keys) {
-    return keys.reduce((minValue, key) => {
-      const value = enemy.abilityCooldowns?.[key] ?? Number.POSITIVE_INFINITY;
-      return Math.min(minValue, value);
-    }, Number.POSITIVE_INFINITY);
+  const playerDistance = length(player.x - enemy.x, player.y - enemy.y);
+  const cloneDistance = length(playerClone.x - enemy.x, playerClone.y - enemy.y);
+  const cloneLikely =
+    player.decoyTime > 0 ||
+    cloneDistance < playerDistance - 24 ||
+    (cloneDistance < playerDistance + 28 && Math.random() < 0.42);
+
+  enemy.focusTarget = cloneLikely ? "clone" : "player";
+  enemy.focusTime = cloneLikely ? 0.7 : 0.34;
+  return cloneLikely ? playerClone : player;
+}
+
+export function startEnemyReload(bot = enemy) {
+  if (bot.weapon !== weapons.pulse.key || bot.reloadTime > 0) {
+    return false;
   }
-
-  function getEnemyFocusTarget() {
-    if (!playerClone.active || !playerClone.alive) {
-      enemy.focusTarget = "player";
-      enemy.focusTime = 0;
-      return player;
-    }
-
-    if (enemy.focusTime > 0) {
-      return enemy.focusTarget === "clone" ? playerClone : player;
-    }
-
-    const playerDistance = length(player.x - enemy.x, player.y - enemy.y);
-    const cloneDistance = length(playerClone.x - enemy.x, playerClone.y - enemy.y);
-    const cloneLikely =
-      player.decoyTime > 0 ||
-      cloneDistance < playerDistance - 24 ||
-      (cloneDistance < playerDistance + 28 && Math.random() < 0.42);
-
-    enemy.focusTarget = cloneLikely ? "clone" : "player";
-    enemy.focusTime = cloneLikely ? 0.7 : 0.34;
-    return cloneLikely ? playerClone : player;
-  }
+  bot.reloadTime = config.pulseReloadTime;
+  bot.shootCooldown = Math.max(bot.shootCooldown, config.pulseReloadTime);
   return true;
 }
 

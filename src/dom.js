@@ -90,10 +90,6 @@ export const prematchShell = document.querySelector(".prematch-shell");
 export const modeScreen = document.getElementById("mode-screen");
 export const mapScreen = document.getElementById("map-screen");
 export const buildScreen = document.getElementById("build-screen");
-export const queueScreen = document.getElementById("queue-screen");
-export const gameFoundScreen = document.getElementById("game-found-screen");
-export const lobbyScreen = document.getElementById("lobby-screen");
-export const loadingScreen = document.getElementById("loading-screen");
 export const roomBrowserScreen = document.getElementById("room-browser-screen");
 export const customLobbyScreen = document.getElementById("custom-lobby-screen");
 export const stepMode = document.getElementById("step-mode");
@@ -112,35 +108,5 @@ export const backMap = document.getElementById("back-map");
 export const startSession = document.getElementById("start-session");
 export const buildLibraryGrid = document.getElementById("build-library-grid");
 export const trainingBuildButton = document.getElementById("training-build-button");
-export const queueTimer = document.getElementById("queue-timer");
-export const foundTimer = document.getElementById("found-timer");
-export const gameFoundMapLabel = document.getElementById("game-found-map-label");
-export const acceptMatchButton = document.getElementById("accept-match");
 export const buildPhaseTimer = document.getElementById("build-phase-timer");
-export const lobbyTimer = document.getElementById("lobby-timer");
-export const loadingTimer = document.getElementById("loading-timer");
-export const lobbyRoster = document.getElementById("lobby-roster");
-export const loadingRoster = document.getElementById("loading-roster");
-export const loadingMapName = document.getElementById("loading-map-name");
-export const queueCard = document.getElementById("queue-card");
-export const gameFoundCard = document.getElementById("game-found-card");
-export const lobbyCard = document.getElementById("lobby-card");
-export const loadingCard = document.getElementById("loading-card");
-export const matchmakingDom = {
-  queueScreen,
-  gameFoundScreen,
-  lobbyScreen,
-  loadingScreen,
-  queueTimer,
-  foundTimer,
-  gameFoundMapLabel,
-  lobbyTimer,
-  loadingTimer,
-  lobbyRoster,
-  loadingRoster,
-  queueCard,
-  gameFoundCard,
-  lobbyCard,
-  loadingCard,
-};
 

@@ -17,10 +17,6 @@ const shellPanels = new Map(
     .map((panel) => [panel.dataset.shellPanel, panel])
     .filter(([viewKey, panel]) => Boolean(viewKey && panel)),
 );
-const defaultShellView = document.querySelector("[data-shell-default-view]")?.dataset.shellDefaultView
-  ?? shellPanels.keys().next().value
-  ?? "game";
-
 const appShell = document.querySelector(".app-shell");
 const mobileViewLabel = document.getElementById("shell-mobile-view-label");
 const workspaceRoot = document.querySelector(".app-workspace");
@@ -199,7 +195,6 @@ function applyPendingAppUpdate() {
   }
 
   awaitingServiceWorkerReload = true;
-  window.__prototype0SaveSession?.();
   markLifecycleUpdateApplying(true);
   _pwaUpdateSW(true);
 }
@@ -226,7 +221,7 @@ function syncShellLifecycleState(snapshot = shellLifecycleSnapshot) {
   if (snapshot.updateApplying) {
     showLifecycleBanner({
       title: "Mise a jour en cours",
-      copy: "La nouvelle version prend la main. La session courante a ete sauvegardee avant le rechargement.",
+      copy: "La nouvelle version prend la main. Rechargement de l'application en cours.",
       persistent: true,
     });
     return;
@@ -246,14 +241,6 @@ function syncShellLifecycleState(snapshot = shellLifecycleSnapshot) {
 
 function hasShellView(viewKey) {
   return typeof viewKey === "string" && shellPanels.has(viewKey);
-}
-
-function readStoredShellView() {
-  return defaultShellView;
-}
-
-function persistShellView(nextView) {
-  return nextView;
 }
 
 // Always start on the home page.
@@ -429,7 +416,6 @@ async function setShellView(nextView) {
   }
 
   activeView = nextView;
-  persistShellView(nextView);
   if (appShell) {
     appShell.dataset.activeView = nextView;
   }

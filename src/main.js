@@ -1,16 +1,13 @@
 // Game entry point and main loop
 import "../styles.css";
-import { sandbox, matchState, globals, player, input, mapState } from "./state.js";
+import { sandbox, matchState, globals, input } from "./state.js";
 import { uiState } from "./state/app-state.js";
-import { sandboxModes } from "./config.js";
-import { canvas } from "./dom.js";
 import * as dom from "./dom.js";
-import { resetMapState } from "./maps.js";
 import { updatePortalCooldowns, resolveCharacterBodyBlocking } from "./maps.js";
-import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, getAllBots, resetBotsForMode, clearCombatArtifacts, updateMapInteractables } from "./gameplay/combat.js";
-import { updateDuelMatch, updateTeamDuelMatch, showRoundBanner, startDuelRound, startTeamDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton } from "./gameplay/match.js";
+import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, resetBotsForMode, updateMapInteractables } from "./gameplay/combat.js";
+import { updateDuelMatch, updateTeamDuelMatch, showRoundBanner, startDuelRound, startTeamDuelRound, bindMatchDeps, bindPrematchButton } from "./gameplay/match.js";
 import { updateImpacts } from "./gameplay/combat.js";
-import { updatePlayer, resetPlayer, setWeapon } from "./gameplay/player.js";
+import { updatePlayer, resetPlayer } from "./gameplay/player.js";
 import { updateEnemy, updateEnemyBoltLinkJavelins, updateBoltLinkJavelins } from "./gameplay/enemy.js";
 import { updateTrainingBots } from "./gameplay/enemy.js";
 import { updateTeamDuelBots } from "./gameplay/team-ai.js";
@@ -18,19 +15,17 @@ import { bindSurvivalDeps, startSurvivalRun, updateSurvivalEnemies, updateSurviv
 import { drawWorld, reportFramePerformance, resize } from "./gameplay/renderer.js";
 import { updateHud } from "./gameplay/hud.js";
 import { clearAimJoystick, clearJoystick, setupInputListeners } from "./gameplay/input.js";
-import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castReactorCore } from "./gameplay/modules.js";
+import { releaseDashInput, releaseModuleInput } from "./gameplay/modules.js";
 import { updatePhantomClone } from "./gameplay/phantom.js";
-import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, syncPrematchState } from "./build/ui.js";
-import { applySavedPlayerLoadout, setBotBuildMode } from "./build/loadout.js";
-import { bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, supportZones } from "./state.js";
+import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, syncPrematchState } from "./build/ui.js";
+import { applySavedPlayerLoadout } from "./build/loadout.js";
+import { bullets, enemyBullets } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
 import { initializeAudio, resumeAudio, suspendAudio, updateAudio } from "./audio.js";
 import { PROGRESSION_CHANGED_EVENT } from "./progression.js";
 import { initNetworkService, subscribeNetworkState } from "./lib/network/service.js";
 import { initMobileLifecycleService, subscribeMobileLifecycleState } from "./lib/mobile/lifecycle.js";
 
-let sessionPersistAccumulator = 0;
-const persistSession = () => {};
 const gameOrientationGuard = document.getElementById("game-orientation-guard");
 const mapStatus = document.getElementById("map-status");
 let networkSnapshot = initNetworkService();
@@ -99,7 +94,6 @@ function updateOrientationLock(locked) {
 
 function pauseRuntimeForLifecycle(snapshot = lifecycleSnapshot) {
   releaseActiveInputs();
-  persistSession();
 
   if (!isGameRunning || isLifecyclePaused) {
     void suspendAudio();
@@ -116,8 +110,8 @@ function pauseRuntimeForLifecycle(snapshot = lifecycleSnapshot) {
 
   if (!uiState.prematchOpen) {
     dom.statusLine.textContent = snapshot.isOnline
-      ? "Application mise en veille. Session sauvegardee localement."
-      : "Application mise en veille hors ligne. Session locale sauvegardee.";
+      ? "Application mise en veille. Le runtime reprendra a la reouverture."
+      : "Application mise en veille hors ligne. Les modes reseau restent suspendus.";
   }
 }
 
@@ -207,12 +201,6 @@ function frame(time) {
   drawWorld();
   reportFramePerformance(performance.now() - frameStartedAt, { paused: gameplayPaused });
 
-  sessionPersistAccumulator += dt;
-  if (sessionPersistAccumulator >= 0.8) {
-    sessionPersistAccumulator = 0;
-    persistSession();
-  }
-
   } catch (err) {
     document.body.style.background = 'black';
     document.body.style.color = 'red';
@@ -281,18 +269,15 @@ window.addEventListener("loadout-equip", (event) => {
   openPrematch("build");
   renderPrematch();
   dom.statusLine.textContent = `${selectedLoadout?.name ?? "Loadout"} loaded into combat launch.`;
-  persistSession();
 });
 
 window.addEventListener(PROGRESSION_CHANGED_EVENT, () => {
   renderPrematch();
-  persistSession();
 });
 
 openPrematch("mode");
 renderPrematch();
 dom.statusLine.textContent = getIdleStatusCopy(networkSnapshot);
-persistSession();
 
 // Function to stop the game session when navigating away (e.g., clicking Home)
 export function stopGameSession() {
@@ -318,9 +303,6 @@ export function stopGameSession() {
 
   // Update UI
   syncPrematchState();
-  
-  // Persist final state
-  persistSession();
 }
 
 // Function to restart the game loop when launching a new session

@@ -279,6 +279,14 @@ les bots executes cote serveur deviennent non seulement fonctionnels, mais aussi
 
 ### 9.4 Etape 4 - Aligner experience locale et experience reseau
 
+Statut 2026-04-12 : couverture initiale livree dans le code.
+
+Livraison actuelle :
+
+- les presets d'archetypes bots 2v2 sont partages entre execution locale et room serveur ;
+- le mode local `teamDuel` passe des signaux tactiques alignes sur la room autoritative : focus cible, pression, kite, exposition, menace et strafe ;
+- les differences residuelles restent principalement dans la simulation pure des armes et abilities, pas dans la selection de cible et le positionnement de base.
+
 Objectif : eviter deux jeux trop differents.
 
 Travail attendu :

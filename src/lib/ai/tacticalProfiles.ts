@@ -8,14 +8,14 @@ export type CombatArchetype =
   | "controller"
   | "support";
 
-interface DifficultyScalars {
+export interface DifficultyScalars {
   spacingAwareness: number;
   pressureAdaptation: number;
   dodgeChance: number;
   dodgeReaction: number;
 }
 
-interface DuelTacticalContext {
+export interface SharedCombatTacticalContext {
   weaponKey: string;
   currentHp: number;
   maxHp: number;
@@ -29,6 +29,8 @@ interface DuelTacticalContext {
   postAttackMoveMultiplier?: number;
   difficulty: DifficultyScalars;
 }
+
+type DuelTacticalContext = SharedCombatTacticalContext;
 
 interface BaseDuelWeaponProfile {
   archetype: CombatArchetype;
@@ -65,6 +67,27 @@ export interface ResolvedDuelWeaponProfile {
   shootBurstSize: number;
   priorities: CombatBotDecisionPriorities;
 }
+
+const BOT_DIFFICULTY_SCALARS: Record<BotDifficulty, DifficultyScalars> = {
+  easy: {
+    spacingAwareness: 0.72,
+    pressureAdaptation: 0.7,
+    dodgeChance: 0.62,
+    dodgeReaction: 0.66,
+  },
+  normal: {
+    spacingAwareness: 0.9,
+    pressureAdaptation: 0.9,
+    dodgeChance: 0.84,
+    dodgeReaction: 0.86,
+  },
+  hard: {
+    spacingAwareness: 1,
+    pressureAdaptation: 1,
+    dodgeChance: 1,
+    dodgeReaction: 1,
+  },
+};
 
 const TEAM_DUEL_PROFILES: Record<BotDifficulty, CombatBotDecisionPriorities> = {
   easy: {
@@ -262,7 +285,11 @@ export function getTeamDuelDecisionPriorities(difficulty: BotDifficulty): Combat
   return { ...TEAM_DUEL_PROFILES[difficulty] };
 }
 
-export function getDuelTacticalProfile(context: DuelTacticalContext): ResolvedDuelWeaponProfile {
+export function getDifficultyScalarsForBotDifficulty(difficulty: BotDifficulty): DifficultyScalars {
+  return { ...BOT_DIFFICULTY_SCALARS[difficulty] };
+}
+
+export function getSharedCombatTacticalProfile(context: SharedCombatTacticalContext): ResolvedDuelWeaponProfile {
   const base = DUEL_WEAPON_PROFILES[context.weaponKey] ?? DUEL_WEAPON_PROFILES[weapons.pulse.key];
   const hpThreshold = context.currentHp <= Math.min(72, context.maxHp * 0.3) ? "lowHp" : "healthy";
   const profile: ResolvedDuelWeaponProfile = {
@@ -296,6 +323,9 @@ export function getDuelTacticalProfile(context: DuelTacticalContext): ResolvedDu
       focusTargetId: context.focusTargetId,
       focusTargetWeight: base.focusTargetWeight ?? 0.34,
       threatWeight: base.threatWeight ?? 0.08,
+      abilityPressureDistance: base.abilityPressureDistance,
+      dodgeAggression: base.dodgeAggression,
+      shootBurstSize: base.shootBurstSize,
     },
   };
 
@@ -313,7 +343,14 @@ export function getDuelTacticalProfile(context: DuelTacticalContext): ResolvedDu
     strafeScale: (context.postAttackMoveMultiplier ?? 1) * profile.strafeScale * 1.12,
     engageBias: profile.engageBias,
     retreatBias: profile.retreatBias,
+    abilityPressureDistance: profile.abilityPressureDistance,
+    dodgeAggression: profile.dodgeAggression,
+    shootBurstSize: profile.shootBurstSize,
   };
 
   return profile;
+}
+
+export function getDuelTacticalProfile(context: DuelTacticalContext): ResolvedDuelWeaponProfile {
+  return getSharedCombatTacticalProfile(context);
 }

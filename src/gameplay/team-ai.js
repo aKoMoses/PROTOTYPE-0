@@ -12,6 +12,7 @@ import {
 import { clamp, length, normalize, approach } from "../utils.js";
 import { canSeeTarget, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
 import { decideTeamDuelBotAction } from "../lib/ai/teamDuelDecision.ts";
+import { getTeamDuelBotArchetypeForSlot } from "../lib/ai/teamDuelArchetypes.ts";
 import {
   spawnBullet,
   updateStatusEffects,
@@ -31,6 +32,8 @@ const LOCAL_TEAM_DUEL_BOT_DIFFICULTY = {
   hard: "hard",
   nightmare: "hard",
 };
+const LOCAL_TEAM_DUEL_FIRE_COOLDOWN = 0.18;
+const LOCAL_TEAM_DUEL_BURST_FIRE_COOLDOWN = 0.095;
 
 function getOpposingTargets(bot) {
   if ((bot.team ?? "enemy") === "player") {
@@ -98,14 +101,63 @@ function toCombatantSnapshot(entity) {
   };
 }
 
-function getLocalStrafeDirection(bot) {
+function getLocalBotModules(bot) {
+  return Array.isArray(bot?.loadout?.modules)
+    ? bot.loadout.modules.filter((moduleKey) => typeof moduleKey === "string")
+    : [];
+}
+
+function getLocalBotCapabilityFlags(bot) {
+  const modules = getLocalBotModules(bot);
+  return {
+    hasGrapple: Boolean(bot?.hasGrapple) || modules.includes("vGripHarpoon"),
+    hasShield: Boolean(bot?.hasShield) || modules.includes("hexPlateProjector"),
+    hasEmp: Boolean(bot?.hasEmp) || modules.includes("emPulseEmitter"),
+  };
+}
+
+function scoreLocalBotStrafeSide(bot, allies, directionX, directionY) {
+  const probeDistance = 88;
+  const probeX = bot.x + directionX * probeDistance;
+  const probeY = bot.y + directionY * probeDistance;
+  const edgePadding = Math.min(probeX, arena.width - probeX, probeY, arena.height - probeY);
+  let allyClearance = 0;
+
+  for (const ally of allies) {
+    const distance = Math.hypot(probeX - ally.x, probeY - ally.y);
+    allyClearance += Math.min(distance, 180);
+  }
+
+  return edgePadding + allyClearance * 0.35;
+}
+
+function getLocalStrafeDirection(bot, allies, target) {
   const sessionId = getEntityId(bot);
   let hash = 0;
   for (let index = 0; index < sessionId.length; index += 1) {
     hash = (hash * 31 + sessionId.charCodeAt(index)) | 0;
   }
 
-  return ((Math.floor(Date.now() / 900) + hash) & 1) === 0 ? -1 : 1;
+  const baselineDirection = ((Math.floor(Date.now() / 900) + hash) & 1) === 0 ? -1 : 1;
+  if (!target) {
+    return baselineDirection;
+  }
+
+  const targetDx = target.x - bot.x;
+  const targetDy = target.y - bot.y;
+  const targetDistance = Math.hypot(targetDx, targetDy) || 1;
+  const sideLeftX = targetDy / targetDistance;
+  const sideLeftY = -targetDx / targetDistance;
+  const sideRightX = -sideLeftX;
+  const sideRightY = -sideLeftY;
+
+  const leftScore = scoreLocalBotStrafeSide(bot, allies, sideLeftX, sideLeftY);
+  const rightScore = scoreLocalBotStrafeSide(bot, allies, sideRightX, sideRightY);
+  if (Math.abs(leftScore - rightScore) < 6) {
+    return baselineDirection;
+  }
+
+  return leftScore > rightScore ? -1 : 1;
 }
 
 function getLocalBotDifficulty() {
@@ -119,6 +171,144 @@ function getHostileProjectiles(bot) {
 
 function getProjectileCollection(bot) {
   return (bot.team ?? "enemy") === "player" ? bullets : enemyBullets;
+}
+
+function getLocalTeamFocusTargetId(bot) {
+  const focusCounts = new Map();
+
+  for (const ally of getFriendlyActors(bot)) {
+    if (!ally?.focusTargetId) {
+      continue;
+    }
+
+    focusCounts.set(ally.focusTargetId, (focusCounts.get(ally.focusTargetId) ?? 0) + 1);
+  }
+
+  let bestTargetId = null;
+  let bestCount = 0;
+  focusCounts.forEach((count, targetId) => {
+    if (count > bestCount) {
+      bestTargetId = targetId;
+      bestCount = count;
+    }
+  });
+
+  return bestTargetId;
+}
+
+function getLocalBotPeelPriority(candidate, allies) {
+  let bestPriority = 0;
+
+  for (const ally of allies) {
+    const allyMaxHp = Math.max(1, ally.maxHp ?? ally.hp ?? 1);
+    const allyHp = Math.max(0, ally.hp ?? allyMaxHp);
+    const healthRatio = allyHp / allyMaxHp;
+    if (healthRatio > 0.45) {
+      continue;
+    }
+
+    const distance = Math.hypot(candidate.x - ally.x, candidate.y - ally.y);
+    if (distance <= 320) {
+      bestPriority = Math.max(bestPriority, (1 - healthRatio) * 1.2);
+    }
+  }
+
+  return bestPriority;
+}
+
+function isLocalCombatantExposed(entity) {
+  if (!entity?.alive) {
+    return false;
+  }
+
+  let nearbyAllies = 0;
+  let visibleOpponents = 0;
+
+  for (const ally of getFriendlyActors(entity)) {
+    if (!ally?.alive) {
+      continue;
+    }
+
+    const distance = Math.hypot(ally.x - entity.x, ally.y - entity.y);
+    if (distance < 190) {
+      nearbyAllies += 1;
+    }
+  }
+
+  for (const opponent of getOpposingTargets(entity)) {
+    if (!opponent?.alive) {
+      continue;
+    }
+
+    const distance = Math.hypot(opponent.x - entity.x, opponent.y - entity.y);
+    if (distance < 560 && canSeeTarget(opponent, entity)) {
+      visibleOpponents += 1;
+    }
+  }
+
+  return visibleOpponents > 0 && nearbyAllies === 0;
+}
+
+function getLocalThreatLevel(entity) {
+  let visibleOpponents = 0;
+  let closestOpponentDistance = Number.POSITIVE_INFINITY;
+
+  for (const opponent of getOpposingTargets(entity)) {
+    if (!opponent?.alive) {
+      continue;
+    }
+
+    const distance = Math.hypot(opponent.x - entity.x, opponent.y - entity.y);
+    closestOpponentDistance = Math.min(closestOpponentDistance, distance);
+    if (canSeeTarget(opponent, entity)) {
+      visibleOpponents += 1;
+    }
+  }
+
+  if (visibleOpponents === 0 || closestOpponentDistance === Number.POSITIVE_INFINITY) {
+    return 0;
+  }
+
+  return Math.min(0.32, visibleOpponents * 0.08 + Math.max(0, (420 - closestOpponentDistance) / 1200));
+}
+
+function toLocalOpponentSnapshot(candidate, viewerBot, allies) {
+  return {
+    ...toCombatantSnapshot(candidate),
+    hasLineOfSight: canSeeTarget(viewerBot, candidate),
+    isExposed: isLocalCombatantExposed(candidate),
+    threatLevel: getLocalThreatLevel(candidate),
+    targetPriorityBonus: allies.some((ally) => ally?.focusTargetId === getEntityId(candidate)) ? 0.18 : 0,
+  };
+}
+
+function selectLocalFocusTarget(bot, allies, opponents, previousTargetId) {
+  const previous = previousTargetId
+    ? opponents.find((candidate) => getEntityId(candidate) === previousTargetId && candidate.alive)
+    : null;
+  if (previous && (canSeeTarget(bot, previous) || (previous.hp ?? config.enemyMaxHp) <= config.enemyMaxHp * 0.38)) {
+    return previous;
+  }
+
+  const coordinatedTargetId = getLocalTeamFocusTargetId(bot);
+
+  return opponents
+    .filter((candidate) => candidate.alive)
+    .sort((left, right) => {
+      const leftScore =
+        (isLocalCombatantExposed(left) ? 2 : 0) +
+        ((left.hp ?? config.enemyMaxHp) <= config.enemyMaxHp * 0.45 ? 1 : 0) +
+        (canSeeTarget(bot, left) ? 1 : 0) +
+        (getEntityId(left) === coordinatedTargetId ? 1.35 : 0) +
+        getLocalBotPeelPriority(left, allies);
+      const rightScore =
+        (isLocalCombatantExposed(right) ? 2 : 0) +
+        ((right.hp ?? config.enemyMaxHp) <= config.enemyMaxHp * 0.45 ? 1 : 0) +
+        (canSeeTarget(bot, right) ? 1 : 0) +
+        (getEntityId(right) === coordinatedTargetId ? 1.35 : 0) +
+        getLocalBotPeelPriority(right, allies);
+      return rightScore - leftScore;
+    })[0] ?? null;
 }
 
 function firePulse(bot, target, aimAngle = null) {
@@ -186,6 +376,34 @@ function updateSingleBot(bot, dt) {
     return;
   }
 
+  const allies = getFriendlyActors(bot);
+  const focusTarget = selectLocalFocusTarget(bot, allies, opponents, bot.focusTargetId ?? null);
+  bot.focusTargetId = focusTarget ? getEntityId(focusTarget) : null;
+
+  const targetDistance = focusTarget
+    ? Math.hypot(focusTarget.x - bot.x, focusTarget.y - bot.y)
+    : null;
+  const lowHpThreshold = (bot.maxHp ?? config.enemyMaxHp) * 0.34;
+  const selfLow = (bot.hp ?? 0) <= lowHpThreshold;
+  const shouldPunish = Boolean(
+    focusTarget && (isLocalCombatantExposed(focusTarget) || (focusTarget.hp ?? config.enemyMaxHp) <= config.enemyMaxHp * 0.45)
+  );
+  const shouldPressure = Boolean(
+    focusTarget &&
+    canSeeTarget(bot, focusTarget) &&
+    targetDistance !== null &&
+    targetDistance <= 420 &&
+    (shouldPunish || !selfLow)
+  );
+  const shouldKite = Boolean(
+    focusTarget &&
+    targetDistance !== null &&
+    (selfLow || targetDistance < 230 || getLocalThreatLevel(focusTarget) >= 0.22)
+  );
+  const capabilityFlags = getLocalBotCapabilityFlags(bot);
+  const botSlot = (bot.team ?? "enemy") === "player" ? 0 : Math.max(0, teamEnemies.indexOf(bot) + 1);
+  const fallbackPreset = getTeamDuelBotArchetypeForSlot(botSlot);
+
   const decision = decideTeamDuelBotAction({
     self: {
       ...toCombatantSnapshot(bot),
@@ -194,16 +412,20 @@ function updateSingleBot(bot, dt) {
         dash: bot.dodgeCooldown ?? 0,
       },
     },
-    allies: getFriendlyActors(bot).map(toCombatantSnapshot),
-    opponents: opponents.map((candidate) => ({
-      ...toCombatantSnapshot(candidate),
-      hasLineOfSight: canSeeTarget(bot, candidate),
-      isExposed: true,
-      threatLevel: candidate === player ? 0.24 : 0.12,
-    })),
+    allies: allies.map(toCombatantSnapshot),
+    opponents: opponents.map((candidate) => toLocalOpponentSnapshot(candidate, bot, allies)),
     difficulty: getLocalBotDifficulty(),
-    strafeDirection: getLocalStrafeDirection(bot),
+    strafeDirection: getLocalStrafeDirection(bot, allies, focusTarget),
     aimJitterRoll: Math.random() - 0.5,
+    weaponKey: bot.weapon ?? bot.loadout?.weapon ?? fallbackPreset.weaponKey,
+    focusTargetId: bot.focusTargetId,
+    shouldPunish,
+    shouldPressure,
+    shouldKite,
+    hasGrapple: capabilityFlags.hasGrapple || fallbackPreset.hasGrapple,
+    hasShield: capabilityFlags.hasShield || fallbackPreset.hasShield,
+    hasEmp: capabilityFlags.hasEmp || fallbackPreset.hasEmp,
+    postAttackMoveMultiplier: bot.postAttackMoveMultiplier ?? 1,
   });
 
   const target = opponents.find((candidate) => getEntityId(candidate) === decision.targetId) ?? opponents[0] ?? null;
@@ -261,11 +483,20 @@ function updateSingleBot(bot, dt) {
   bot.y = clamp(bot.y + (bot.velocityY ?? 0) * dt, bot.radius, arena.height - bot.radius);
   resolveMapCollision(bot);
   maybeTeleportEntity(bot);
+  bot.postAttackMoveMultiplier = decision.fireAngle !== null ? 1.2 : 1;
 
   if (!botStatus.stunned && bot.shootCooldown <= 0 && decision.fireAngle !== null && canSeeTarget(bot, target)) {
     if (firePulse(bot, target, decision.fireAngle)) {
-      bot.shootCooldown = (bot.team ?? "enemy") === "player" ? 0.22 : 0.3;
+      if ((bot.burstShots ?? 0) > 0) {
+        bot.burstShots = Math.max(0, (bot.burstShots ?? 0) - 1);
+        bot.shootCooldown = LOCAL_TEAM_DUEL_BURST_FIRE_COOLDOWN;
+      } else {
+        bot.burstShots = Math.max(0, decision.burstShots - 1);
+        bot.shootCooldown = LOCAL_TEAM_DUEL_FIRE_COOLDOWN;
+      }
     }
+  } else if (decision.fireAngle === null) {
+    bot.burstShots = 0;
   }
 }
 

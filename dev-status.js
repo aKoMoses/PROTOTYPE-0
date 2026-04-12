@@ -61,9 +61,9 @@ function parseLatestUpdate(markdown) {
 
   const update = {
     date,
-    author: "Inconnu",
-    branch: "N/A",
-    type: "N/A",
+    author: null,
+    branch: null,
+    type: null,
     summary: [],
     files: [],
     notes: [],
@@ -249,16 +249,19 @@ function parseArchitecture(codeBlock) {
 
 function renderStatusStrip(documentation, latestUpdate) {
   const stackLabels = documentation.stack.map((row) => `${row[0]}: ${row[1]}`);
+  const latestPassLabel = latestUpdate.type ?? "Mise a jour doc";
+  const branchLabel = latestUpdate.branch ?? "Branche non indiquee";
+  const authorLabel = latestUpdate.author ?? "Auteur non indique";
   statusStrip.innerHTML = `
     <article class="status-card status-card--accent">
       <span class="status-card__label">Dernière passe</span>
-      <strong>${escapeHtml(latestUpdate.type)}</strong>
+      <strong>${escapeHtml(latestPassLabel)}</strong>
       <span>${escapeHtml(latestUpdate.date)}</span>
     </article>
     <article class="status-card">
       <span class="status-card__label">Branche</span>
-      <strong>${escapeHtml(latestUpdate.branch)}</strong>
-      <span>${escapeHtml(latestUpdate.author)}</span>
+      <strong>${escapeHtml(branchLabel)}</strong>
+      <span>${escapeHtml(authorLabel)}</span>
     </article>
     <article class="status-card">
       <span class="status-card__label">Stack</span>
@@ -303,18 +306,19 @@ function renderOverview(documentation, latestUpdate) {
 }
 
 function renderLatestUpdate(latestUpdate) {
+  const meta = [latestUpdate.date, latestUpdate.author, latestUpdate.branch].filter(Boolean);
+  const summaryMarkup = latestUpdate.summary.length
+    ? `<ul class="bullet-list">${latestUpdate.summary.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : `<p class="muted">Le dernier changelog ne contient pas encore de resume structure.</p>`;
+
   latestUpdatePanel.innerHTML = `
     <div class="panel-header">
       <span class="eyebrow">Latest Pass</span>
-      <h2>${escapeHtml(latestUpdate.type)}</h2>
+      <h2>${escapeHtml(latestUpdate.type ?? "Mise a jour consignée")}</h2>
     </div>
-    <p class="muted">${escapeHtml(latestUpdate.date)} · ${escapeHtml(latestUpdate.author)}</p>
-    <ul class="bullet-list">
-      ${latestUpdate.summary.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-    </ul>
-    <div class="tag-cloud">
-      ${latestUpdate.files.slice(0, 10).map((file) => `<span>${escapeHtml(file)}</span>`).join("")}
-    </div>
+    ${meta.length ? `<p class="muted">${escapeHtml(meta.join(" · "))}</p>` : ""}
+    ${summaryMarkup}
+    ${latestUpdate.files.length ? `<div class="tag-cloud">${latestUpdate.files.slice(0, 10).map((file) => `<span>${escapeHtml(file)}</span>`).join("")}</div>` : ""}
     ${latestUpdate.notes.length ? `<p class="muted">${escapeHtml(latestUpdate.notes.join(" "))}</p>` : ""}
   `;
 }
