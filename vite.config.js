@@ -14,10 +14,10 @@ export default defineConfig({
   plugins: [
     VitePWA({
       /* Service worker registration mode.
-         autoUpdate: the SW installs and activates silently in the background.
-         The shell-ui.js entry also registers a prompt via virtual:pwa-register
-         so that a visible "new version" banner can be shown later. */
-      registerType: "prompt",
+        autoUpdate: the SW installs and activates silently in the background
+        so installed PWAs pick up fresh bundles without requiring a manual
+        reinstall or an explicit update button. */
+      registerType: "autoUpdate",
 
       /* Include these static assets in the SW precache manifest. */
       includeAssets: [
@@ -80,7 +80,7 @@ export default defineConfig({
 
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: false, // controlled by shell update prompt
+        skipWaiting: true,
 
         runtimeCaching: [
           {

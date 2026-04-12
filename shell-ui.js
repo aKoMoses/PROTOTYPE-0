@@ -602,11 +602,12 @@ function initParticles() {
 initParticles();
 
 /* ════════════════════════════════════════════════════════════════
-   PWA — Service Worker registration and update banner
+  PWA — Service Worker registration and auto-update flow
    ════════════════════════════════════════════════════════════════
    vite-plugin-pwa provides the virtual module at build time.
    In dev mode (devOptions.enabled: true) it is served by Vite.
-   The banner is injected into the shell without blocking the app. */
+  Updates are applied automatically and reload once the new SW controls
+  the page so installed PWAs do not get stuck on stale bundles. */
 import { registerSW } from "virtual:pwa-register";
 
 let _pwaUpdateSW = null;
@@ -622,7 +623,7 @@ window.addEventListener("controllerchange", () => {
 _pwaUpdateSW = registerSW({
   immediate: false,
   onNeedRefresh() {
-    markLifecycleUpdateReady(true);
+    applyPendingAppUpdate();
   },
   onOfflineReady() {
     /* Game is cached for offline play in supported modes. */
