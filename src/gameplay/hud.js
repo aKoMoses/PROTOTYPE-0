@@ -304,7 +304,7 @@ export function getAbilityHudState(abilityKey) {
               ? Math.max(0, Math.min(1, abilityState.boltLinkJavelin.activeTime / Math.max(0.001, config.javelinSlowDuration)))
             : abilityState.boltLinkJavelin.cooldown <= 0
             ? 0
-            : Math.max(0, Math.min(1, abilityState.boltLinkJavelin.cooldown / abilityConfig.javelin.cooldown)),
+            : Math.max(0, Math.min(1, abilityState.boltLinkJavelin.cooldown / abilityConfig.boltLinkJavelin.cooldown)),
         timer: abilityState.boltLinkJavelin.recastReady
           ? "RECAST"
           : abilityState.boltLinkJavelin.pendingCooldown

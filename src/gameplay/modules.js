@@ -22,9 +22,9 @@ export function getBoltLinkJavelinProfile() {
     range: config.boltLinkJavelinRange,
     slow: config.boltLinkJavelinSlow,
     slowDuration: config.boltLinkJavelinSlowDuration,
-    color: moduleConfig.javelin.color,
-    glow: moduleConfig.javelin.glow,
-    trail: moduleConfig.javelin.trail,
+    color: moduleConfig.boltLinkJavelin.color,
+    glow: moduleConfig.boltLinkJavelin.glow,
+    trail: moduleConfig.boltLinkJavelin.trail,
     piercing: false,
   };
 }
