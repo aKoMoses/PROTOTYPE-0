@@ -4,7 +4,7 @@ import { weapons } from "../content.js";
 import { player, input, sandbox, moduleState, trainingBots } from "../state.js";
 import { uiState, trainingToolState } from "../state/app-state.js";
 import { canvas, helpToggle, menuButton, rematchButton,
-  modeDuel, modeSurvival, modeTraining, modeCustom, stepMode, stepMap, stepBuild, continueMap, continueBuild,
+  stepMap, stepBuild, continueBuild,
   backMode, backMap, startSession, moveJoystick, moveStick, aimJoystick, aimStick, statusLine,
   trainingBuildButton, slotDash, slotModule1, slotModule2, slotModule3, coreSlot } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
@@ -55,7 +55,7 @@ function tryOpenPrematchMenu() {
 
   menuConfirmExpiresAt = 0;
   playUiCue("click");
-  openPrematch("mode");
+  openPrematch("map");
 }
 
 export function screenToArena(clientX, clientY) {
@@ -440,14 +440,8 @@ helpToggle.addEventListener("click", () => {
   });
 });
 
-bindPrematchButton(modeDuel, "mode-duel");
-bindPrematchButton(modeSurvival, "mode-survival");
-bindPrematchButton(modeTraining, "mode-training");
-bindPrematchButton(modeCustom, "mode-custom");
-bindPrematchButton(stepMode, "step-mode");
 bindPrematchButton(stepMap, "step-map");
 bindPrematchButton(stepBuild, "step-build");
-bindPrematchButton(continueMap, "continue-map");
 bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");

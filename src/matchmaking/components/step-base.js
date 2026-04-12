@@ -28,7 +28,6 @@ function _emitPhase(phaseKey, stepKey) {
 }
 
 const SCREEN_MAP = {
-  mode: "modeScreen",
   map: "mapScreen",
   build: "buildScreen",
   "room-browser": "roomBrowserScreen",

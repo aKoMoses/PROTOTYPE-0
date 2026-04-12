@@ -407,7 +407,7 @@ async function setShellView(nextView) {
       matchState.playerWins = 0;
       matchState.botWins = 0;
       matchState.isOver = false;
-      openPrematch("mode");
+      openPrematch("map");
       renderPrematch();
       window.__P0_GAME?.restartGameLoop?.();
     }

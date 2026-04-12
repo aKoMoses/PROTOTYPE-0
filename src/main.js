@@ -228,13 +228,7 @@ showRoundBanner("", "", false);
 toggleHelpPanel(false);
 
 // Bind core prematch navigation buttons
-bindPrematchButton(dom.modeDuel, "mode-duel");
-bindPrematchButton(dom.modeSurvival, "mode-survival");
-bindPrematchButton(dom.modeTeamDuel, "mode-team-duel");
-bindPrematchButton(dom.modeTraining, "mode-training");
-bindPrematchButton(dom.modeCustom, "mode-custom");
 bindPrematchButton(document.getElementById("back-to-modes"), "back-to-modes");
-bindPrematchButton(dom.continueMap, "continue-map");
 bindPrematchButton(dom.backMode, "back-mode");
 bindPrematchButton(dom.continueBuild, "continue-build");
 
@@ -275,7 +269,7 @@ window.addEventListener(PROGRESSION_CHANGED_EVENT, () => {
   renderPrematch();
 });
 
-openPrematch("mode");
+openPrematch("map");
 renderPrematch();
 dom.statusLine.textContent = getIdleStatusCopy(networkSnapshot);
 

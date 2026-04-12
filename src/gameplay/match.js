@@ -430,6 +430,7 @@ export function handlePrematchAction(buttonId) {
     resetMatchmakingState();
     uiState.selectedMode = sandboxModes.survival.key;
     uiState.selectedMap = normalizeSelectedMap(sandboxModes.survival.key, uiState.selectedMap);
+    getPrematchOrchestrator().enterMap();
     dom.statusLine.textContent = "Survival Mode selected.";
     _renderPrematch?.();
     return;
@@ -451,6 +452,7 @@ export function handlePrematchAction(buttonId) {
     resetMatchmakingState();
     uiState.selectedMode = sandboxModes.training.key;
     uiState.selectedMap = mapChoices.trainingExpanse.key;
+    getPrematchOrchestrator().enterBuild();
     dom.statusLine.textContent = "Training Lab selected.";
     _renderPrematch?.();
     return;
@@ -466,24 +468,24 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "back-to-modes") {
     playUiCue("click");
-    getPrematchOrchestrator().enterMode();
-    dom.statusLine.textContent = "Mode select open.";
+    window.__P0_SHELL?.setView("play");
+    dom.statusLine.textContent = "Back to mode select.";
     return;
   }
 
   if (buttonId === "step-mode" || buttonId === "back-mode") {
     playUiCue("click");
     resetMatchmakingState();
-    getPrematchOrchestrator().enterMode();
-    dom.statusLine.textContent = "Mode select open.";
+    window.__P0_SHELL?.setView("play");
+    dom.statusLine.textContent = "Back to mode select.";
     return;
   }
 
-  if (buttonId === "step-map" || buttonId === "continue-map" || buttonId === "back-map") {
+  if (buttonId === "step-map" || buttonId === "back-map") {
     playUiCue("click");
     if (buttonId === "back-map") {
-      getPrematchOrchestrator().enterMode();
-      dom.statusLine.textContent = "Mode select open.";
+      getPrematchOrchestrator().enterMap();
+      dom.statusLine.textContent = "Map select open.";
       return;
     }
     getPrematchOrchestrator().enterMap();

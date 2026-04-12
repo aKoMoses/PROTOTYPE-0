@@ -98,12 +98,10 @@ export function setPrematchStep(step) {
     dom.prematchShell.dataset.prematchPhase =
       step === "game-found" ? "found" : step;
   }
-  dom.modeScreen.classList.toggle("prematch-screen--active", step === "mode");
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
   dom.roomBrowserScreen?.classList.toggle("prematch-screen--active", step === "room-browser");
   dom.customLobbyScreen?.classList.toggle("prematch-screen--active", step === "custom-lobby");
-  dom.stepMode?.classList.toggle("is-active", step === "mode");
   dom.stepMap?.classList.toggle("is-active", step === "map");
   dom.stepBuild?.classList.toggle("is-active", step === "build");
   syncPrematchLoadoutSurface();
@@ -178,9 +176,6 @@ export function updatePrematchSummary() {
   if (dom.startSession) {
     dom.startSession.disabled = !isBuildComplete();
     dom.startSession.textContent = "Deploy Unit";
-  }
-  if (dom.continueMap) {
-    dom.continueMap.textContent = "Continue to Map";
   }
   if (dom.backMap) {
     dom.backMap.textContent = "Back to Map Select";
@@ -1133,10 +1128,6 @@ export function renderPrematch() {
       key: getFallbackDetailKey(uiState.selectedDetail.type),
     };
   }
-  dom.modeDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.duel.key);
-  dom.modeSurvival.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.survival.key);
-  dom.modeTeamDuel.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.teamDuel.key);
-  dom.modeTraining.classList.toggle("is-selected", uiState.selectedMode === sandboxModes.training.key);
   renderMapSelection();
   updatePrematchSummary();
   updateTrainingBuildButton();

@@ -10,7 +10,7 @@ const PROGRESSION_GROUPS = collectionGroups.map((group) => group.key);
 const INITIAL_UNLOCKS = {
   weapons: ["pulse", "shotgun", "sniper"],
   modules: [...buildLabVisiblePools.modules],
-  implants: ["reactiveArmor", "dashCoolingLoop"],
+  implants: ["reactiveArmor", "dashCoolingLoop", "critScanRelay"],
   cores: ["phantomCore"],
 };
 
@@ -18,14 +18,18 @@ const LEVEL_UNLOCKS = [
   { level: 2, group: "weapons", key: "axe" },
   { level: 3, group: "implants", key: "scavengerPlates" },
   { level: 4, group: "cores", key: "rebootProtocol" },
+  { level: 4, group: "implants", key: "predatorLens" },
   { level: 5, group: "weapons", key: "staff" },
   { level: 6, group: "implants", key: "bioDrainLink" },
   { level: 7, group: "cores", key: "empCataclysmCore" },
+  { level: 7, group: "cores", key: "berserkCore" },
   { level: 8, group: "weapons", key: "injector" },
   { level: 9, group: "implants", key: "lastStandProtocol" },
   { level: 10, group: "weapons", key: "lance" },
+  { level: 10, group: "cores", key: "lockdownMatrix" },
   { level: 11, group: "implants", key: "adrenalInjector" },
   { level: 12, group: "weapons", key: "cannon" },
+  { level: 12, group: "implants", key: "seqShotCalculator" },
   { level: 13, group: "implants", key: "shockBuffer" },
 ];
 
