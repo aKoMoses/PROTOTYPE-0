@@ -1126,6 +1126,7 @@
     padding: 18px 18px 0;
   }
 
+  /* overridden by mobile layout classes below */
   .home-topbar__brand,
   .home-portrait-btn {
     justify-self: center;
@@ -1230,41 +1231,81 @@
   padding-bottom: calc(var(--shell-mobile-dock-height) + var(--shell-safe-bottom) + 22px);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE HOME — Architecture claire
+   Principe : brand + portrait en haut (identité), PLAY pleine
+   largeur en dessous (CTA unique), navigation dans le dock.
+   Les tuiles (loadout / collection / dev) sont redondantes avec
+   le dock → masquées.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Grille home : topbar | espace libre | footer */
+.app-shell[data-shell-layout="compact"] .home-layout,
+.app-shell[data-shell-layout="handset"] .home-layout,
+.app-shell[data-shell-layout="narrow"] .home-layout {
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "topbar"
+    "center"
+    "footer";
+}
+
+/* Topbar mobile — 2 lignes :
+   ligne 1 : brand (gauche) | portrait (droite)
+   ligne 2 : bouton PLAY pleine largeur              */
+.app-shell[data-shell-layout="compact"] .home-topbar,
 .app-shell[data-shell-layout="handset"] .home-topbar,
 .app-shell[data-shell-layout="narrow"] .home-topbar {
-  padding-top: calc(var(--shell-safe-top) + 18px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "brand portrait"
+    "play  play";
+  align-items: center;
+  justify-items: stretch;
+  gap: 14px 12px;
+  padding: calc(var(--shell-safe-top) + 18px) 22px 0;
 }
 
-.app-shell[data-shell-layout="handset"] .home-play,
-.app-shell[data-shell-layout="narrow"] .home-play {
-  width: min(82vw, 280px);
-  min-height: 76px;
+.app-shell[data-shell-layout="compact"] .home-topbar__brand,
+.app-shell[data-shell-layout="handset"] .home-topbar__brand,
+.app-shell[data-shell-layout="narrow"] .home-topbar__brand {
+  grid-area: brand;
+  justify-self: start;
 }
 
+.app-shell[data-shell-layout="compact"] .home-portrait-btn,
 .app-shell[data-shell-layout="handset"] .home-portrait-btn,
 .app-shell[data-shell-layout="narrow"] .home-portrait-btn {
-  min-height: 48px;
-  padding-right: 16px;
+  grid-area: portrait;
+  justify-self: end;
+  min-height: 44px;
 }
 
-.app-shell[data-shell-layout="handset"] .home-tile,
-.app-shell[data-shell-layout="narrow"] .home-tile {
-  min-height: 120px;
+.app-shell[data-shell-layout="compact"] .home-play,
+.app-shell[data-shell-layout="handset"] .home-play,
+.app-shell[data-shell-layout="narrow"] .home-play {
+  grid-area: play;
+  width: 100%;
+  max-width: none;
+  min-width: unset;
+  height: 66px;
+  font-size: 1.3rem;
+  letter-spacing: 0.3em;
 }
 
-.app-shell[data-shell-layout="narrow"] .home-topbar {
-  grid-template-columns: 1fr;
-}
-
+/* Navigation dans le dock → tuiles masquées */
+.app-shell[data-shell-layout="compact"] .home-center,
+.app-shell[data-shell-layout="handset"] .home-center,
+.app-shell[data-shell-layout="narrow"] .home-center,
+.app-shell[data-shell-layout="compact"] .home-bottom,
+.app-shell[data-shell-layout="handset"] .home-bottom,
 .app-shell[data-shell-layout="narrow"] .home-bottom {
-  grid-template-columns: 1fr;
-  justify-items: center;
+  display: none;
 }
 
-.app-shell[data-shell-layout="narrow"] .home-tile-group--dev {
-  justify-self: center;
-}
-
+/* Dock narrow : 3 colonnes (les 3 actions les plus utiles) */
 .app-shell[data-shell-layout="narrow"] .shell-mobile-dock {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
