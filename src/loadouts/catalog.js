@@ -1,18 +1,3 @@
-import { createInitialRuneAllocation } from "../state/app-state.js";
-
-export function createPresetRunes(overrides = {}) {
-  const runes = createInitialRuneAllocation();
-  for (const [treeKey, values] of Object.entries(overrides)) {
-    if (!runes[treeKey]) {
-      continue;
-    }
-    runes[treeKey].secondary = values.secondary ?? 0;
-    runes[treeKey].primary = values.primary ?? 0;
-    runes[treeKey].ultimate = values.ultimate ?? 0;
-  }
-  return runes;
-}
-
 export const newSystemStarterTemplates = [
   {
     key: "v2-arc-ranger",
@@ -26,11 +11,6 @@ export const newSystemStarterTemplates = [
       modules: ["boltLinkJavelin", "orbitalDistorter", "ghostDriftModule"],
       implants: ["reactiveArmor"],
       core: "phantomCore",
-      runes: createPresetRunes({
-        attack: { secondary: 3, primary: 0, ultimate: 0 },
-        defense: { secondary: 4, primary: 2, ultimate: 0 },
-        support: { secondary: 3, primary: 0, ultimate: 0 },
-      }),
     },
   },
   {
@@ -45,11 +25,6 @@ export const newSystemStarterTemplates = [
       modules: ["vGripHarpoon", "boltLinkJavelin", "hexPlateProjector"],
       implants: ["critScanRelay"],
       core: "phantomCore",
-      runes: createPresetRunes({
-        attack: { secondary: 5, primary: 2, ultimate: 0 },
-        defense: { secondary: 2, primary: 0, ultimate: 0 },
-        support: { secondary: 3, primary: 0, ultimate: 0 },
-      }),
     },
   },
   {
@@ -64,11 +39,6 @@ export const newSystemStarterTemplates = [
       modules: ["ghostDriftModule", "voidCoreSingularity", "boltLinkJavelin"],
       implants: ["scavengerPlates"],
       core: "phantomCore",
-      runes: createPresetRunes({
-        attack: { secondary: 4, primary: 1, ultimate: 0 },
-        defense: { secondary: 3, primary: 1, ultimate: 0 },
-        support: { secondary: 3, primary: 0, ultimate: 0 },
-      }),
     },
   },
   {
@@ -83,11 +53,6 @@ export const newSystemStarterTemplates = [
       modules: ["hexPlateProjector", "orbitalDistorter", "ghostDriftModule"],
       implants: ["scavengerPlates"],
       core: "rebootProtocol",
-      runes: createPresetRunes({
-        attack: { secondary: 2, primary: 0, ultimate: 0 },
-        defense: { secondary: 5, primary: 2, ultimate: 0 },
-        support: { secondary: 3, primary: 0, ultimate: 0 },
-      }),
     },
   },
   {
@@ -102,11 +67,6 @@ export const newSystemStarterTemplates = [
       modules: ["voidCoreSingularity", "ghostDriftModule", "hexPlateProjector"],
       implants: ["bioDrainLink"],
       core: "empCataclysmCore",
-      runes: createPresetRunes({
-        attack: { secondary: 3, primary: 1, ultimate: 0 },
-        systems: { secondary: 3, primary: 1, ultimate: 0 },
-        support: { secondary: 4, primary: 0, ultimate: 0 },
-      }),
     },
   },
   {
@@ -121,11 +81,6 @@ export const newSystemStarterTemplates = [
       modules: ["orbitalDistorter", "voidCoreSingularity", "ghostDriftModule"],
       implants: ["seqShotCalculator"],
       core: "phantomCore",
-      runes: createPresetRunes({
-        attack: { secondary: 5, primary: 2, ultimate: 0 },
-        systems: { secondary: 2, primary: 1, ultimate: 0 },
-        support: { secondary: 3, primary: 0, ultimate: 0 },
-      }),
     },
   },
 ];

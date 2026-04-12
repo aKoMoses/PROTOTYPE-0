@@ -20,6 +20,11 @@
   },
   "homepage": "https://github.com/aKoMoses/PROTOTYPE-0#readme",
   "devDependencies": {
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "vite-plugin-pwa": "^1.2.0"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.17.26",
+    "@supabase/supabase-js": "^2.103.0"
   }
 }

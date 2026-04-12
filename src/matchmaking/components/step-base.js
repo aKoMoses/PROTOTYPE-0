@@ -33,9 +33,10 @@ const SCREEN_MAP = {
   "game-found": "gameFoundScreen",
   map: "mapScreen",
   build: "buildScreen",
-  runes: "runeScreen",
   lobby: "lobbyScreen",
   loading: "loadingScreen",
+  "room-browser": "roomBrowserScreen",
+  "custom-lobby": "customLobbyScreen",
 };
 
 export class PrematchStepBase {

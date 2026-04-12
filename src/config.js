@@ -6,6 +6,13 @@ export const config = {
   playerAcceleration: 4400,
   playerFriction: 3600,
   playerRadius: 18,
+  mobileRenderScaleHigh: 1.5,
+  mobileRenderScaleMedium: 1.25,
+  mobileRenderScaleLow: 1,
+  mobilePerfTargetFrameMs: 33,
+  mobilePerfUpgradeFrameMs: 24,
+  mobilePerfDegradeHoldMs: 1800,
+  mobilePerfUpgradeHoldMs: 4200,
   playerMaxHp: 280,
   dashSpeed: 1200,
   dashDuration: 0.17,
@@ -158,7 +165,6 @@ export const config = {
   enemyDodgeCooldown: 1.6,
   survivalWavePause: 2.1,
   survivalWaveIntermission: 3,
-  runePoints: 15,
 };
 
 export const botDifficultyProfiles = {

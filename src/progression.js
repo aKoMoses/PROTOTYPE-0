@@ -29,14 +29,6 @@ const LEVEL_UNLOCKS = [
   { level: 13, group: "implants", key: "shockBuffer" },
 ];
 
-function canUseLocalStorage() {
-  try {
-    return typeof window !== "undefined" && !!window.localStorage;
-  } catch {
-    return false;
-  }
-}
-
 function sanitizeXp(value) {
   return Math.max(0, Math.floor(Number(value) || 0));
 }
@@ -114,33 +106,13 @@ function emitProgressionChanged(detail) {
 }
 
 function readStoredProgressionSnapshot() {
-  if (!canUseLocalStorage()) {
-    return createProgressionSnapshot(0);
-  }
-
-  try {
-    const raw = window.localStorage.getItem(PROGRESSION_STORAGE_KEY);
-    if (!raw) {
-      return createProgressionSnapshot(0);
-    }
-    return normalizeProgression(JSON.parse(raw));
-  } catch {
-    return createProgressionSnapshot(0);
-  }
+  return createProgressionSnapshot(0);
 }
 
 let progressionState = readStoredProgressionSnapshot();
 
 function persistProgression(snapshot) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(PROGRESSION_STORAGE_KEY, JSON.stringify({ xp: snapshot.xp }));
-  } catch {
-    // Ignore storage failures and keep the session usable.
-  }
+  return snapshot;
 }
 
 function updateProgression(xp, reason = "update") {

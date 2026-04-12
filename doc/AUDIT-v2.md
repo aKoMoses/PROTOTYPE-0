@@ -42,7 +42,6 @@ Constat : `src/dom.js` exporte des références vers des éléments qui n'existe
 - `selectedModeLabel` → `id="selected-mode-label"` absent du HTML
 - `selectedMapLabel` → `id="selected-map-label"` absent du HTML
 - `selectedWeaponLabel` → `id="selected-weapon-label"` absent du HTML
-- `runePointsLabel` → `id="rune-points-label"` absent du HTML
 - `prematchDescription` → `id="prematch-description"` absent du HTML
 
 Impact : ces exports valent `null`. Le code qui les utilise dans `src/build/ui.js` (`updatePrematchSummary()`) fait des assignments sur `null` sans crash (simple no-op) mais c'est du code mort qui donne de faux indices sur l'état du produit.

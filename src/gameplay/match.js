@@ -11,7 +11,8 @@ import { setPrematchStep, resetBuildWizard, prevBuildWizardStep, commitBuildStep
 import { startSurvivalRun } from "./survival.js";
 import * as dom from "../dom.js";
 import { playUiCue, unlockAudio } from "../audio.js";
-import { addXp } from "../progression.js";
+import { addXp, getProgressionSnapshot } from "../progression.js";
+import { syncServerProgressionAfterMatch } from "../lib/account/progression-sync.js";
 import { PrematchOrchestrator } from "../matchmaking/orchestrator.js";
 export { relaunchCurrentSession } from "../build/ui.js";
 
@@ -45,79 +46,6 @@ export function bindMatchDeps({ resetPlayer, openPrematch, closePrematch, render
   getPrematchOrchestrator().syncFromUiStep();
 }
 
-const MATCHMAKING_QUEUE_SECONDS = 5;
-const MATCHMAKING_QUEUE_HARD_TIMEOUT_SECONDS = 18;
-const MATCH_FOUND_AUTO_ACCEPT_SECONDS = 8;
-const BUILD_PHASE_SECONDS = 60;
-const LOBBY_COUNTDOWN_SECONDS = 5;
-const LOADING_SECONDS = 20;
-const BOT_NAMES = ["N3XY0B0T", "N3XY0B07", "N3XY0B0-X", "N3XY0B0-OMEGA"];
-
-function isMatchmakingMode(mode) {
-  return mode === sandboxModes.duel.key || mode === sandboxModes.teamDuel.key;
-}
-
-function getBotLoadoutForRoster() {
-  const generated = createRandomBotLoadout();
-  const implants = Array.isArray(generated.implants)
-    ? [...generated.implants]
-    : (generated.implant ? [generated.implant] : []);
-  return {
-    weapon: generated.weapon,
-    modules: [...(generated.modules ?? [])],
-    implants,
-    core: generated.core,
-    avatar: Object.keys(content.avatars)[Math.floor(Math.random() * Object.keys(content.avatars).length)] ?? "drifter",
-  };
-}
-
-function buildRosterEntry({ id, name, badge, isBot, ready, profileLoadout }) {
-  return {
-    id,
-    name,
-    badge,
-    isBot,
-    ready,
-    loadout: {
-      weapon: profileLoadout.weapon,
-      modules: [...(profileLoadout.modules ?? [])],
-      implants: [...(profileLoadout.implants ?? [])],
-      core: profileLoadout.core,
-      avatar: profileLoadout.avatar ?? "drifter",
-    },
-  };
-}
-
-function createMockRoster(mode) {
-  const roster = [
-    buildRosterEntry({
-      id: "you",
-      name: "YOU",
-      badge: "Operator",
-      isBot: false,
-      ready: false,
-      profileLoadout: loadout,
-    }),
-  ];
-
-  const botCount = mode === sandboxModes.teamDuel.key ? 3 : 1;
-  for (let index = 0; index < botCount; index += 1) {
-    const botLoadout = getBotLoadoutForRoster();
-    roster.push(
-      buildRosterEntry({
-        id: `bot-${index + 1}`,
-        name: BOT_NAMES[index] ?? `N3XY0B0T-${index + 1}`,
-        badge: mode === sandboxModes.teamDuel.key && index === 0 ? "ALLY BOT" : "BOT",
-        isBot: true,
-        ready: false,
-        profileLoadout: botLoadout,
-      }),
-    );
-  }
-
-  return roster;
-}
-
 function resetMatchmakingState() {
   getPrematchOrchestrator().resetState();
   uiState.matchmaking.active = false;
@@ -134,87 +62,14 @@ function resetMatchmakingState() {
   uiState.matchmaking.roster = [];
 }
 
-function returnToModeSelectionFromQueueTimeout() {
-  resetMatchmakingState();
-  getPrematchOrchestrator().enterMode();
-  dom.statusLine.textContent = "Matchmaking timeout. Returning to mode select.";
-  _renderPrematch?.();
-}
+function persistCompletedMatch(mode, result) {
+  const progression = getProgressionSnapshot();
 
-function startMatchmakingQueue(mode) {
-  uiState.selectedMode = mode;
-  uiState.selectedMap = mapChoices.randomMap.key;
-  uiState.matchmaking.active = true;
-  uiState.matchmaking.phase = "queue";
-  uiState.matchmaking.queueRemaining = MATCHMAKING_QUEUE_SECONDS;
-  uiState.matchmaking.queueSafetyRemaining = MATCHMAKING_QUEUE_HARD_TIMEOUT_SECONDS;
-  uiState.matchmaking.buildRemaining = BUILD_PHASE_SECONDS;
-  uiState.matchmaking.lobbyRemaining = LOBBY_COUNTDOWN_SECONDS;
-  uiState.matchmaking.loadingRemaining = LOADING_SECONDS;
-  uiState.matchmaking.foundRemaining = MATCH_FOUND_AUTO_ACCEPT_SECONDS;
-  uiState.matchmaking.accepted = false;
-  uiState.matchmaking.playerReady = false;
-  uiState.matchmaking.mapKey = "";
-  uiState.matchmaking.roster = createMockRoster(mode);
-  getPrematchOrchestrator().enterQueue();
-  dom.statusLine.textContent = mode === sandboxModes.teamDuel.key
-    ? "2v2 queue started. Searching for squad lobby..."
-    : "1v1 queue started. Searching for opponent...";
-  _renderPrematch?.();
-}
-
-function acceptFoundMatch() {
-  const resolvedMapKey = resolveMapKey(uiState.selectedMode, mapChoices.randomMap.key, true);
-  uiState.matchmaking.accepted = true;
-  uiState.matchmaking.phase = "build";
-  uiState.matchmaking.buildRemaining = BUILD_PHASE_SECONDS;
-  uiState.matchmaking.foundRemaining = 0;
-  uiState.matchmaking.mapKey = resolvedMapKey;
-  uiState.selectedMap = resolvedMapKey;
-  trainingToolState.editingBuild = false;
-  resetBuildWizard();
-  getPrematchOrchestrator().enterBuild();
-  dom.statusLine.textContent = `${getMapLayout(uiState.selectedMode, resolvedMapKey).name} assigned. Loadout + runes timer started.`;
-  _renderPrematch?.();
-}
-
-function setWholeLobbyReady() {
-  uiState.matchmaking.roster = uiState.matchmaking.roster.map((entry, index) => ({
-    ...entry,
-    ready: true,
-  }));
-}
-
-function goToLobby(autoReady = false) {
-  normalizeLoadoutSelections();
-  if (!isBuildComplete()) {
-    const missingSlot = getFirstIncompleteBuildSlot();
-    if (missingSlot) {
-      goToBuildWizardStep(missingSlot);
-    }
-  }
-
-  uiState.matchmaking.playerReady = true;
-  uiState.matchmaking.phase = "lobby";
-  uiState.matchmaking.lobbyRemaining = LOBBY_COUNTDOWN_SECONDS;
-  setWholeLobbyReady();
-  getPrematchOrchestrator().enterLobby();
-  dom.statusLine.textContent = autoReady
-    ? "Component lock time expired. Auto-ready engaged, launching combat trial."
-    : "Unit systems locked. Final diagnostics started.";
-  _renderPrematch?.();
-}
-
-function startLoadingPhase() {
-  uiState.matchmaking.phase = "loading";
-  uiState.matchmaking.loadingRemaining = LOADING_SECONDS;
-  getPrematchOrchestrator().enterLoading();
-  const mapName = getMapLayout(uiState.selectedMode, uiState.matchmaking.mapKey).name;
-  if (dom.loadingMapName) {
-    dom.loadingMapName.textContent = `Loading ${mapName}`;
-  }
-  dom.statusLine.textContent = `${mapName} is loading. Reviewing every loadout...`;
-  _renderPrematch?.();
+  void syncServerProgressionAfterMatch({
+    xp: progression.xp,
+    level: progression.level,
+    result,
+  });
 }
 
 export function showRoundBanner(label, title, visible = true) {
@@ -354,13 +209,15 @@ export function updateDuelMatch(dt) {
         matchState.playerRounds >= matchState.formatWins ||
         matchState.enemyRounds >= matchState.formatWins
       ) {
-        if (matchState.playerRounds > matchState.enemyRounds) {
+        const didPlayerWin = matchState.playerRounds > matchState.enemyRounds;
+        if (didPlayerWin) {
           const progression = addXp(1, "duel-win");
           const levelText = progression.leveledUp
             ? ` Level ${progression.snapshot.level} reached.`
             : ` XP ${progression.snapshot.xp}.`;
           dom.statusLine.textContent = `Match won. +1 XP earned.${levelText}`;
         }
+        persistCompletedMatch(sandboxModes.duel.key, didPlayerWin ? "win" : "loss");
         matchState.phase = "match_end";
         matchState.timer = 2.2;
         showRoundBanner(
@@ -426,13 +283,15 @@ export function updateTeamDuelMatch(dt) {
   if (matchState.phase === "round_end") {
     if (matchState.timer <= 0) {
       if (matchState.playerRounds >= matchState.formatWins || matchState.enemyRounds >= matchState.formatWins) {
-        if (matchState.playerRounds > matchState.enemyRounds) {
+        const didPlayerWin = matchState.playerRounds > matchState.enemyRounds;
+        if (didPlayerWin) {
           const progression = addXp(1, "team-duel-win");
           const levelText = progression.leveledUp
             ? ` Level ${progression.snapshot.level} reached.`
             : ` XP ${progression.snapshot.xp}.`;
           dom.statusLine.textContent = `2v2 won. +1 XP earned.${levelText}`;
         }
+        persistCompletedMatch(sandboxModes.teamDuel.key, didPlayerWin ? "win" : "loss");
         matchState.phase = "match_end";
         matchState.timer = 2.2;
         showRoundBanner(
@@ -492,53 +351,6 @@ export function switchSandboxMode(nextMode, nextMapKey = sandbox.mapKey) {
   startDuelRound({ resetScore: true });
   dom.statusLine.textContent = `${getMapLayout(nextMode, sandbox.mapKey).name} active. Match flow initialized.`;
   updateTrainingBuildButton();
-}
-
-export function updatePrematchFlow(dt) {
-  const transition = getPrematchOrchestrator().update(dt);
-  if (!transition) {
-    return;
-  }
-
-  if (transition === "queue-timeout") {
-    returnToModeSelectionFromQueueTimeout();
-    return;
-  }
-
-  if (transition === "queue-found") {
-    uiState.matchmaking.phase = "found";
-    uiState.matchmaking.foundRemaining = MATCH_FOUND_AUTO_ACCEPT_SECONDS;
-    getPrematchOrchestrator().enterFound();
-    if (dom.gameFoundMapLabel) {
-      dom.gameFoundMapLabel.textContent = "Random map will be assigned after ACCEPT.";
-    }
-    dom.statusLine.textContent = "GAME FOUND. Accept to continue or wait for auto-accept.";
-    _renderPrematch?.();
-    return;
-  }
-
-  if (transition === "found-auto-accept") {
-    dom.statusLine.textContent = "Auto-accept engaged. Entering loadout phase.";
-    acceptFoundMatch();
-    return;
-  }
-
-  if (transition === "build-timeout") {
-    goToLobby(true);
-    return;
-  }
-
-  if (transition === "lobby-complete") {
-    startLoadingPhase();
-    return;
-  }
-
-  if (transition === "loading-complete") {
-    const selectedMap = uiState.matchmaking.mapKey || resolveMapKey(uiState.selectedMode, mapChoices.randomMap.key, true);
-    uiState.selectedMap = selectedMap;
-    resetMatchmakingState();
-    launchSelectedSession();
-  }
 }
 
 export function launchSelectedSession() {
@@ -616,7 +428,12 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "mode-duel") {
     playUiCue("click");
-    startMatchmakingQueue(sandboxModes.duel.key);
+    resetMatchmakingState();
+    uiState.selectedMode = sandboxModes.duel.key;
+    uiState.selectedMap = normalizeSelectedMap(sandboxModes.duel.key, uiState.selectedMap);
+    getPrematchOrchestrator().enterMap();
+    dom.statusLine.textContent = "1v1 Bot Duel selected.";
+    _renderPrematch?.();
     return;
   }
 
@@ -632,7 +449,12 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "mode-team-duel") {
     playUiCue("click");
-    startMatchmakingQueue(sandboxModes.teamDuel.key);
+    resetMatchmakingState();
+    uiState.selectedMode = sandboxModes.teamDuel.key;
+    uiState.selectedMap = normalizeSelectedMap(sandboxModes.teamDuel.key, uiState.selectedMap);
+    getPrematchOrchestrator().enterMap();
+    dom.statusLine.textContent = "2v2 Arena selected.";
+    _renderPrematch?.();
     return;
   }
 
@@ -643,6 +465,21 @@ export function handlePrematchAction(buttonId) {
     uiState.selectedMap = mapChoices.trainingExpanse.key;
     dom.statusLine.textContent = "Training Lab selected.";
     _renderPrematch?.();
+    return;
+  }
+
+  if (buttonId === "mode-custom") {
+    playUiCue("click");
+    resetMatchmakingState();
+    dom.statusLine.textContent = "Custom Game — Room Browser.";
+    getPrematchOrchestrator().enterRoomBrowser();
+    return;
+  }
+
+  if (buttonId === "back-to-modes") {
+    playUiCue("click");
+    getPrematchOrchestrator().enterMode();
+    dom.statusLine.textContent = "Mode select open.";
     return;
   }
 
@@ -657,23 +494,11 @@ export function handlePrematchAction(buttonId) {
     return;
   }
 
-  if (buttonId === "accept-match") {
-    playUiCue("confirm");
-    if (uiState.matchmaking.active && uiState.matchmaking.phase === "found") {
-      acceptFoundMatch();
-    }
-    return;
-  }
-
   if (buttonId === "step-map" || buttonId === "continue-map" || buttonId === "back-map") {
     playUiCue("click");
-    if (isMatchmakingMode(uiState.selectedMode)) {
-      if (buttonId === "back-map") {
-        getPrematchOrchestrator().enterMode();
-        dom.statusLine.textContent = "Mode select open.";
-      } else {
-        startMatchmakingQueue(uiState.selectedMode);
-      }
+    if (buttonId === "back-map") {
+      getPrematchOrchestrator().enterMode();
+      dom.statusLine.textContent = "Mode select open.";
       return;
     }
     getPrematchOrchestrator().enterMap();
@@ -685,30 +510,8 @@ export function handlePrematchAction(buttonId) {
     playUiCue("click");
     trainingToolState.editingBuild = false;
     resetBuildWizard();
-    if (isMatchmakingMode(uiState.selectedMode) && uiState.matchmaking.active && uiState.matchmaking.accepted) {
-      uiState.matchmaking.phase = "build";
-    }
     getPrematchOrchestrator().enterBuild();
     dom.statusLine.textContent = "Configuration phase open. Pick your modules, then engage deployment.";
-    return;
-  }
-
-  if (buttonId === "continue-runes") {
-    playUiCue("confirm");
-    commitActivePreviewSelection();
-    if (!isBuildComplete()) {
-      const missingSlot = getFirstIncompleteBuildSlot();
-      if (missingSlot) {
-        goToBuildWizardStep(missingSlot);
-      }
-      getPrematchOrchestrator().enterBuild();
-      _renderPrematch?.();
-      dom.statusLine.textContent = "Complete and lock every slot before opening runes.";
-      return;
-    }
-    getPrematchOrchestrator().enterRunes();
-    _renderPrematch?.();
-    dom.statusLine.textContent = "Neural augmentation station. Allocate core points across the industrial tree.";
     return;
   }
 
@@ -729,9 +532,8 @@ export function handlePrematchAction(buttonId) {
   if (buttonId === "build-step-next") {
     const result = commitBuildStepSelection();
     playUiCue(result === "blocked" ? "cancel" : "confirm");
-    if (result === "runes") {
-      getPrematchOrchestrator().enterRunes();
-      dom.statusLine.textContent = "Rune pass open. Lock your main shard and final stat line.";
+    if (result === "done") {
+      dom.statusLine.textContent = "All slots locked. Deploy when ready.";
     } else if (result === "blocked") {
       dom.statusLine.textContent = "Preview an option, then lock it in before moving on.";
     } else if (result === "incomplete") {
@@ -739,7 +541,7 @@ export function handlePrematchAction(buttonId) {
       if (missingSlot) {
         goToBuildWizardStep(missingSlot);
       }
-      dom.statusLine.textContent = "Every slot must be locked before you can move to runes.";
+      dom.statusLine.textContent = "Every slot must be locked before you can proceed.";
     }
     _renderPrematch?.();
     return;
@@ -747,19 +549,42 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "start-session") {
     playUiCue("confirm");
-    if (
-      uiState.matchmaking.active &&
-      uiState.matchmaking.accepted &&
-      (uiState.prematchStep === "build" || uiState.prematchStep === "runes")
-    ) {
-      goToLobby(false);
-      return;
-    }
     launchSelectedSession();
   }
 }
 
 window.handlePrematchAction = handlePrematchAction;
+
+// Direct launch for Custom Room — bypasses the fake matchmaking queue.
+// Switches to game view and starts the selected mode immediately.
+window.launchCustomRoomMatch = async function launchCustomRoomMatch({ mode = "teamDuel" } = {}) {
+  if (!window.__P0_SHELL) return;
+  await window.__P0_SHELL.setView("game");
+
+  const modeKey = sandboxModes[mode]?.key ?? sandboxModes.teamDuel.key;
+  const resolvedMapKey = resolveMapKey(modeKey, mapChoices.randomMap.key, true);
+
+  uiState.selectedMode = modeKey;
+  uiState.selectedMap = resolvedMapKey;
+
+  botBuildState.current = botBuildState.mode === "custom"
+    ? ensureBotLoadoutFilled(botBuildState.custom)
+    : createRandomBotLoadout();
+  player.weapon = loadout.weapon;
+
+  _closePrematch?.();
+  switchSandboxMode(modeKey, resolvedMapKey);
+  window.__P0_GAME?.restartGameLoop?.();
+};
+
+// Custom room navigation events from room components
+window.addEventListener("p0-enter-custom-lobby", () => {
+  getPrematchOrchestrator().enterCustomLobby();
+});
+
+window.addEventListener("p0-leave-custom-lobby", () => {
+  getPrematchOrchestrator().enterRoomBrowser();
+});
 
 export function bindPrematchButton(button, actionId) {
   if (!button) {

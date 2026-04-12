@@ -3,24 +3,44 @@ import { arena, sandboxModes, config } from "../config.js";
 import { weapons } from "../content.js";
 import { player, input, sandbox, moduleState, trainingBots } from "../state.js";
 import { uiState, trainingToolState } from "../state/app-state.js";
-import { canvas, helpToggle, menuButton, hudMenuButton, rematchButton, hudRematchButton,
-  modeDuel, modeSurvival, modeTraining, stepMode, stepMap, stepBuild, continueMap, continueBuild,
-  backMode, backMap, startSession, moveJoystick, moveStick, statusLine,
-  trainingFireOff, trainingFireOn,
-  continueRunes, backBuild, runeResetButton, trainingBuildButton, acceptMatchButton } from "../dom.js";
+import { canvas, helpToggle, menuButton, rematchButton,
+  modeDuel, modeSurvival, modeTraining, modeCustom, stepMode, stepMap, stepBuild, continueMap, continueBuild,
+  backMode, backMap, startSession, moveJoystick, moveStick, aimJoystick, aimStick, statusLine,
+  trainingBuildButton, acceptMatchButton, slotDash, slotModule1, slotModule2, slotModule3, coreSlot } from "../dom.js";
 import { clamp, length, normalize } from "../utils.js";
 import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castReactorCore } from "./modules.js";
 import { setWeapon } from "./player.js";
 import { relaunchCurrentSession, bindPrematchButton } from "./match.js";
-import { toggleHelpPanel, openPrematch, renderPrematch, resetBuildWizard, resetRuneAllocation } from "../build/ui.js";
+import { toggleHelpPanel, openPrematch, renderPrematch, resetBuildWizard } from "../build/ui.js";
 import { resize, getCameraState } from "./renderer.js";
 import { playUiCue, unlockAudio } from "../audio.js";
 import { isCombatLive } from "./combat.js";
 
 let menuConfirmExpiresAt = 0;
+let aimTouchId = null;
+
+const TOUCH_AIM_RANGE = 420;
+const JOYSTICK_DEADZONE = 0.18;
+const JOYSTICK_FIRE_THRESHOLD = 0.34;
 
 const boltSvg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="#00ff66" stroke="black" stroke-width="3" stroke-linejoin="round"/><circle cx="16" cy="16" r="6" fill="#111" /></svg>`;
 const boltCursorUrl = `url('data:image/svg+xml;base64,${btoa(boltSvg)}') 16 16, pointer`;
+
+function isGameplayInputBlocked() {
+  return uiState.prematchOpen || document.querySelector(".app-shell")?.dataset.gameOrientationLock === "true";
+}
+
+function isTouchCombatHudActive() {
+  const appShell = document.querySelector(".app-shell");
+  const layout = appShell?.dataset.shellLayout;
+  const isMobileLayout = layout === "compact" || layout === "handset" || layout === "narrow";
+  return Boolean(
+    appShell &&
+    isMobileLayout &&
+    appShell.dataset.activeView === "game" &&
+    appShell.dataset.gameOrientationLock !== "true"
+  );
+}
 
 function tryOpenPrematchMenu() {
   const now = performance.now();
@@ -76,6 +96,42 @@ export function updateJoystick(clientX, clientY) {
   moveStick.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
 }
 
+function setAimVector(normX, normY) {
+  const magnitude = Math.min(1, Math.hypot(normX, normY));
+  if (magnitude <= JOYSTICK_DEADZONE) {
+    input.firing = false;
+    input.lookX = 0;
+    input.lookY = 0;
+    return;
+  }
+
+  const direction = normalize(normX, normY);
+  const scaledMagnitude = (magnitude - JOYSTICK_DEADZONE) / (1 - JOYSTICK_DEADZONE);
+  input.lookX = direction.x * scaledMagnitude;
+  input.lookY = direction.y * scaledMagnitude;
+  input.mouseX = clamp(player.x + input.lookX * TOUCH_AIM_RANGE, 0, arena.width);
+  input.mouseY = clamp(player.y + input.lookY * TOUCH_AIM_RANGE, 0, arena.height);
+  input.firing = magnitude >= JOYSTICK_FIRE_THRESHOLD;
+}
+
+export function updateAimJoystick(clientX, clientY) {
+  const rect = aimJoystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width * 0.5;
+  const centerY = rect.top + rect.height * 0.5;
+  const rawX = clientX - centerX;
+  const rawY = clientY - centerY;
+  const maxDistance = rect.width * 0.32;
+  const magnitude = Math.min(maxDistance, length(rawX, rawY));
+  const direction = normalize(rawX, rawY);
+  const offsetX = direction.x * magnitude;
+  const offsetY = direction.y * magnitude;
+
+  setAimVector(offsetX / maxDistance, offsetY / maxDistance);
+  aimStick.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  aimJoystick.classList.add("active");
+  aimJoystick.classList.toggle("is-engaged", input.firing);
+}
+
 export function clearJoystick() {
   input.moveTouchId = null;
   input.moveTouchX = 0;
@@ -84,9 +140,172 @@ export function clearJoystick() {
   moveJoystick.classList.remove("active");
 }
 
+export function clearAimJoystick() {
+  aimTouchId = null;
+  input.firing = false;
+  aimStick.style.transform = "translate(0px, 0px)";
+  aimJoystick.classList.remove("active", "is-engaged");
+}
+
+function bindVirtualJoystick(joystick, handlers) {
+  if (!joystick) {
+    return;
+  }
+
+  joystick.addEventListener("touchstart", (event) => {
+    if (!isTouchCombatHudActive() || isGameplayInputBlocked()) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+    event.preventDefault();
+    unlockAudio();
+    handlers.start(touch);
+  }, { passive: false });
+
+  joystick.addEventListener("touchmove", (event) => {
+    if (isGameplayInputBlocked()) {
+      return;
+    }
+    for (const touch of event.changedTouches) {
+      if (handlers.move(touch)) {
+        event.preventDefault();
+      }
+    }
+  }, { passive: false });
+
+  const release = (event) => {
+    for (const touch of event.changedTouches) {
+      if (handlers.end(touch)) {
+        event.preventDefault();
+      }
+    }
+  };
+
+  joystick.addEventListener("touchend", release, { passive: false });
+  joystick.addEventListener("touchcancel", release, { passive: false });
+}
+
+function bindTouchActionButton(element, { onPress, onRelease, tapOnly = false }) {
+  if (!element) {
+    return;
+  }
+
+  let activePointerId = null;
+
+  const release = (pointerId) => {
+    if (activePointerId !== pointerId) {
+      return;
+    }
+    activePointerId = null;
+    element.classList.remove("is-pressed");
+    onRelease?.();
+  };
+
+  element.addEventListener("pointerdown", (event) => {
+    if (!isTouchCombatHudActive() || isGameplayInputBlocked()) {
+      return;
+    }
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    event.preventDefault();
+    unlockAudio();
+    activePointerId = event.pointerId;
+    element.classList.add("is-pressed");
+    element.setPointerCapture?.(event.pointerId);
+    onPress?.();
+    if (tapOnly) {
+      release(event.pointerId);
+    }
+  });
+
+  element.addEventListener("pointerup", (event) => {
+    release(event.pointerId);
+  });
+  element.addEventListener("pointercancel", (event) => {
+    release(event.pointerId);
+  });
+  element.addEventListener("lostpointercapture", (event) => {
+    release(event.pointerId);
+  });
+}
+
 export function setupInputListeners() {
   window.addEventListener("resize", resize);
   resize();
+
+  bindVirtualJoystick(moveJoystick, {
+    start(touch) {
+      if (input.moveTouchId !== null) {
+        return;
+      }
+      input.moveTouchId = touch.identifier;
+      moveJoystick.classList.add("active");
+      updateJoystick(touch.clientX, touch.clientY);
+    },
+    move(touch) {
+      if (touch.identifier !== input.moveTouchId) {
+        return false;
+      }
+      updateJoystick(touch.clientX, touch.clientY);
+      return true;
+    },
+    end(touch) {
+      if (touch.identifier !== input.moveTouchId) {
+        return false;
+      }
+      clearJoystick();
+      return true;
+    },
+  });
+
+  bindVirtualJoystick(aimJoystick, {
+    start(touch) {
+      if (aimTouchId !== null) {
+        return;
+      }
+      aimTouchId = touch.identifier;
+      updateAimJoystick(touch.clientX, touch.clientY);
+    },
+    move(touch) {
+      if (touch.identifier !== aimTouchId) {
+        return false;
+      }
+      updateAimJoystick(touch.clientX, touch.clientY);
+      return true;
+    },
+    end(touch) {
+      if (touch.identifier !== aimTouchId) {
+        return false;
+      }
+      clearAimJoystick();
+      return true;
+    },
+  });
+
+  bindTouchActionButton(slotDash, {
+    onPress: () => startDashInput(),
+    onRelease: () => releaseDashInput(),
+  });
+  bindTouchActionButton(slotModule1, {
+    onPress: () => startModuleInput(0),
+    onRelease: () => releaseModuleInput(0),
+  });
+  bindTouchActionButton(slotModule2, {
+    onPress: () => startModuleInput(1),
+    onRelease: () => releaseModuleInput(1),
+  });
+  bindTouchActionButton(slotModule3, {
+    onPress: () => startModuleInput(2),
+    onRelease: () => releaseModuleInput(2),
+  });
+  bindTouchActionButton(coreSlot, {
+    onPress: () => castReactorCore(),
+    tapOnly: true,
+  });
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "KeyH" && !event.repeat) {
@@ -94,7 +313,7 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (uiState.prematchOpen) {
+  if (isGameplayInputBlocked()) {
     return;
   }
 
@@ -183,7 +402,7 @@ window.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("keyup", (event) => {
-  if (uiState.prematchOpen) {
+  if (isGameplayInputBlocked()) {
     return;
   }
 
@@ -206,14 +425,14 @@ helpToggle.addEventListener("click", () => {
   toggleHelpPanel();
 });
 
-[menuButton, hudMenuButton].forEach((button) => {
+[menuButton].forEach((button) => {
   button?.addEventListener("click", () => {
     unlockAudio();
     tryOpenPrematchMenu();
   });
 });
 
-[rematchButton, hudRematchButton].forEach((button) => {
+[rematchButton].forEach((button) => {
   button?.addEventListener("click", () => {
     unlockAudio();
     playUiCue("confirm");
@@ -224,6 +443,7 @@ helpToggle.addEventListener("click", () => {
 bindPrematchButton(modeDuel, "mode-duel");
 bindPrematchButton(modeSurvival, "mode-survival");
 bindPrematchButton(modeTraining, "mode-training");
+bindPrematchButton(modeCustom, "mode-custom");
 bindPrematchButton(stepMode, "step-mode");
 bindPrematchButton(stepMap, "step-map");
 bindPrematchButton(stepBuild, "step-build");
@@ -232,38 +452,7 @@ bindPrematchButton(continueBuild, "continue-build");
 bindPrematchButton(backMode, "back-mode");
 bindPrematchButton(backMap, "back-map");
 bindPrematchButton(startSession, "start-session");
-bindPrematchButton(continueRunes, "continue-runes");
-bindPrematchButton(backBuild, "back-build");
 bindPrematchButton(acceptMatchButton, "accept-match");
-
-  runeResetButton?.addEventListener("click", () => {
-    unlockAudio();
-    playUiCue("cancel");
-    resetRuneAllocation();
-    statusLine.textContent = "Rune allocation reset.";
-  });
-
-trainingFireOff?.addEventListener("click", () => {
-  unlockAudio();
-  playUiCue("click");
-  trainingToolState.botsFire = false;
-  for (const bot of trainingBots) {
-    bot.shootCooldown = 999;
-  }
-  renderPrematch();
-  statusLine.textContent = "Training bots set to silent.";
-});
-
-trainingFireOn?.addEventListener("click", () => {
-  unlockAudio();
-  playUiCue("click");
-  trainingToolState.botsFire = true;
-  trainingBots.forEach((bot, index) => {
-    bot.shootCooldown = 0.35 + index * 0.08;
-  });
-  renderPrematch();
-  statusLine.textContent = "Training bots now fire steady pulse shots.";
-});
 
 trainingBuildButton?.addEventListener("click", () => {
   unlockAudio();
@@ -302,7 +491,7 @@ canvas.addEventListener("mousemove", (event) => {
 });
 
 canvas.addEventListener("mousedown", (event) => {
-  if (uiState.prematchOpen) {
+  if (isGameplayInputBlocked()) {
     return;
   }
   unlockAudio();
@@ -355,7 +544,7 @@ canvas.addEventListener("mouseleave", () => {
 canvas.addEventListener(
   "touchstart",
   (event) => {
-    if (uiState.prematchOpen) {
+    if (isGameplayInputBlocked()) {
       return;
     }
     for (const touch of event.changedTouches) {
@@ -375,7 +564,7 @@ canvas.addEventListener(
 canvas.addEventListener(
   "touchmove",
   (event) => {
-    if (uiState.prematchOpen) {
+    if (isGameplayInputBlocked()) {
       return;
     }
     for (const touch of event.changedTouches) {
@@ -395,6 +584,8 @@ canvas.addEventListener(
     for (const touch of event.changedTouches) {
       if (touch.identifier === input.moveTouchId) {
         clearJoystick();
+      } else if (touch.identifier === aimTouchId) {
+        clearAimJoystick();
       } else {
         input.firing = false;
       }
@@ -408,6 +599,7 @@ canvas.addEventListener(
   () => {
     input.firing = false;
     clearJoystick();
+    clearAimJoystick();
   },
   { passive: true },
 );

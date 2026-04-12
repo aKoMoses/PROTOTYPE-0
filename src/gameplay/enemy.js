@@ -1,26 +1,28 @@
 // Enemy AI, training bots, enemy actions
-import { arena, config, moduleConfig, botDifficultyProfiles, sandboxModes } from "../config.js";
+import { arena, config, abilityConfig, botDifficultyProfiles, sandboxModes } from "../config.js";
 import { content, weapons } from "../content.js";
-import { player, playerClone, enemy, trainingBots, moduleState, loadout, sandbox, matchState, input,
+import { player, playerClone, enemy, trainingBots, abilityState, loadout, sandbox, matchState, input,
   bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, orbitalDistorterFields, supportZones, mapState,
   tracers, trainingToolState } from "../state.js";
 import { statusLine } from "../dom.js";
 import { clamp, length, normalize, approach, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addDamageText, addShake, addAfterimage, addBeamEffect, addExplosion, addSlashEffect, applyHitReaction, addHealingText, addAbsorbBurst } from "./effects.js";
 import { getMapLayout, resolveMapCollision, canSeeTarget, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, hasImplant, getRuneValue, getStatusDuration, getImplantDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
+import { getBuildStats, hasPerk, getStatusDuration, getPerkDamageMultiplier, getPulseMagazineSize, enemyHasAbility } from "../build/loadout.js";
 import { getAllBots, isCombatLive, damageBot, spawnBullet, applyStatusEffect, updateStatusEffects,
   clearStatusEffects, getPlayerFieldModifier, spawnEnemyOrbitalDistorterField, startPulseReload, finalizePulseReload,
   tickEntityMarks, applyPlayerDamage, getStatusState, damagePylonsAlongLine, applyInjectorMark,
   getFieldInfluence, getZoneEffectsForEntity, hitMapWithProjectile, addEnergy, consumePlayerEmpowerBonus, tryTriggerReflexAegis, beginSwarmMissileRackCast, applyFieldDragToProjectile } from "./combat.js";
 import { getAxeComboProfile, collectTargetsAlongLine } from "./weapons.js";
-import { spawnEnemyBoltLinkJavelin, confirmBoltLinkJavelinImpact, expireBoltLinkJavelin } from "./modules.js";
+import { spawnEnemyJavelin, confirmBoltLinkJavelinImpact, expireBoltLinkJavelin } from "./abilities.js";
 import { finishDuelRound } from "./match.js";
 import { resetPlayer } from "./player.js";
-import { playWeaponFire, playModuleCue } from "../audio.js";
+import { playWeaponFire, playAbilityCue } from "../audio.js";
 import { updateCasting, startCast, startVisualCast, startWeaponTelegraph } from "./casting.js";
 import { applyPhantomDamage } from "./phantom.js";
 import { getCurrentBotDifficultyTier } from "../progression.js";
+import { decideCombatBotAction } from "../lib/ai/teamDuelDecision.ts";
+import { getDuelTacticalProfile } from "../lib/ai/tacticalProfiles.ts";
 
 export function getDifficultyModifiers() {
   return botDifficultyProfiles[getCurrentBotDifficultyTier()] ?? botDifficultyProfiles.normal;
@@ -110,163 +112,53 @@ export function getEnemyTargetRange() {
   if (weaponKey === weapons.axe.key) {
     return enemy.hp <= 72 ? 272 : hasGrapple ? 196 : 218;
   }
-  if (weaponKey === weapons.shotgun.key) {
-    return enemy.hp <= 72 ? 344 : hasGrapple ? 238 : 276;
-  }
-  if (weaponKey === weapons.sniper.key) {
-    return enemy.hp <= 72 ? 720 : 612;
-  }
-  if (weaponKey === weapons.staff.key) {
-    return enemy.hp <= 72 ? 408 : 336;
-  }
-  if (weaponKey === weapons.injector.key) {
-    return enemy.hp <= 72 ? 474 : 392;
-  }
-  if (weaponKey === weapons.lance.key) {
-    return enemy.hp <= 72 ? 256 : hasGrapple ? 214 : 236;
-  }
-  if (weaponKey === weapons.cannon.key) {
-    return enemy.hp <= 72 ? 644 : 508;
-  }
-  return enemy.hp <= 72 ? 548 : hasShield ? 430 : 404;
-}
 
-export function getEnemyBehaviorProfile(distance, shouldPunish) {
-  const weaponKey = getEnemyWeaponKey();
-  const diff = getDifficultyModifiers();
-  const hasGrapple = enemyHasAbility("vGripHarpoon");
-  const hasShield = enemyHasAbility("hexPlateProjector");
-  const hasEmp = enemyHasAbility("emPulseEmitter");
-
-  let base;
-
-  if (weaponKey === weapons.axe.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.08 : 0.92,
-      engageBias: hasGrapple ? 1.34 : 1.22,
-      retreatBias: enemy.hp <= 72 ? 0.92 : 0.48,
-      abilityPressureDistance: hasGrapple ? 430 : 300,
-      fieldResponseDistance: 212,
-      punishWindowDistance: distance < 318,
-      dodgeAggression: 0.96,
-      shootBurstSize: 0,
-    };
-  } else if (weaponKey === weapons.shotgun.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.24 : 1.14,
-      engageBias: hasGrapple ? 1.28 : 1.18,
-      retreatBias: enemy.hp <= 72 ? 1.04 : 0.66,
-      abilityPressureDistance: hasEmp ? 240 : 320,
-      fieldResponseDistance: 230,
-      punishWindowDistance: distance < 360,
-      dodgeAggression: 0.9,
-      shootBurstSize: 1,
-    };
-  } else if (weaponKey === weapons.sniper.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.06 : 0.88,
-      engageBias: 0.76,
-      retreatBias: enemy.hp <= 72 ? 1.22 : 1.08,
-      abilityPressureDistance: 520,
-      fieldResponseDistance: 260,
-      punishWindowDistance: distance > 420 && distance < 760,
-      dodgeAggression: 1,
-      shootBurstSize: 0,
-    };
-  } else if (weaponKey === weapons.staff.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.08 : 1.02,
-      engageBias: 1.02,
-      retreatBias: enemy.hp <= 72 ? 0.94 : 0.72,
-      abilityPressureDistance: 320,
-      fieldResponseDistance: 220,
-      punishWindowDistance: distance < 420,
-      dodgeAggression: 0.9,
-      shootBurstSize: 0,
-    };
-  } else if (weaponKey === weapons.injector.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.16 : 1.04,
-      engageBias: 1.04,
-      retreatBias: enemy.hp <= 72 ? 1.06 : 0.78,
-      abilityPressureDistance: 380,
-      fieldResponseDistance: 240,
-      punishWindowDistance: distance < 520,
-      dodgeAggression: 0.94,
-      shootBurstSize: 0,
-    };
-  } else if (weaponKey === weapons.lance.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.18 : 1.02,
-      engageBias: hasGrapple ? 1.3 : 1.18,
-      retreatBias: enemy.hp <= 72 ? 0.88 : 0.54,
-      abilityPressureDistance: 360,
-      fieldResponseDistance: 210,
-      punishWindowDistance: distance < 300,
-      dodgeAggression: 0.9,
-      shootBurstSize: 0,
-    };
-  } else if (weaponKey === weapons.cannon.key) {
-    base = {
-      strafeScale: shouldPunish ? 1.02 : 0.9,
-      engageBias: 0.88,
-      retreatBias: enemy.hp <= 72 ? 1.18 : 0.98,
-      abilityPressureDistance: 480,
-      fieldResponseDistance: 240,
-      punishWindowDistance: distance > 240 && distance < 760,
-      dodgeAggression: 0.96,
-      shootBurstSize: 0,
-    };
-  } else {
-    base = {
-      strafeScale: shouldPunish ? 1.18 : 1,
-      engageBias: 1.08,
-      retreatBias: enemy.hp <= 72 ? 1.18 : 0.88,
-      abilityPressureDistance: hasShield ? 280 : 340,
-      fieldResponseDistance: 250,
-      punishWindowDistance: distance < 446,
-      dodgeAggression: 0.92,
-      shootBurstSize: shouldPunish ? 3 : 2,
-    };
+  function getDuelTargetId(target) {
+    return target === playerClone ? "player-clone" : "player";
   }
 
-  // Apply difficulty scaling.
-  base.strafeScale *= 0.84 + diff.spacingAwareness * 0.24;
-  base.engageBias *= 0.9 + diff.pressureAdaptation * 0.18;
-  base.retreatBias *= 0.88 + diff.spacingAwareness * 0.2;
-  base.dodgeAggression = Math.min(1, base.dodgeAggression * diff.dodgeChance * diff.dodgeReaction);
-  return base;
-}
+  function isDuelTargetExposed(target) {
+    if (target === playerClone) {
+      return playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04;
+    }
 
-function getEnemyFocusTarget() {
-  if (!playerClone.active || !playerClone.alive) {
-    enemy.focusTarget = "player";
-    enemy.focusTime = 0;
-    return player;
+    return (player.lastMissTime ?? 0) > 0 ||
+      player.fireCooldown > 0.16 ||
+      player.attackStartupTime > 0 ||
+      player.attackCommitTime > 0 ||
+      player.activeAxeStrike !== null ||
+      player.pendingAxeStrike !== null;
   }
 
-  if (enemy.focusTime > 0) {
-    return enemy.focusTarget === "clone" ? playerClone : player;
+  function getEnemyAbilityCooldownFloor(keys) {
+    return keys.reduce((minValue, key) => {
+      const value = enemy.abilityCooldowns?.[key] ?? Number.POSITIVE_INFINITY;
+      return Math.min(minValue, value);
+    }, Number.POSITIVE_INFINITY);
   }
 
-  const playerDistance = length(player.x - enemy.x, player.y - enemy.y);
-  const cloneDistance = length(playerClone.x - enemy.x, playerClone.y - enemy.y);
-  const cloneLikely =
-    player.decoyTime > 0 ||
-    cloneDistance < playerDistance - 24 ||
-    (cloneDistance < playerDistance + 28 && Math.random() < 0.42);
+  function getEnemyFocusTarget() {
+    if (!playerClone.active || !playerClone.alive) {
+      enemy.focusTarget = "player";
+      enemy.focusTime = 0;
+      return player;
+    }
 
-  enemy.focusTarget = cloneLikely ? "clone" : "player";
-  enemy.focusTime = cloneLikely ? 0.7 : 0.34;
-  return cloneLikely ? playerClone : player;
-}
+    if (enemy.focusTime > 0) {
+      return enemy.focusTarget === "clone" ? playerClone : player;
+    }
 
-export function startEnemyReload(bot = enemy) {
-  if (bot.weapon !== weapons.pulse.key || bot.reloadTime > 0) {
-    return false;
+    const playerDistance = length(player.x - enemy.x, player.y - enemy.y);
+    const cloneDistance = length(playerClone.x - enemy.x, playerClone.y - enemy.y);
+    const cloneLikely =
+      player.decoyTime > 0 ||
+      cloneDistance < playerDistance - 24 ||
+      (cloneDistance < playerDistance + 28 && Math.random() < 0.42);
+
+    enemy.focusTarget = cloneLikely ? "clone" : "player";
+    enemy.focusTime = cloneLikely ? 0.7 : 0.34;
+    return cloneLikely ? playerClone : player;
   }
-  bot.reloadTime = config.pulseReloadTime;
-  bot.shootCooldown = Math.max(bot.shootCooldown, config.pulseReloadTime);
   return true;
 }
 
@@ -461,7 +353,7 @@ export function fireEnemyLance(target = player, altFire = false) {
       : "Enemy lance punctured the phantom copy.";
   } else {
     applyPlayerDamage(damage, altFire ? "lance-drive" : "lance", enemy);
-    if (moduleState.reflexAegis.resolveLockTime <= 0) {
+    if (abilityState.reflexAegis.resolveLockTime <= 0) {
       applyStatusEffect(hit, altFire ? "stun" : "slow", getStatusDuration((altFire ? config.lanceAltShockDuration : config.lancePrimarySlowDuration) * (1 - getBuildStats().ccReduction)), altFire ? 1 : config.lancePrimarySlow);
     } else {
       return true;
@@ -594,7 +486,7 @@ export function resolveEnemyAxeStrike() {
 
   if (hit) {
     applyPlayerDamage(profile.damage, "axe", enemy);
-    if (moduleState.reflexAegis.resolveLockTime > 0) {
+    if (abilityState.reflexAegis.resolveLockTime > 0) {
       return;
     }
     addImpact(player.x, player.y, profile.impactColor, profile.impactSize * 0.7);
@@ -618,7 +510,7 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   if (!enemy.activeMeleeStrike.connected && dashDistance <= enemy.radius + player.radius + 6) {
     enemy.activeMeleeStrike.connected = true;
     applyPlayerDamage(enemy.activeMeleeStrike.profile.damage, "axe-finisher", enemy);
-    if (moduleState.reflexAegis.resolveLockTime > 0) {
+    if (abilityState.reflexAegis.resolveLockTime > 0) {
       return;
     }
     applyStatusEffect(player, "stun", getStatusDuration(enemy.activeMeleeStrike.profile.stun), 1);
@@ -631,7 +523,7 @@ export function updateEnemyAxeCommit(dt, previousX, previousY) {
   }
 }
 
- // spawnEnemyBoltLinkJavelin is imported from abilities.js
+ // spawnEnemyJavelin is imported from abilities.js
 
 export function castEnemyVGripHarpoon(forward, target = player) {
   startCast(enemy, "vGripHarpoon", executeEnemyVGripHarpoonCast, { forward, target });
@@ -641,8 +533,8 @@ export function executeEnemyVGripHarpoonCast(params) {
   const { forward, target } = params;
   if (!target || !target.alive) return;
 
-  enemy.abilityCooldowns.vGripHarpoon = config.vGripHarpoonCooldown + 0.6;
-  playModuleCue("vGripHarpoon", "enemy");
+  enemy.abilityCooldowns.vGripHarpoon = config.grappleCooldown + 0.6;
+  playAbilityCue("vGripHarpoon", "enemy");
   addBeamEffect(enemy.x, enemy.y, target.x, target.y, "#ffd5c8", 5, 0.18);
   addImpact(enemy.x, enemy.y, "#9feeff", 32);
   addShake(5.2);
@@ -651,7 +543,7 @@ export function executeEnemyVGripHarpoonCast(params) {
     return;
   }
 
-  if (target === player && (moduleState.dash.invulnerabilityTime > 0 || moduleState.ghostDriftModule.time > 0)) {
+  if (target === player && (abilityState.dash.invulnerabilityTime > 0 || abilityState.ghostDriftModule.time > 0)) {
     addImpact(player.x, player.y, "#b8f9c9", 20);
     statusLine.textContent = "You slipped the enemy harpoon with clean timing.";
     return;
@@ -676,19 +568,19 @@ export function executeEnemyVGripHarpoonCast(params) {
 
 export function castEnemyHexPlateProjector() {
   startVisualCast(enemy, "hexPlateProjector", 0.3);
-  enemy.abilityCooldowns.hexPlateProjector = config.hexPlateProjectorCooldown + 0.5;
-  enemy.shield = Math.max(enemy.shield, config.hexPlateProjectorValue);
-  enemy.shieldTime = config.hexPlateProjectorDuration;
-  enemy.shieldGuardTime = config.hexPlateProjectorDuration;
+  enemy.abilityCooldowns.hexPlateProjector = config.shieldCooldown + 0.5;
+  enemy.shield = Math.max(enemy.shield, config.shieldValue);
+  enemy.shieldTime = config.shieldDuration;
+  enemy.shieldGuardTime = config.shieldDuration;
   enemy.shieldBreakRefundReady = true;
-  playModuleCue("hexPlateProjector", "enemy");
+  playAbilityCue("hexPlateProjector", "enemy");
   addImpact(enemy.x, enemy.y, "#a8d9ff", 22);
 }
 
 export function castEnemyEmPulseEmitter() {
   startVisualCast(enemy, "emPulseEmitter", 0.35);
   enemy.abilityCooldowns.emPulseEmitter = config.emPulseEmitterCooldown + 0.8;
-  playModuleCue("emPulseEmitter", "enemy");
+  playAbilityCue("emPulseEmitter", "enemy");
   addExplosion(enemy.x, enemy.y, 72, "#cbb0ff");
   addImpact(enemy.x, enemy.y, "#b99cff", 24);
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
@@ -712,7 +604,7 @@ export function castEnemyJetBackThruster() {
   maybeTeleportEntity(enemy);
   enemy.shield = Math.max(enemy.shield, 8);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.6);
-  playModuleCue("jetBackThruster", "enemy");
+  playAbilityCue("jetBackThruster", "enemy");
   addAfterimage(enemy.x, enemy.y, enemy.facing, enemy.radius + 5, "#fff0a8");
   addImpact(enemy.x, enemy.y, "#fff0a8", 18);
 }
@@ -732,7 +624,7 @@ export function executeEnemyChainLightningCast(params) {
     applyStatusEffect(target, "slow", getStatusDuration(0.42), 0.2);
   } else {
     applyPlayerDamage(24, "enemy-chain-lightning", enemy);
-    if (moduleState.reflexAegis.resolveLockTime <= 0) {
+    if (abilityState.reflexAegis.resolveLockTime <= 0) {
       applyStatusEffect(target, "slow", getStatusDuration(0.5), 0.2);
     } else {
       return;
@@ -750,7 +642,7 @@ export function castEnemyBlink(forward) {
   enemy.y = clamp(enemy.y + forward.y * 132, enemy.radius, arena.height - enemy.radius);
   resolveMapCollision(enemy);
   maybeTeleportEntity(enemy);
-  playModuleCue("blink", "enemy");
+  playAbilityCue("blink", "enemy");
   addImpact(enemy.x, enemy.y, "#b3f6ff", 18);
 }
 
@@ -762,7 +654,7 @@ export function castEnemyPhaseDash(forward) {
   enemy.dodgeTime = 0.22;
   enemy.shield = Math.max(enemy.shield, 10);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.5);
-  playModuleCue("jetBackThruster", "enemy");
+  playAbilityCue("jetBackThruster", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 20);
 }
 
@@ -794,7 +686,7 @@ export function executeEnemySwarmMissileRackCast(params) {
       },
     });
   }
-  playModuleCue("swarmMissileRack", "enemy");
+  playAbilityCue("swarmMissileRack", "enemy");
   addImpact(enemy.x, enemy.y, "#7ddcff", 32);
   addShake(4.8);
   enemy.flash = 0.08;
@@ -809,7 +701,7 @@ export function executeEnemyRailShotCast(params) {
   if (!target) return;
 
   enemy.abilityCooldowns.railShot = 5.3;
-  playModuleCue("railShot", "enemy");
+  playAbilityCue("railShot", "enemy");
   addImpact(enemy.x, enemy.y, "#ffd279", 36);
   addShake(6.4);
   enemy.flash = 0.1;
@@ -837,7 +729,7 @@ export function executeEnemyVoidCoreSingularityCast(params) {
     slow: config.voidCoreSingularitySlow * 0.9,
     pullStrength: config.voidCoreSingularityPullStrength * 0.92,
   });
-  playModuleCue("voidCoreSingularity", "enemy");
+  playAbilityCue("voidCoreSingularity", "enemy");
   addExplosion(target.x, target.y, config.voidCoreSingularityRadius, "#b999ff");
   addImpact(enemy.x, enemy.y, "#b999ff", 32);
   addShake(5.6);
@@ -848,7 +740,7 @@ export function castEnemyGhostDriftModule() {
   enemy.abilityCooldowns.ghostDriftModule = 5.8;
   enemy.shield = Math.max(enemy.shield, 14);
   enemy.shieldTime = Math.max(enemy.shieldTime, 0.7);
-  playModuleCue("ghostDriftModule", "enemy");
+  playAbilityCue("ghostDriftModule", "enemy");
   addImpact(enemy.x, enemy.y, "#d2f1ff", 18);
 }
 
@@ -856,7 +748,7 @@ export function castEnemySpectreProjector() {
   startVisualCast(enemy, "spectreProjector", 0.32);
   enemy.abilityCooldowns.spectreProjector = 6.4;
   enemy.postAttackMoveTime = Math.max(enemy.postAttackMoveTime, 0.5);
-  playModuleCue("spectreProjector", "enemy");
+  playAbilityCue("spectreProjector", "enemy");
   addAfterimage(enemy.x - 32, enemy.y + 16, enemy.facing, enemy.radius + 5, "#d8b8ff");
 }
 
@@ -864,7 +756,7 @@ export function castEnemyOverdriveServos() {
   startVisualCast(enemy, "overdriveServos", 0.4);
   enemy.abilityCooldowns.overdriveServos = 4.4;
   enemy.hasteTime = Math.max(enemy.hasteTime, 1.8);
-  playModuleCue("overdriveServos", "enemy");
+  playAbilityCue("overdriveServos", "enemy");
   addImpact(enemy.x, enemy.y, "#8dfcc7", 18);
 }
 
@@ -918,7 +810,7 @@ export function updateEnemyBoltLinkJavelins(dt) {
     enemyBoltLinkJavelins.splice(i, 1);
     addImpact(hitTarget.x, hitTarget.y, javelin.charged ? "#ffd7be" : "#ffb09a", javelin.charged ? 26 : 18);
 
-    if (hitTarget === player && moduleState.dash.invulnerabilityTime > 0) {
+    if (hitTarget === player && abilityState.dash.invulnerabilityTime > 0) {
       addImpact(player.x, player.y, "#b8f9c9", 20);
       statusLine.textContent = "Clean dash through enemy javelin.";
       continue;
@@ -934,7 +826,7 @@ export function updateEnemyBoltLinkJavelins(dt) {
     }
 
     const defeatedByJavelin = applyPlayerDamage(javelin.damage, "boltLinkJavelin", enemy);
-    if (moduleState.reflexAegis.resolveLockTime > 0) {
+    if (abilityState.reflexAegis.resolveLockTime > 0) {
       continue;
     }
     applyStatusEffect(player, "slow", getStatusDuration(javelin.slowDuration * (1 - getBuildStats().ccReduction)), javelin.slow);
@@ -1004,20 +896,13 @@ export function updateEnemy(dt) {
   }
 
   const focusTargetEntity = getEnemyFocusTarget();
-  const targetX = focusTargetEntity.x;
-  const targetY = focusTargetEntity.y;
-  const targetVelocityX = focusTargetEntity.velocityX ?? 0;
-  const targetVelocityY = focusTargetEntity.velocityY ?? 0;
-  const dx = targetX - enemy.x;
-  const dy = targetY - enemy.y;
-  const distance = length(dx, dy);
-  const forward = normalize(dx, dy);
-  const side = { x: -forward.y, y: forward.x };
+  const focusDx = focusTargetEntity.x - enemy.x;
+  const focusDy = focusTargetEntity.y - enemy.y;
+  const focusDistance = length(focusDx, focusDy);
   const enemyFieldModifier = getFieldInfluence(enemy);
   const enemyZoneEffects = getZoneEffectsForEntity(enemy, dt);
   const playerLow = player.hp <= 38;
   const enemyLow = enemy.hp <= 72;
-  const targetOnAxe = focusTargetEntity.weapon === weapons.axe.key;
   const enemyOnAxe = enemy.weapon === weapons.axe.key;
   const enemyOnShotgun = enemy.weapon === weapons.shotgun.key;
   const enemyOnPulse = enemy.weapon === weapons.pulse.key;
@@ -1026,32 +911,118 @@ export function updateEnemy(dt) {
   const enemyOnInjector = enemy.weapon === weapons.injector.key;
   const enemyOnLance = enemy.weapon === weapons.lance.key;
   const enemyOnCannon = enemy.weapon === weapons.cannon.key;
-  const playerExposed =
-    focusTargetEntity === playerClone
-      ? playerClone.actionQueue.length === 0 && playerClone.actionFlash <= 0.04
-      : (player.lastMissTime ?? 0) > 0 ||
-        player.fireCooldown > 0.16 ||
-        player.attackStartupTime > 0 ||
-        player.attackCommitTime > 0 ||
-        player.activeAxeStrike !== null ||
-        player.pendingAxeStrike !== null;
-  const targetRange = getEnemyTargetRange();
-  const punishWindow = playerExposed || playerLow;
-  const shouldPunish =
+  const currentWeaponKey = getEnemyWeaponKey();
+  const focusTargetExposed = isDuelTargetExposed(focusTargetEntity);
+  const punishWindow = focusTargetExposed || playerLow;
+  const baseShouldPunish =
     (punishWindow && (diff.punishAwareness >= 1 || Math.random() < diff.punishAwareness)) ||
     (focusTargetEntity !== player && focusTargetEntity.hp <= focusTargetEntity.maxHp * 0.42);
-  const behaviorProfile = getEnemyBehaviorProfile(distance, shouldPunish);
+  const decisionShouldKite =
+    (enemyLow || (focusTargetEntity.weapon === weapons.axe.key && focusDistance < 332) || (enemyOnPulse && focusDistance < 210)) &&
+    (diff.spacingAwareness >= 1 || Math.random() < diff.spacingAwareness);
+  const provisionalTargetRange = currentWeaponKey === weapons.shotgun.key ? 276 : currentWeaponKey === weapons.axe.key ? 218 : currentWeaponKey === weapons.pulse.key ? 404 : 336;
+  const pressureOpportunity = baseShouldPunish || playerLow || (enemyOnShotgun && focusDistance < provisionalTargetRange + 44) || (enemyOnAxe && focusDistance < provisionalTargetRange + 30);
+  const decisionShouldPressure =
+    pressureOpportunity &&
+    focusDistance < 420 &&
+    (diff.pressureAdaptation >= 1 || Math.random() < diff.pressureAdaptation);
+  const actionDelay = focusTargetExposed ? diff.actionDelay * 0.4 : diff.actionDelay;
+  const canUseDefensiveAbility = !enemyStatus.stunned && (enemyLow || diff.defensiveReaction >= 1 || Math.random() < diff.defensiveReaction);
+  const canUseOffensiveAbility = !enemyStatus.stunned && (diff.abilityTiming >= 1 || Math.random() < diff.abilityTiming);
+
+  const tacticalProfile = getDuelTacticalProfile({
+    weaponKey: currentWeaponKey,
+    currentHp: enemy.hp,
+    maxHp: enemy.maxHp,
+    shouldPunish: baseShouldPunish,
+    shouldPressure: decisionShouldPressure,
+    shouldKite: decisionShouldKite,
+    focusTargetId: getDuelTargetId(focusTargetEntity),
+    hasGrapple: enemyHasAbility("vGripHarpoon"),
+    hasShield: enemyHasAbility("hexPlateProjector"),
+    hasEmp: enemyHasAbility("emPulseEmitter"),
+    postAttackMoveMultiplier: enemy.postAttackMoveTime > 0 ? 1.38 : 1,
+    difficulty: {
+      spacingAwareness: diff.spacingAwareness,
+      pressureAdaptation: diff.pressureAdaptation,
+      dodgeChance: diff.dodgeChance,
+      dodgeReaction: diff.dodgeReaction,
+    },
+  });
+  const targetRange = tacticalProfile.targetRange;
+  const behaviorProfile = tacticalProfile;
+
+  if (!enemy.strafeDir || Math.random() < dt * diff.strafeChangeRate) {
+    enemy.strafeDir = Math.random() < 0.5 ? 1 : -1;
+  }
+
+  const duelOpponents = [player, playerClone]
+    .filter((candidate) => candidate?.alive)
+    .map((candidate) => ({
+      entity: candidate,
+      snapshot: {
+        id: getDuelTargetId(candidate),
+        team: 0,
+        x: candidate.x,
+        y: candidate.y,
+        alive: Boolean(candidate.alive),
+        connected: true,
+        hp: candidate.hp,
+        maxHp: candidate.maxHp ?? config.playerMaxHp,
+        hasLineOfSight: canSeeTarget(enemy, candidate),
+        isExposed: isDuelTargetExposed(candidate),
+        targetPriorityBonus: candidate === focusTargetEntity ? 0.34 : 0,
+        threatLevel: candidate === player ? 0.28 : 0.12,
+      },
+    }));
+
+  const coreDecision = decideCombatBotAction({
+    self: {
+      id: "enemy",
+      team: 1,
+      x: enemy.x,
+      y: enemy.y,
+      alive: enemy.alive,
+      connected: true,
+      hp: enemy.hp,
+      maxHp: enemy.maxHp,
+      cooldowns: {
+        primary: enemy.shootCooldown,
+        dash: Math.min(enemy.dashCooldown ?? Number.POSITIVE_INFINITY, enemy.dodgeCooldown ?? Number.POSITIVE_INFINITY),
+        offensive: getEnemyAbilityCooldownFloor(["vGripHarpoon", "emPulseEmitter", "chainLightning", "blink", "phaseDash", "swarmMissileRack", "railShot", "voidCoreSingularity", "overdriveServos"]),
+        defensive: getEnemyAbilityCooldownFloor(["hexPlateProjector", "jetBackThruster", "ghostDriftModule", "spectreProjector"]),
+      },
+    },
+    allies: [],
+    opponents: duelOpponents.map((entry) => entry.snapshot),
+    priorities: tacticalProfile.priorities,
+    strafeDirection: enemy.strafeDir === -1 ? -1 : 1,
+    aimJitterRoll: Math.random() - 0.5,
+  });
+
+  const selectedTarget = duelOpponents.find((entry) => entry.snapshot.id === coreDecision.targetId)?.entity ?? focusTargetEntity;
+  const targetX = selectedTarget.x;
+  const targetY = selectedTarget.y;
+  const targetVelocityX = selectedTarget.velocityX ?? 0;
+  const targetVelocityY = selectedTarget.velocityY ?? 0;
+  const dx = targetX - enemy.x;
+  const dy = targetY - enemy.y;
+  const distance = length(dx, dy);
+  const forward = normalize(dx, dy);
+  const side = { x: -forward.y, y: forward.x };
+  const targetOnAxe = selectedTarget.weapon === weapons.axe.key;
+  const playerExposed = isDuelTargetExposed(selectedTarget);
   const shouldKite =
     (enemyLow || (targetOnAxe && distance < 332) || (enemyOnPulse && distance < 210)) &&
     (diff.spacingAwareness >= 1 || Math.random() < diff.spacingAwareness);
-  const pressureOpportunity = shouldPunish || playerLow || (enemyOnShotgun && distance < targetRange + 44) || (enemyOnAxe && distance < targetRange + 30);
+  const shouldPunish =
+    ((playerExposed || playerLow) && (diff.punishAwareness >= 1 || Math.random() < diff.punishAwareness)) ||
+    (selectedTarget !== player && selectedTarget.hp <= selectedTarget.maxHp * 0.42);
   const shouldPressure =
-    pressureOpportunity &&
+    (shouldPunish || playerLow || (enemyOnShotgun && distance < targetRange + 44) || (enemyOnAxe && distance < targetRange + 30)) &&
     distance < 420 &&
     (diff.pressureAdaptation >= 1 || Math.random() < diff.pressureAdaptation);
-  const actionDelay = playerExposed ? diff.actionDelay * 0.4 : diff.actionDelay;
-  const canUseDefensiveAbility = !enemyStatus.stunned && (enemyLow || diff.defensiveReaction >= 1 || Math.random() < diff.defensiveReaction);
-  const canUseOffensiveAbility = !enemyStatus.stunned && (diff.abilityTiming >= 1 || Math.random() < diff.abilityTiming);
+  const targetHasLineOfSight = coreDecision.targetHasLineOfSight;
 
   let moveX = 0;
   let moveY = 0;
@@ -1067,21 +1038,8 @@ export function updateEnemy(dt) {
   } else if (enemy.attackCommitTime > 0 && enemy.activeMeleeStrike) {
     updateEnemyAxeCommit(dt, previousX, previousY);
   } else {
-    if (!enemy.strafeDir || Math.random() < dt * diff.strafeChangeRate) {
-      enemy.strafeDir = Math.random() < 0.5 ? 1 : -1;
-    }
-    const strafeScale = (enemy.postAttackMoveTime > 0 ? 1.38 : 1) * behaviorProfile.strafeScale;
-    const strafeDirection = enemy.strafeDir;
-    moveX = side.x * strafeDirection * 1.12 * strafeScale;
-    moveY = side.y * strafeDirection * 1.12 * strafeScale;
-
-    if (distance > targetRange + 28 || shouldPressure) {
-      moveX += forward.x * behaviorProfile.engageBias;
-      moveY += forward.y * behaviorProfile.engageBias;
-    } else if (distance < targetRange - 74 || shouldKite) {
-      moveX -= forward.x * behaviorProfile.retreatBias;
-      moveY -= forward.y * behaviorProfile.retreatBias;
-    }
+    moveX = coreDecision.movementX;
+    moveY = coreDecision.movementY;
 
     if (enemy.castTime > 0) {
       const castFriction = config.playerFriction * 3.2;
@@ -1113,7 +1071,7 @@ export function updateEnemy(dt) {
   }
   resolveMapCollision(enemy);
   maybeTeleportEntity(enemy);
-  enemy.facing = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+  enemy.facing = coreDecision.facing;
 
   if (enemyFieldModifier.disrupted) {
     applyStatusEffect(enemy, "stun", 0.28, 1);
@@ -1138,10 +1096,10 @@ export function updateEnemy(dt) {
     spawnEnemyOrbitalDistorterField();
   }
 
-  if (canUseOffensiveAbility && enemyHasAbility("boltLinkJavelin") && enemy.boltLinkJavelinCooldown <= 0 && distance > 180 && distance < 620) {
+  if (canUseOffensiveAbility && enemyHasAbility("boltLinkJavelin") && enemy.boltLinkJavelinCooldown <= 0 && targetHasLineOfSight && distance > 180 && distance < 620) {
     const chargedJavelin = enemyLow || shouldPunish || distance > 360;
     if (shouldPunish || Math.random() < (chargedJavelin ? 0.48 : 0.34)) {
-      spawnEnemyBoltLinkJavelin(chargedJavelin, focusTargetEntity);
+      spawnEnemyJavelin(chargedJavelin, focusTargetEntity);
       enemy.postAttackMoveTime = 0.62;
       enemy.shootCooldown = Math.max(enemy.shootCooldown, 0.18);
     }
@@ -1210,18 +1168,18 @@ export function updateEnemy(dt) {
     resolveEnemyAxeStrike();
   }
 
-  if (!enemyStatus.stunned && enemyOnPulse && enemy.burstShots > 0 && enemy.shootCooldown <= 0) {
+  if (!enemyStatus.stunned && enemyOnPulse && enemy.burstShots > 0 && enemy.shootCooldown <= 0 && targetHasLineOfSight) {
     enemy.burstShots -= 1;
     enemy.shootCooldown = (enemy.burstShots > 0 ? 0.16 : 0.84) * diff.cooldownMult + diff.reactionDelay + actionDelay;
     const pulseAimLead = diff.aimLeadFactor + (playerExposed ? 0.08 : 0.02);
     const leadX = targetX + targetVelocityX * pulseAimLead;
     const leadY = targetY + targetVelocityY * pulseAimLead;
     fireEnemyPulse(leadX, leadY, shouldPunish);
-  } else if (!enemyStatus.stunned && enemyOnPulse && enemy.shootCooldown <= 0 && distance < 660) {
+  } else if (!enemyStatus.stunned && enemyOnPulse && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 660) {
     enemy.burstShots = behaviorProfile.shootBurstSize + (diff.comboChaining && shouldPunish ? 1 : 0);
     enemy.shootCooldown = 0.08 * diff.cooldownMult + diff.reactionDelay + actionDelay;
     enemy.postAttackMoveTime = 0.46;
-  } else if (!enemyStatus.stunned && enemyOnShotgun && enemy.shootCooldown <= 0 && distance < 340) {
+  } else if (!enemyStatus.stunned && enemyOnShotgun && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 340) {
     if (fireEnemyShotgun(targetX, targetY)) {
       enemy.shootCooldown = (shouldPunish ? 0.78 : 0.96) * diff.cooldownMult + diff.reactionDelay + actionDelay;
       enemy.postAttackMoveTime = 0.4;
@@ -1232,7 +1190,7 @@ export function updateEnemy(dt) {
   } else if (canUseOffensiveAbility && enemyHasAbility("chainLightning") && enemy.abilityCooldowns.chainLightning <= 0 && distance < 380 && (shouldPunish || playerExposed)) {
     castEnemyChainLightning(focusTargetEntity);
     enemy.shootCooldown = 0.46 * diff.cooldownMult;
-  } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && distance > 280 && distance < 920) {
+  } else if (!enemyStatus.stunned && enemyOnSniper && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance > 280 && distance < 920) {
     const sniperAimLead = diff.aimLeadFactor + 0.04;
     if (fireEnemySniper(targetX + targetVelocityX * sniperAimLead, targetY + targetVelocityY * sniperAimLead)) {
       enemy.shootCooldown = (shouldPunish ? 1.08 : 1.26) * diff.cooldownMult + diff.reactionDelay + actionDelay;
@@ -1241,24 +1199,24 @@ export function updateEnemy(dt) {
   } else if (canUseOffensiveAbility && enemyHasAbility("railShot") && enemy.abilityCooldowns.railShot <= 0 && distance > 340 && shouldPunish) {
     castEnemyRailShot(focusTargetEntity);
     enemy.shootCooldown = 0.62 * diff.cooldownMult;
-  } else if (!enemyStatus.stunned && enemyOnStaff && enemy.shootCooldown <= 0 && distance < 480) {
+  } else if (!enemyStatus.stunned && enemyOnStaff && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 480) {
     if (fireEnemyStaff(targetX, targetY)) {
       enemy.shootCooldown = 0.52 * diff.cooldownMult + diff.reactionDelay + actionDelay;
       enemy.postAttackMoveTime = 0.32;
     }
-  } else if (!enemyStatus.stunned && enemyOnInjector && enemy.shootCooldown <= 0 && distance < 560) {
+  } else if (!enemyStatus.stunned && enemyOnInjector && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 560) {
     const injectorAimLead = Math.max(0.06, diff.aimLeadFactor * 0.68);
     if (fireEnemyInjector(targetX + targetVelocityX * injectorAimLead, targetY + targetVelocityY * injectorAimLead)) {
       enemy.shootCooldown = (shouldPunish ? 0.34 : 0.42) * diff.cooldownMult + diff.reactionDelay + actionDelay;
       enemy.postAttackMoveTime = 0.28;
     }
-  } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && distance < 820) {
+  } else if (!enemyStatus.stunned && enemyOnCannon && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 820) {
     const cannonAimLead = diff.aimLeadFactor + 0.02;
     if (fireEnemyCannon(targetX + targetVelocityX * cannonAimLead, targetY + targetVelocityY * cannonAimLead, shouldPunish && distance < 260)) {
       enemy.shootCooldown = (shouldPunish ? 1.18 : 1.34) * diff.cooldownMult + diff.reactionDelay + actionDelay;
       enemy.postAttackMoveTime = 0.58;
     }
-  } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && distance < 320) {
+  } else if (!enemyStatus.stunned && enemyOnLance && enemy.shootCooldown <= 0 && targetHasLineOfSight && distance < 320) {
     if (fireEnemyLance(focusTargetEntity, shouldPunish && distance < 210)) {
       enemy.shootCooldown = (shouldPunish ? 0.92 : 1.08) * diff.cooldownMult + diff.reactionDelay + actionDelay;
       enemy.postAttackMoveTime = 0.24;

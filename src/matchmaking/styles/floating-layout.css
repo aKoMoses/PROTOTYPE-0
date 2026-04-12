@@ -305,9 +305,8 @@
   animation-delay: 200ms;
 }
 
-/* BUILD/RUNES SCREEN: Centered with side timer */
-#build-screen.prematch-screen--active,
-#rune-screen.prematch-screen--active {
+/* BUILD SCREEN: Centered with side timer */
+#build-screen.prematch-screen--active {
   padding: 40px;
   display: flex;
   align-items: center;
@@ -334,88 +333,6 @@
   background: rgba(15, 21, 32, 0.7);
   border: 1px solid rgba(201, 162, 39, 0.3);
   border-radius: 2px;
-}
-
-/* RUNES SPECIFIC: Center circle with orbiting chips */
-#rune-screen.prematch-screen--active .rune-container {
-  position: relative;
-  width: 400px;
-  height: 400px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rune-center-display {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-
-.rune-circle-ring {
-  position: absolute;
-  border: 1px solid rgba(120, 71, 199, 0.3);
-  border-radius: 50%;
-  animation: rotate-slow 12s linear infinite;
-}
-
-.rune-circle-ring:nth-child(1) {
-  width: 100%;
-  height: 100%;
-}
-
-.rune-circle-ring:nth-child(2) {
-  width: 80%;
-  height: 80%;
-  animation-direction: reverse;
-  animation-duration: 18s;
-}
-
-.rune-circle-ring:nth-child(3) {
-  width: 60%;
-  height: 60%;
-  opacity: 0.6;
-}
-
-.rune-chips-orbit {
-  position: absolute;
-  inset: 0;
-}
-
-.rune-chip {
-  position: absolute;
-  animation: float-bob 2.4s ease-in-out infinite;
-}
-
-.rune-chip:nth-child(1) {
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.rune-chip:nth-child(2) {
-  top: 50%;
-  right: -40px;
-  transform: translateY(-50%);
-  animation-delay: 0.6s;
-}
-
-.rune-chip:nth-child(3) {
-  bottom: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  animation-delay: 1.2s;
-}
-
-.rune-chip:nth-child(4) {
-  top: 50%;
-  left: -40px;
-  transform: translateY(-50%);
-  animation-delay: 1.8s;
 }
 
 /* LOBBY SCREEN: Full roster showcase */
@@ -611,7 +528,6 @@
   #queue-screen.prematch-screen--active,
   #map-screen.prematch-screen--active,
   #build-screen.prematch-screen--active,
-  #rune-screen.prematch-screen--active,
   #lobby-screen.prematch-screen--active,
   #loading-screen.prematch-screen--active {
     padding: 24px;
@@ -660,7 +576,6 @@
   #queue-screen.prematch-screen--active,
   #map-screen.prematch-screen--active,
   #build-screen.prematch-screen--active,
-  #rune-screen.prematch-screen--active,
   #lobby-screen.prematch-screen--active,
   #loading-screen.prematch-screen--active {
     padding: 16px;

@@ -5,10 +5,24 @@
 
 import { content } from "../../content.js";
 import { openBuilder } from "../../../loadout-builder.js";
-import { cloneStoredLoadout, createStoredLoadout, normalizeStoredBuild, readStoredLoadouts, updateStoredLoadouts } from "../../loadouts/storage.js";
+import {
+  LOADOUT_SYNC_STATUS_CHANGED_EVENT,
+  cloneStoredLoadout,
+  createStoredLoadout,
+  getLoadoutSyncStatus,
+  normalizeStoredBuild,
+  readStoredLoadouts,
+  retryRemoteLoadoutSync,
+  updateStoredLoadouts,
+} from "../../loadouts/storage.js";
 import { PROGRESSION_CHANGED_EVENT, getLoadoutAccessState } from "../../progression.js";
 import { hideClickTooltip, registerClickTooltip } from "../../ui/tooltip-manager.js";
 import { sanitizeIconClass } from "../../utils.js";
+import { uiState, loadout } from "../../state/app-state.js";
+
+// Snapshot of the build fields at the moment the last deck was equipped.
+// Used to detect whether the player manually modified their loadout afterwards.
+let _equippedBuildSnapshot = null;
 
 const GAMEPLAY_TAGS = ["aggro", "control", "poke", "burst", "tank", "support", "hybrid", "cheese"];
 
@@ -20,8 +34,10 @@ const root = document.getElementById("loadout-root");
 const grid = document.getElementById("loadout-grid");
 const createBtn = document.getElementById("loadout-create-btn");
 const tagBar = document.getElementById("loadout-tag-bar");
+const syncBanner = document.getElementById("loadout-sync-banner");
 
 let activeModalId = null;
+let syncStatus = getLoadoutSyncStatus();
 
 if (root) {
   createBtn?.addEventListener("click", handleCreate);
@@ -31,12 +47,25 @@ if (root) {
   grid?.addEventListener("keydown", handleNameKey);
   window.addEventListener("builder-forge", handleBuilderForge);
   window.addEventListener("p0-loadouts-changed", syncStoredLoadouts);
+  window.addEventListener(LOADOUT_SYNC_STATUS_CHANGED_EVENT, handleSyncStatusChange);
   window.addEventListener(PROGRESSION_CHANGED_EVENT, render);
   document.addEventListener("click", handleModalClick);
   render();
 }
 
+function handleSyncStatusChange(event) {
+  syncStatus = event.detail ?? getLoadoutSyncStatus();
+  renderSyncBanner();
+}
+
 function handleModalClick(event) {
+  const retryButton = event.target.closest("[data-loadout-sync-retry]");
+  if (retryButton) {
+    event.preventDefault();
+    void retryRemoteLoadoutSync();
+    return;
+  }
+
   const modal = event.target.closest(".loadout-modal");
   if (!modal) return;
 
@@ -197,15 +226,28 @@ async function handleEquip(id) {
     return false;
   }
 
+  // Warn if the player manually changed their loadout since the last deck was equipped.
+  if (
+    uiState.selectedLoadoutId !== null &&
+    uiState.selectedLoadoutId !== id &&
+    _equippedBuildSnapshot !== null &&
+    !_buildMatchesSnapshot(_equippedBuildSnapshot)
+  ) {
+    const confirmMsg =
+      "Tes modifications manuelles seront perdues. Charger ce deck quand m\u00eame ?";
+    if (!window.confirm(confirmMsg)) return false;
+  }
+
   await window.__P0_SHELL?.ensureViewModule?.("game");
 
   const equipContext = dispatchEquip(entry);
 
-  // Close detail modal once the loadout is successfully equipped.
-  if (activeModalId === id) {
-    activeModalId = null;
-    render();
-  }
+  // Track the build snapshot so we can detect manual modifications later.
+  _equippedBuildSnapshot = _captureBuildSnapshot();
+
+  // Close detail modal and re-render to refresh ACTUEL badge.
+  activeModalId = null;
+  render();
 
   const card = grid?.querySelector(`[data-loadout-id="${id}"]`);
   const button = card?.querySelector(".loadout-card__equip");
@@ -220,26 +262,31 @@ async function handleEquip(id) {
     button.classList.remove("is-equipped");
   }, 1500);
   
-  // If in matchmaking build phase, advance to lobby
-  if (equipContext.matchmakingActive && equipContext.prematchStep === "build") {
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("p0-prematch-action", {
-        detail: { action: "start-session" },
-      }));
-
-      // Backward compatibility while migrating off globals.
-      window.handlePrematchAction?.("start-session");
-    }, 500);
-  }
-
   return true;
+}
+
+function _captureBuildSnapshot() {
+  return {
+    weapon: loadout.weapon,
+    modules: [...(loadout.modules ?? [])],
+    implants: [...(loadout.implants ?? [])],
+    core: loadout.core,
+  };
+}
+
+function _buildMatchesSnapshot(snapshot) {
+  return (
+    snapshot.weapon === loadout.weapon &&
+    JSON.stringify(snapshot.modules) === JSON.stringify(loadout.modules ?? []) &&
+    JSON.stringify(snapshot.implants) === JSON.stringify(loadout.implants ?? []) &&
+    snapshot.core === loadout.core
+  );
 }
 
 function dispatchEquip(entry, message = "") {
   const detail = {
     loadout: createStoredLoadout(entry),
     message,
-    matchmakingActive: false,
     prematchStep: null,
   };
 
@@ -327,6 +374,7 @@ function render() {
   }
 
   hideClickTooltip();
+  renderSyncBanner();
 
   // Remove any previously injected modal before building the next UI state.
   document.querySelectorAll(".loadout-modal").forEach((modal) => modal.remove());
@@ -353,6 +401,42 @@ function render() {
       bindLoadoutModalTooltips();
     }
   }
+}
+
+function renderSyncBanner() {
+  if (!syncBanner) {
+    return;
+  }
+
+  const status = syncStatus ?? getLoadoutSyncStatus();
+  const showRetry = status.scope === "remote" && status.phase === "error";
+  const showSpinner = status.phase === "syncing";
+  const syncTime = status.updatedAt ? formatAge(status.updatedAt) : "";
+
+  syncBanner.className = `loadout-sync-banner is-${status.scope} is-${status.phase}`;
+  syncBanner.innerHTML = `
+    <div class="loadout-sync-banner__copy">
+      <span class="loadout-sync-banner__label">${escapeHtml(getSyncLabel(status))}</span>
+      <span class="loadout-sync-banner__message">${escapeHtml(status.message)}</span>
+    </div>
+    <div class="loadout-sync-banner__actions">
+      ${syncTime ? `<span class="loadout-sync-banner__time">${escapeHtml(syncTime)}</span>` : ""}
+      ${showRetry ? '<button class="loadout-sync-banner__retry" type="button" data-loadout-sync-retry>Retry</button>' : ""}
+      ${showSpinner ? '<span class="loadout-sync-banner__spinner" aria-hidden="true"></span>' : ""}
+    </div>`;
+}
+
+function getSyncLabel(status) {
+  if (status.scope === "remote-required") {
+    return "Server required";
+  }
+  if (status.phase === "syncing") {
+    return "Cloud sync";
+  }
+  if (status.phase === "error") {
+    return "Cloud sync failed";
+  }
+  return "Cloud sync ok";
 }
 
 function bindLoadoutModalTooltips() {
@@ -401,13 +485,16 @@ function renderCard(entry) {
       </span>`;
   }).join('');
 
+  const isCurrentDeck = uiState.selectedLoadoutId === entry.id;
+
   return `
-    <article class="loadout-card${isFavorite ? " is-favorite" : ""}${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-loadout-id="${entry.id}">
+    <article class="loadout-card${isFavorite ? " is-favorite" : ""}${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}${isCurrentDeck ? " is-current-deck" : ""}" data-loadout-id="${entry.id}">
       ${isConfirming ? renderDeleteConfirm() : ""}
 
       <button class="loadout-card__content" data-action="view-details">
         <div class="loadout-card__header">
           <h3 class="loadout-card__name" contenteditable="true" spellcheck="false">${escapeHtml(entry.name)}</h3>
+          ${isCurrentDeck ? '<span class="loadout-card__badge loadout-card__badge--current">ACTUEL</span>' : ""}
           ${lockLabel ? `<span class="loadout-card__lock-tag">${lockLabel}</span>` : ""}
         </div>
         
@@ -449,7 +536,8 @@ function renderModal(entry) {
           ${renderBuildRow("R", build.core, "ultimate")}
         </div>
 
-        <button class="loadout-modal__equip${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-action="view-details" ${isLocked ? "disabled" : ""}>${isLocked ? `LOCKED LV ${requiredLevel}` : "EQUIP"}</button>
+        ${entry.id === uiState.selectedLoadoutId ? '<div class="loadout-modal__current-badge">DECK ACTUEL</div>' : ""}
+        <button class="loadout-modal__equip${isLocked ? " is-locked" : ""}${access.lockedByPreset ? " is-locked-preset" : ""}" data-action="view-details" ${isLocked ? "disabled" : ""}>${isLocked ? `LOCKED LV ${requiredLevel}` : (entry.id === uiState.selectedLoadoutId ? "RECHARG\u00c9" : "EQUIP")}</button>
       </div>
     </div>`;
 }

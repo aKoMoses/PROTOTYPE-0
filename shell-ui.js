@@ -1,4 +1,15 @@
-import { readSessionSnapshot, SHELL_VIEW_STORAGE_KEY } from "./src/session.js";
+import { initAccountService, subscribeAccountState } from "./src/lib/account/service.js";
+import {
+  initNetworkService,
+  markOfflineShellReady,
+  subscribeNetworkState,
+} from "./src/lib/network/service.js";
+import {
+  initMobileLifecycleService,
+  markLifecycleUpdateApplying,
+  markLifecycleUpdateReady,
+  subscribeMobileLifecycleState,
+} from "./src/lib/mobile/lifecycle.js";
 
 const shellViews = Array.from(document.querySelectorAll("[data-shell-view]"));
 const shellPanels = new Map(
@@ -11,11 +22,35 @@ const defaultShellView = document.querySelector("[data-shell-default-view]")?.da
   ?? "game";
 
 const appShell = document.querySelector(".app-shell");
+const mobileViewLabel = document.getElementById("shell-mobile-view-label");
+const workspaceRoot = document.querySelector(".app-workspace");
+const shellViewTitles = {
+  landing: "Home",
+  play: "Play",
+  game: "Combat Live",
+  profile: "Profile",
+  collection: "Collection",
+  loadouts: "Loadouts",
+  dev: "Dev Status",
+};
+const narrowViewportQuery = window.matchMedia("(max-width: 560px)");
+const handsetViewportQuery = window.matchMedia("(max-width: 820px)");
+const compactViewportQuery = window.matchMedia("(max-width: 1080px)");
+const standaloneViewportQuery = window.matchMedia("(display-mode: standalone)");
+const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+const shellViewportQueries = [
+  narrowViewportQuery,
+  handsetViewportQuery,
+  compactViewportQuery,
+  standaloneViewportQuery,
+  coarsePointerQuery,
+];
 const shellViewLoaders = {
   game: () => Promise.all([
     import("./src/main.js"),
     import("./src/gameplay/training-ui.js"),
   ]),
+  play: () => import("./src/pages/play/play-page.js"),
   profile: () => import("./src/pages/profile/profile-page.js"),
   collection: () => import("./src/pages/collection/collection-page.js"),
   loadouts: () => import("./src/pages/loadouts/loadouts-page.js"),
@@ -23,42 +58,219 @@ const shellViewLoaders = {
 };
 const loadedShellViews = new Set();
 const pendingShellViews = new Map();
+let lastGameOrientationLock = null;
+let shellNetworkSnapshot = initNetworkService();
+let shellLifecycleSnapshot = initMobileLifecycleService();
+let lifecycleBannerTimer = null;
+let lastResumeCount = shellLifecycleSnapshot.resumeCount;
+let awaitingServiceWorkerReload = false;
+
+function ensureNetworkBanner() {
+  if (!workspaceRoot) {
+    return null;
+  }
+
+  let banner = document.getElementById("shell-network-banner");
+  if (banner) {
+    return banner;
+  }
+
+  banner = document.createElement("div");
+  banner.id = "shell-network-banner";
+  banner.className = "shell-network-banner";
+  banner.setAttribute("role", "status");
+  banner.innerHTML = `
+    <strong class="shell-network-banner__title"></strong>
+    <span class="shell-network-banner__copy"></span>
+  `;
+  workspaceRoot.appendChild(banner);
+  return banner;
+}
+
+function syncShellNetworkState(snapshot = shellNetworkSnapshot) {
+  shellNetworkSnapshot = snapshot;
+
+  if (appShell) {
+    appShell.dataset.networkStatus = snapshot.mode;
+    appShell.dataset.offlineShellReady = snapshot.offlineShellReady ? "true" : "false";
+  }
+
+  const banner = ensureNetworkBanner();
+  if (!banner) {
+    return;
+  }
+
+  if (snapshot.isOnline) {
+    banner.hidden = true;
+    return;
+  }
+
+  const title = banner.querySelector(".shell-network-banner__title");
+  const copy = banner.querySelector(".shell-network-banner__copy");
+  if (title) {
+    title.textContent = "Mode hors ligne";
+  }
+  if (copy) {
+    copy.textContent = snapshot.offlineShellReady
+      ? "Training, Survie et Versus IA local restent jouables. Les modes reseau sont temporairement bloques."
+      : "Les modes locaux restent jouables, mais un rechargement complet depend du cache deja installe sur cet appareil.";
+  }
+  banner.hidden = false;
+}
+
+function ensureLifecycleBanner() {
+  if (!workspaceRoot) {
+    return null;
+  }
+
+  let banner = document.getElementById("shell-lifecycle-banner");
+  if (banner) {
+    return banner;
+  }
+
+  banner = document.createElement("div");
+  banner.id = "shell-lifecycle-banner";
+  banner.className = "shell-lifecycle-banner";
+  banner.hidden = true;
+  banner.innerHTML = `
+    <strong class="shell-lifecycle-banner__title"></strong>
+    <span class="shell-lifecycle-banner__copy"></span>
+    <button class="shell-lifecycle-banner__action" type="button" hidden></button>
+  `;
+  workspaceRoot.appendChild(banner);
+  return banner;
+}
+
+function hideLifecycleBanner() {
+  const banner = ensureLifecycleBanner();
+  if (!banner) {
+    return;
+  }
+
+  if (lifecycleBannerTimer) {
+    window.clearTimeout(lifecycleBannerTimer);
+    lifecycleBannerTimer = null;
+  }
+
+  banner.hidden = true;
+  banner.classList.remove("is-persistent");
+}
+
+function showLifecycleBanner({ title, copy, actionLabel = "", onAction = null, persistent = false }) {
+  const banner = ensureLifecycleBanner();
+  if (!banner) {
+    return;
+  }
+
+  if (lifecycleBannerTimer) {
+    window.clearTimeout(lifecycleBannerTimer);
+    lifecycleBannerTimer = null;
+  }
+
+  banner.querySelector(".shell-lifecycle-banner__title").textContent = title;
+  banner.querySelector(".shell-lifecycle-banner__copy").textContent = copy;
+
+  const actionButton = banner.querySelector(".shell-lifecycle-banner__action");
+  if (actionButton) {
+    if (actionLabel && typeof onAction === "function") {
+      actionButton.hidden = false;
+      actionButton.textContent = actionLabel;
+      actionButton.onclick = onAction;
+    } else {
+      actionButton.hidden = true;
+      actionButton.textContent = "";
+      actionButton.onclick = null;
+    }
+  }
+
+  banner.hidden = false;
+  banner.classList.toggle("is-persistent", persistent);
+
+  if (!persistent) {
+    lifecycleBannerTimer = window.setTimeout(() => {
+      hideLifecycleBanner();
+    }, 4200);
+  }
+}
+
+function applyPendingAppUpdate() {
+  if (!_pwaUpdateSW) {
+    return;
+  }
+
+  awaitingServiceWorkerReload = true;
+  window.__prototype0SaveSession?.();
+  markLifecycleUpdateApplying(true);
+  _pwaUpdateSW(true);
+}
+
+function syncShellLifecycleState(snapshot = shellLifecycleSnapshot) {
+  shellLifecycleSnapshot = snapshot;
+
+  if (appShell) {
+    appShell.dataset.lifecyclePhase = snapshot.phase;
+    appShell.dataset.lifecycleUpdateReady = snapshot.updateReady ? "true" : "false";
+  }
+
+  if (snapshot.updateReady) {
+    showLifecycleBanner({
+      title: "Mise a jour prete",
+      copy: "Une nouvelle build est en cache. Recharge pour reappliquer les bundles et les assets dans le meme etat.",
+      actionLabel: "Recharger",
+      onAction: applyPendingAppUpdate,
+      persistent: true,
+    });
+    return;
+  }
+
+  if (snapshot.updateApplying) {
+    showLifecycleBanner({
+      title: "Mise a jour en cours",
+      copy: "La nouvelle version prend la main. La session courante a ete sauvegardee avant le rechargement.",
+      persistent: true,
+    });
+    return;
+  }
+
+  if (snapshot.phase === "active" && snapshot.resumeCount > lastResumeCount) {
+    lastResumeCount = snapshot.resumeCount;
+    showLifecycleBanner({
+      title: "Session reprise",
+      copy: snapshot.detail,
+    });
+    return;
+  }
+
+  hideLifecycleBanner();
+}
 
 function hasShellView(viewKey) {
   return typeof viewKey === "string" && shellPanels.has(viewKey);
 }
 
 function readStoredShellView() {
-  const activeSession = readSessionSnapshot();
-  if (activeSession?.resumeGameplay && hasShellView("game")) {
-    return "game";
-  }
-
-  try {
-    const stored = window.sessionStorage.getItem(SHELL_VIEW_STORAGE_KEY);
-    return hasShellView(stored) ? stored : defaultShellView;
-  } catch {
-    return defaultShellView;
-  }
+  return defaultShellView;
 }
 
 function persistShellView(nextView) {
-  try {
-    window.sessionStorage.setItem(SHELL_VIEW_STORAGE_KEY, nextView);
-  } catch {
-    // Ignore storage failures and keep the shell usable.
-  }
+  return nextView;
 }
 
-// Always start on the home page unless a game session needs resuming
-const activeSession = readSessionSnapshot();
-let activeView = (activeSession?.resumeGameplay && hasShellView("game")) ? "game" : "landing";
+// Always start on the home page.
+let activeView = "landing";
 
 window.__P0_SHELL = {
   ensureViewModule: ensureShellViewModule,
   setView: setShellView,
   getActiveView: () => activeView,
 };
+
+syncShellViewportState();
+bindShellViewportState();
+syncShellNetworkState(shellNetworkSnapshot);
+syncShellLifecycleState(shellLifecycleSnapshot);
+subscribeNetworkState(syncShellNetworkState);
+subscribeMobileLifecycleState(syncShellLifecycleState);
 
 for (const control of shellViews) {
   control.addEventListener("click", () => {
@@ -103,6 +315,76 @@ function ensureShellViewModule(viewKey) {
   return pendingLoad;
 }
 
+function getShellViewportLayout() {
+  if (narrowViewportQuery.matches) {
+    return "narrow";
+  }
+
+  if (handsetViewportQuery.matches) {
+    return "handset";
+  }
+
+  if (compactViewportQuery.matches) {
+    return "compact";
+  }
+
+  return "desktop";
+}
+
+function syncShellViewportState() {
+  if (!appShell) {
+    return;
+  }
+
+  appShell.dataset.shellLayout = getShellViewportLayout();
+  appShell.dataset.shellStandalone = standaloneViewportQuery.matches ? "true" : "false";
+  syncGameplayOrientationState();
+}
+
+function getViewportOrientation() {
+  return window.innerHeight > window.innerWidth ? "portrait" : "landscape";
+}
+
+function shouldLockGameplayToLandscape() {
+  const layout = getShellViewportLayout();
+  const isMobileLayout = layout === "compact" || layout === "handset" || layout === "narrow";
+  return activeView === "game" && isMobileLayout && coarsePointerQuery.matches && getViewportOrientation() === "portrait";
+}
+
+function syncGameplayOrientationState() {
+  if (!appShell) {
+    return;
+  }
+
+  const orientation = getViewportOrientation();
+  const locked = shouldLockGameplayToLandscape();
+  appShell.dataset.gameOrientation = orientation;
+  appShell.dataset.gameOrientationLock = locked ? "true" : "false";
+
+  if (lastGameOrientationLock === locked) {
+    return;
+  }
+
+  lastGameOrientationLock = locked;
+  window.dispatchEvent(new CustomEvent("p0-game-orientation-lock-changed", {
+    detail: {
+      locked,
+      orientation,
+      activeView,
+      layout: appShell.dataset.shellLayout ?? getShellViewportLayout(),
+    },
+  }));
+}
+
+function bindShellViewportState() {
+  for (const query of shellViewportQueries) {
+    query.addEventListener("change", syncShellViewportState);
+  }
+
+  window.addEventListener("resize", syncShellViewportState, { passive: true });
+  window.addEventListener("orientationchange", syncShellViewportState, { passive: true });
+}
+
 async function setShellView(nextView) {
   if (!hasShellView(nextView)) {
     return;
@@ -113,14 +395,25 @@ async function setShellView(nextView) {
     window.__P0_GAME?.stopGameSession?.();
   }
 
+  // Deactivate the play page when leaving it
+  if (activeView === "play" && nextView !== "play") {
+    try {
+      const mod = await import("./src/pages/play/play-page.js");
+      mod.deactivatePage?.();
+    } catch { /* ignore */ }
+  }
+
   try {
     await ensureShellViewModule(nextView);
-    
+
     // Initialization logic for specific modules
     if (nextView === "loadouts") {
       const mod = await import("./src/pages/loadouts/loadouts-page.js");
       if (mod.init) mod.init();
-    } else if (nextView === "play" || nextView === "game") {
+    } else if (nextView === "play") {
+      const mod = await import("./src/pages/play/play-page.js");
+      mod.activatePage?.();
+    } else if (nextView === "game") {
       const { renderPrematch, openPrematch } = await import("./src/build/ui.js");
       const { matchState } = await import("./src/state.js");
       matchState.round = 1;
@@ -140,6 +433,10 @@ async function setShellView(nextView) {
   if (appShell) {
     appShell.dataset.activeView = nextView;
   }
+  if (mobileViewLabel) {
+    mobileViewLabel.textContent = shellViewTitles[nextView] ?? nextView;
+  }
+  syncGameplayOrientationState();
 
   shellPanels.forEach((panel, viewKey) => {
     panel.classList.toggle("is-active", viewKey === nextView);
@@ -149,6 +446,9 @@ async function setShellView(nextView) {
     const isActive = control.dataset.shellView === nextView;
     if (control.classList.contains("shell-nav__button")) {
       control.classList.toggle("shell-nav__button--active", isActive);
+    }
+    if (control.classList.contains("shell-mobile-dock__button")) {
+      control.classList.toggle("is-active", isActive);
     }
     if (isActive) {
       control.setAttribute("aria-current", "page");
@@ -173,55 +473,23 @@ function initHomePortrait() {
   const nameEl = document.getElementById("home-portrait-name");
   if (!frame) return;
 
-  // Grab avatar index from profile data if available
-  let avatarIdx = 0;
-  try {
-    const stored = localStorage.getItem("prototype0.profile.avatar");
-    if (stored !== null) avatarIdx = parseInt(stored, 10) || 0;
-  } catch { /* ignore */ }
+  const avatarMap = {
+    vanguard: { label: "VG", accent: "#d4a843" },
+    stalker: { label: "SK", accent: "#ff6f61" },
+    oracle: { label: "OR", accent: "#69c8ff" },
+  };
 
-  // Mini inline avatars (Space Marine = 0 default)
-  const miniAvatars = [
-    /* 0 - Space Marine */
-    `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-      <defs><radialGradient id="hp-bg" cx="50%" cy="35%" r="65%"><stop offset="0%" stop-color="#1a0e22"/><stop offset="100%" stop-color="#08060e"/></radialGradient></defs>
-      <circle cx="32" cy="32" r="31" fill="url(#hp-bg)"/>
-      <path d="M20 10 Q20 4 32 3 Q44 4 44 10 L45 26 Q45 30 32 31 Q19 30 19 26Z" fill="#3a1010" stroke="#d4a843" stroke-width="0.5"/>
-      <rect x="21" y="17" width="22" height="5" rx="2" fill="#c62828" opacity="0.9"/>
-      <path d="M12 36 Q14 32 22 30 L32 28 L42 30 Q50 32 52 36 L54 58 H10Z" fill="#3a1212" stroke="#d4a843" stroke-width="0.4"/>
-      <path d="M28 40 L30 36 L32 38 L34 36 L36 40 L34 38 L32 42 L30 38Z" fill="#d4a843" opacity="0.7"/>
-    </svg>`,
-    /* 1 - Assassin */
-    `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-      <defs><radialGradient id="hp-bg2" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#120e20"/><stop offset="100%" stop-color="#060410"/></radialGradient></defs>
-      <circle cx="32" cy="32" r="31" fill="url(#hp-bg2)"/>
-      <path d="M16 32 Q22 10 32 7 Q42 10 48 32 Q42 24 32 22 Q22 24 16 32Z" fill="#1c1430" stroke="#d4a843" stroke-width="0.5"/>
-      <ellipse cx="32" cy="24" rx="9" ry="7" fill="#080614"/>
-      <line x1="25" y1="22" x2="30" y2="22.5" stroke="#ff5252" stroke-width="2" stroke-linecap="round"/>
-      <line x1="34" y1="22.5" x2="39" y2="22" stroke="#ff5252" stroke-width="2" stroke-linecap="round"/>
-      <path d="M14 32 L24 28 L32 26 L40 28 L50 32 L54 58 H10Z" fill="#22163a" stroke="#d4a843" stroke-width="0.3"/>
-    </svg>`,
-    /* 2 - Psyker */
-    `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-      <defs><radialGradient id="hp-bg3" cx="50%" cy="35%" r="65%"><stop offset="0%" stop-color="#14082a"/><stop offset="100%" stop-color="#060410"/></radialGradient></defs>
-      <circle cx="32" cy="32" r="31" fill="url(#hp-bg3)"/>
-      <circle cx="32" cy="26" r="22" fill="#e53935" opacity="0.06"/>
-      <path d="M16 34 L24 28 L32 24 L40 28 L48 34 L52 58 H12Z" fill="#160a28" stroke="#d4a843" stroke-width="0.4"/>
-      <path d="M20 32 Q28 12 32 8 Q36 12 44 32 Q36 24 32 22 Q28 24 20 32Z" fill="#1e1038" stroke="#d4a843" stroke-width="0.5"/>
-      <circle cx="32" cy="22" r="8" fill="#0e0a1a"/>
-      <circle cx="29" cy="21" r="2.5" fill="#e53935" opacity="0.9"/>
-      <circle cx="35" cy="21" r="2.5" fill="#e53935" opacity="0.9"/>
-    </svg>`,
-  ];
+  const renderPortrait = (snapshot) => {
+    const profile = snapshot.profile ?? null;
+    const avatar = avatarMap[profile?.avatar_key] ?? avatarMap.vanguard;
+    frame.innerHTML = `<div style="width:100%;height:100%;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 30% 30%, ${avatar.accent}55, rgba(7,12,20,0.95));color:#f7f2df;font:700 0.82rem/1 'Share Tech Mono', monospace;letter-spacing:0.14em;">${avatar.label}</div>`;
+    if (nameEl) {
+      nameEl.textContent = profile?.display_name ?? "Compte requis";
+    }
+  };
 
-  const idx = Math.min(avatarIdx, miniAvatars.length - 1);
-  frame.innerHTML = miniAvatars[idx] || miniAvatars[0];
-
-  // Listen to profile name too
-  try {
-    const storedName = localStorage.getItem("prototype0.profile.name");
-    if (storedName && nameEl) nameEl.textContent = storedName;
-  } catch { /* ignore */ }
+  subscribeAccountState(renderPortrait);
+  void initAccountService();
 }
 
 initHomePortrait();
@@ -346,3 +614,36 @@ function initParticles() {
 }
 
 initParticles();
+
+/* ════════════════════════════════════════════════════════════════
+   PWA — Service Worker registration and update banner
+   ════════════════════════════════════════════════════════════════
+   vite-plugin-pwa provides the virtual module at build time.
+   In dev mode (devOptions.enabled: true) it is served by Vite.
+   The banner is injected into the shell without blocking the app. */
+import { registerSW } from "virtual:pwa-register";
+
+let _pwaUpdateSW = null;
+
+window.addEventListener("controllerchange", () => {
+  if (!awaitingServiceWorkerReload) {
+    return;
+  }
+
+  window.location.reload();
+});
+
+_pwaUpdateSW = registerSW({
+  immediate: false,
+  onNeedRefresh() {
+    markLifecycleUpdateReady(true);
+  },
+  onOfflineReady() {
+    /* Game is cached for offline play in supported modes. */
+    markOfflineShellReady(true);
+    console.info("[PWA] Application ready for offline use.");
+  },
+  onRegisterError(error) {
+    console.warn("[PWA] Service worker registration failed:", error);
+  },
+});

@@ -1,13 +1,5 @@
 import { sandboxModes } from "../config.js";
-import { weapons, content } from "../content.js";
-
-export function createInitialRuneAllocation() {
-  const allocation = {};
-  for (const tree of Object.values(content.runeTrees)) {
-    allocation[tree.key] = { secondary: 0, primary: 0, ultimate: 0 };
-  }
-  return allocation;
-}
+import { weapons } from "../content.js";
 
 export const loadout = {
   weapon: weapons.pulse.key,
@@ -16,7 +8,6 @@ export const loadout = {
   core: "phantomCore",
   avatar: "drifter",
   weaponSkin: "stock",
-  runes: createInitialRuneAllocation(),
 };
 
 export const uiState = {
@@ -29,7 +20,7 @@ export const uiState = {
   selectedLoadoutSlot: "weapon",
   selectedDetail: { type: "weapon", key: weapons.pulse.key },
   previewSelection: null,
-  selectedRuneDetail: { treeKey: "attack", nodeKey: "ultimate" },
+  selectedLoadoutId: null,
   matchmaking: {
     active: false,
     phase: "idle",
@@ -53,7 +44,6 @@ export const botBuildState = {
     modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
     implants: "reactiveArmor",
     core: "rebootProtocol",
-    runes: createInitialRuneAllocation(),
     presetKey: null,
   },
   current: {
@@ -61,7 +51,6 @@ export const botBuildState = {
     modules: ["boltLinkJavelin", "orbitalDistorter", "hexPlateProjector"],
     implants: "reactiveArmor",
     core: "rebootProtocol",
-    runes: createInitialRuneAllocation(),
     presetKey: null,
   },
 };

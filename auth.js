@@ -1,25 +1,24 @@
-const AUTH_KEY = "prototype0.auth";
-const MOCK_IDENTITY = "SAA_BOT";
+import {
+  getAccountSnapshot,
+  initAccountService,
+  signInWithEmail,
+  signUpWithEmail,
+  subscribeAccountState,
+} from "./src/lib/account/service.js";
 
 const screen = document.getElementById("auth-screen");
-const btn = document.getElementById("auth-connect-btn");
 const form = document.getElementById("auth-form");
+const submitButton = document.getElementById("auth-submit-btn");
+const status = document.getElementById("auth-status");
+const copy = document.getElementById("auth-copy");
+const identifierInput = document.getElementById("auth-identifier");
+const passwordInput = document.getElementById("auth-password");
+const displayNameInput = document.getElementById("auth-display-name");
+const displayNameField = document.getElementById("auth-display-name-field");
+const modeButtons = Array.from(document.querySelectorAll("[data-auth-mode]"));
 
-function readAuth() {
-  try {
-    return sessionStorage.getItem(AUTH_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeAuth(identity) {
-  try {
-    sessionStorage.setItem(AUTH_KEY, identity);
-  } catch {
-    // sessionStorage unavailable — continue anyway
-  }
-}
+let authScreenDismissed = false;
+let authMode = "signin";
 
 function requestFullscreen() {
   const el = document.documentElement;
@@ -30,9 +29,11 @@ function requestFullscreen() {
 }
 
 function dismissAuthScreen() {
+  if (authScreenDismissed || !screen) {
+    return;
+  }
+  authScreenDismissed = true;
   requestFullscreen();
-  // Clear stale shell view so user lands on the home page
-  try { sessionStorage.removeItem("prototype0.shell-view"); } catch { /* ignore */ }
   screen.classList.add("is-fading");
   screen.addEventListener(
     "transitionend",
@@ -45,17 +46,126 @@ function dismissAuthScreen() {
   );
 }
 
-// Block real form submission (fields not wired yet)
-form.addEventListener("submit", (e) => e.preventDefault());
+function setStatus(message, tone = "neutral") {
+  if (!status) {
+    return;
+  }
 
-// Already authenticated this session — skip the gate immediately
-if (readAuth() === MOCK_IDENTITY) {
-  screen.classList.add("is-hidden");
-} else {
-  btn.addEventListener("click", () => {
-    writeAuth(MOCK_IDENTITY);
-    dismissAuthScreen();
+  status.textContent = message ?? "";
+  status.classList.toggle("is-error", tone === "error");
+  status.classList.toggle("is-success", tone === "success");
+}
+
+function updateModeUi() {
+  const signUp = authMode === "signup";
+  displayNameField?.classList.toggle("is-hidden", !signUp);
+
+  modeButtons.forEach((button) => {
+    const isActive = button.dataset.authMode === authMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
   });
+
+  if (copy) {
+    copy.textContent = signUp
+      ? "Crée un compte durable. Le profil joueur serveur est créé avant même ton premier match."
+      : "Connecte un compte existant. Aucun accès au jeu sans compte permanent validé côté serveur.";
+  }
+
+  if (submitButton) {
+    submitButton.textContent = signUp ? "CRÉER LE COMPTE" : "SE CONNECTER";
+  }
+
+  if (passwordInput) {
+    passwordInput.setAttribute("autocomplete", signUp ? "new-password" : "current-password");
+  }
+}
+
+function setFormDisabled(disabled) {
+  [...modeButtons, identifierInput, passwordInput, displayNameInput, submitButton]
+    .filter(Boolean)
+    .forEach((element) => {
+      element.disabled = disabled;
+    });
+}
+
+modeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    authMode = button.dataset.authMode === "signup" ? "signup" : "signin";
+    setStatus("");
+    updateModeUi();
+  });
+});
+
+form?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const email = identifierInput?.value?.trim() ?? "";
+  const password = passwordInput?.value ?? "";
+  const displayName = displayNameInput?.value?.trim() ?? "";
+
+  if (!email || !password) {
+    setStatus("Renseigne une adresse e-mail et un mot de passe valides.", "error");
+    return;
+  }
+
+  if (authMode === "signup" && !displayName) {
+    setStatus("Choisis un nom de pilote pour créer le profil serveur.", "error");
+    return;
+  }
+
+  try {
+    setFormDisabled(true);
+    setStatus(authMode === "signup" ? "Création du compte et du profil serveur..." : "Connexion du compte...", "neutral");
+
+    if (authMode === "signup") {
+      const result = await signUpWithEmail({ email, password, displayName });
+      if (result.requiresEmailConfirmation) {
+        setStatus("Compte créé. Confirme l'e-mail reçu puis reconnecte-toi pour entrer dans le jeu.", "success");
+      } else {
+        setStatus("Compte créé. Profil serveur prêt.", "success");
+      }
+    } else {
+      await signInWithEmail({ email, password });
+      setStatus("Connexion réussie. Profil serveur chargé.", "success");
+    }
+  } catch (error) {
+    setStatus(error?.message ?? "Authentification impossible.", "error");
+  } finally {
+    setFormDisabled(false);
+  }
+});
+
+subscribeAccountState((snapshot) => {
+  if (snapshot.loading) {
+    setFormDisabled(true);
+    if (!snapshot.isAuthenticated) {
+      setStatus("Synchronisation du compte...", "neutral");
+    }
+    return;
+  }
+
+  setFormDisabled(!snapshot.configReady);
+
+  if (snapshot.error) {
+    setStatus(snapshot.error, "error");
+  } else if (!snapshot.isAuthenticated && !status?.textContent) {
+    setStatus("Compte requis pour accéder au jeu.", "neutral");
+  }
+
+  if (snapshot.isAuthenticated) {
+    dismissAuthScreen();
+  }
+});
+
+updateModeUi();
+const initialSnapshot = getAccountSnapshot();
+if (initialSnapshot.isAuthenticated) {
+  screen?.classList.add("is-hidden");
+  authScreenDismissed = true;
+} else {
+  setStatus("Compte requis pour accéder au jeu.", "neutral");
+  void initAccountService();
 }
 
 // ── CANVAS PARTICLE SYSTEM ────────────────────────────────────

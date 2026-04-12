@@ -1,21 +1,17 @@
 import "./styles/flow.css";
 import "./styles/steps-nonbuild.css";
+import "./styles/custom-rooms.css";
 
-import { PrematchStateMachine } from "./state.js";
 import { ModeStep } from "./components/mode-step.js";
-import { QueueStep } from "./components/queue-step.js";
-import { FoundStep } from "./components/found-step.js";
 import { MapStep } from "./components/map-step.js";
 import { BuildStep } from "./components/build-step.js";
-import { RunesStep } from "./components/runes-step.js";
-import { LobbyStep } from "./components/lobby-step.js";
-import { LoadingStep } from "./components/loading-step.js";
+import { RoomBrowserStep } from "./components/custom-room-browser.js";
+import { CustomRoomLobbyStep } from "./components/custom-room-lobby.js";
 
 export class PrematchOrchestrator {
   constructor({ uiState, dom, setPrematchStep }) {
     this.uiState = uiState;
     this.dom = { ...dom, uiState };
-    this.stateMachine = new PrematchStateMachine(uiState);
     this.currentStepKey = null;
     this.previousPhaseKey = null;
 
@@ -26,18 +22,26 @@ export class PrematchOrchestrator {
 
     this.steps = {
       mode: new ModeStep(deps),
-      queue: new QueueStep(deps),
-      "game-found": new FoundStep(deps),
       map: new MapStep(deps),
       build: new BuildStep(deps),
-      runes: new RunesStep(deps),
-      lobby: new LobbyStep(deps),
-      loading: new LoadingStep(deps),
+      "room-browser": new RoomBrowserStep(deps),
+      "custom-lobby": new CustomRoomLobbyStep(deps),
     };
   }
 
   resetState() {
-    this.stateMachine.reset();
+    this.uiState.matchmaking.active = false;
+    this.uiState.matchmaking.phase = "idle";
+    this.uiState.matchmaking.queueRemaining = 0;
+    this.uiState.matchmaking.queueSafetyRemaining = 0;
+    this.uiState.matchmaking.foundRemaining = 0;
+    this.uiState.matchmaking.buildRemaining = 0;
+    this.uiState.matchmaking.lobbyRemaining = 0;
+    this.uiState.matchmaking.loadingRemaining = 0;
+    this.uiState.matchmaking.accepted = false;
+    this.uiState.matchmaking.playerReady = false;
+    this.uiState.matchmaking.mapKey = "electroGallery";
+    this.uiState.matchmaking.roster = [];
     this.previousPhaseKey = null;
   }
 
@@ -62,28 +66,16 @@ export class PrematchOrchestrator {
     this.activateStep("map");
   }
 
-  enterQueue() {
-    this.activateStep("queue");
-  }
-
-  enterFound() {
-    this.activateStep("game-found");
-  }
-
   enterBuild() {
     this.activateStep("build");
   }
 
-  enterRunes() {
-    this.activateStep("runes");
+  enterRoomBrowser() {
+    this.activateStep("room-browser");
   }
 
-  enterLobby() {
-    this.activateStep("lobby");
-  }
-
-  enterLoading() {
-    this.activateStep("loading");
+  enterCustomLobby() {
+    this.activateStep("custom-lobby");
   }
 
   syncFromUiStep() {
@@ -97,37 +89,7 @@ export class PrematchOrchestrator {
   }
 
   update(dt) {
-    if (!this.uiState.prematchOpen || !this.uiState.matchmaking.active) {
-      return null;
-    }
-
-    const phase = this.uiState.matchmaking.phase;
-    if (phase === "queue") {
-      this.activateStep("queue");
-      return this.steps.queue.update(this.uiState.matchmaking, dt);
-    }
-
-    if (phase === "found") {
-      this.activateStep("game-found");
-      return this.steps["game-found"].update(this.uiState.matchmaking, dt);
-    }
-
-    if (phase === "build") {
-      const buildStepKey = this.uiState.prematchStep === "runes" ? "runes" : "build";
-      this.activateStep(buildStepKey);
-      return this.steps[buildStepKey].update(this.uiState.matchmaking, dt);
-    }
-
-    if (phase === "lobby") {
-      this.activateStep("lobby");
-      return this.steps.lobby.update(this.uiState.matchmaking, dt);
-    }
-
-    if (phase === "loading") {
-      this.activateStep("loading");
-      return this.steps.loading.update(this.uiState.matchmaking, dt);
-    }
-
+    void dt;
     return null;
   }
 }

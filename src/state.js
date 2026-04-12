@@ -4,7 +4,6 @@ import { weapons } from "./content.js";
 import { mapChoices } from "./maps.js";
 
 export {
-  createInitialRuneAllocation,
   loadout,
   uiState,
   botBuildState,
@@ -80,8 +79,6 @@ export const player = {
   decoyTime: 0,
   injectorMarks: 0,
   injectorMarkTime: 0,
-  mainRuneCooldown: 0,
-  defenseRuneShieldCooldown: 0,
   castTime: 0,
   totalCastTime: 0,
   castingModule: null,

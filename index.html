@@ -2,8 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prototype 0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Prototype-0 — Arena Shell</title>
+
+    <!-- PWA / installability -->
+    <meta name="theme-color" content="#050d05" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="P0 Arena" />
+    <link rel="icon" type="image/svg+xml" href="/icons/pwa/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/pwa/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/pwa/apple-touch-icon.png" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./shell-ui.css" />
     <link rel="stylesheet" href="./auth.css" />
@@ -44,7 +54,7 @@
           </button>
         </div>
 
-        <button class="shell-play-button" type="button" data-shell-view="game">Play</button>
+        <button class="shell-play-button" type="button" data-shell-view="play">Play</button>
 
         <div class="shell-sidebar__footer">
           <span>Deux vues, une seule shell.</span>
@@ -55,6 +65,14 @@
         <div class="shell-floating-nav" aria-label="Navigation rapide">
           <button class="shell-floating-nav__button" type="button" data-shell-view="landing">Home</button>
         </div>
+
+        <header class="shell-mobile-header" aria-label="Navigation produit mobile">
+          <div class="shell-mobile-header__copy">
+            <span class="shell-mobile-header__eyebrow">Prototype-0</span>
+            <strong class="shell-mobile-header__title" id="shell-mobile-view-label">Home</strong>
+          </div>
+          <button class="shell-mobile-header__home" type="button" data-shell-view="landing">Home</button>
+        </header>
 
         <section class="shell-view shell-view--landing is-active" id="shell-view-landing" data-shell-panel="landing">
           <!-- ═══ PREMIUM HOME — fullscreen launcher ═══ -->
@@ -69,7 +87,7 @@
                 <span class="home-topbar__eyebrow">Prototype-0</span>
                 <strong class="home-topbar__title">Arena Shell</strong>
               </div>
-              <button class="home-play" id="home-play-btn" type="button" data-shell-view="game">
+              <button class="home-play" id="home-play-btn" type="button" data-shell-view="play">
                 <span class="home-play__ring"></span>
                 <span class="home-play__ring home-play__ring--2"></span>
                 <span class="home-play__ring home-play__ring--3"></span>
@@ -78,7 +96,7 @@
               </button>
               <button class="home-portrait-btn" id="home-portrait" type="button" data-shell-view="profile">
                 <div class="home-portrait-btn__avatar" id="home-portrait-avatar"></div>
-                <span class="home-portrait-btn__name" id="home-portrait-name">SaA_BOT</span>
+                <span class="home-portrait-btn__name" id="home-portrait-name">Compte requis</span>
               </button>
             </header>
 
@@ -165,9 +183,28 @@
           </div>
         </section>
 
+        <section class="shell-view shell-view--play" id="shell-view-play" data-shell-panel="play">
+          <div id="play-content"></div>
+        </section>
+
         <section class="shell-view shell-view--game" id="shell-view-game" data-shell-panel="game" data-shell-resize="true">
           <div class="game-shell">
       <canvas id="game" aria-label="Prototype 0 arena"></canvas>
+
+      <div class="game-orientation-guard" id="game-orientation-guard" aria-hidden="true">
+        <div class="game-orientation-guard__card">
+          <span class="eyebrow">Mobile Landscape Required</span>
+          <div class="game-orientation-guard__phone" aria-hidden="true">
+            <span class="game-orientation-guard__phone-body"></span>
+            <span class="game-orientation-guard__phone-ring"></span>
+          </div>
+          <h2 class="game-orientation-guard__title">Rotate to landscape</h2>
+          <p class="game-orientation-guard__copy">
+            Le gameplay mobile est volontairement bloque en portrait pour garder une vraie ergonomie au pouce et une lisibilite correcte.
+          </p>
+          <button class="secondary-button game-orientation-guard__action" type="button" data-shell-view="landing">Back to Home</button>
+        </div>
+      </div>
 
       <div class="match-panel" id="match-panel">
         <button class="panel-collapse-button" id="match-panel-toggle" type="button" style="pointer-events: auto;">
@@ -298,6 +335,11 @@
                     <strong>Training Map</strong>
                     <span>Five static bots lined up for range, cleave, and status tests.</span>
                   </button>
+                  <button class="mode-card" id="mode-custom" type="button">
+                    <span class="mode-card__tag">Custom</span>
+                    <strong>Custom Game</strong>
+                    <span>Create or join a private room. 1v1 or 2v2 with full host controls.</span>
+                  </button>
                 </div>
               </div>
               <div class="screen-actions">
@@ -355,7 +397,12 @@
             </div>
 
             <div class="prematch-screen" id="build-screen">
-              <div class="prematch-phase-timer timer-large" id="build-phase-timer"><span class="phase-timer__digit">6</span><span class="phase-timer__digit">0</span></div>
+              <div class="build-screen__top-bar">
+                <div class="prematch-phase-timer timer-large" id="build-phase-timer"><span class="phase-timer__digit">6</span><span class="phase-timer__digit">0</span></div>
+                <button class="deck-quick-btn is-hidden" id="deck-quick-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="deck-quick-btn__label" id="deck-quick-label">DECK ▾</span>
+                </button>
+              </div>
 
               <section class="prematch-loadout-shell" id="prematch-loadout-shell" aria-label="Prematch loadout picker">
                 <div class="prematch-loadout-host" id="prematch-loadout-host"></div>
@@ -400,6 +447,88 @@
               </div>
               <div class="lobby-roster" id="loading-roster"></div>
             </div>
+
+            <!-- ─── CUSTOM GAME: Room Browser ─── -->
+            <div class="prematch-screen" id="room-browser-screen">
+              <div class="room-browser__header">
+                <div class="room-browser__header-left">
+                  <h2 class="title-slab title-slab--purple">Parties Personnalisées</h2>
+                  <p style="font-size:0.78rem;color:var(--gothic-text-muted);margin:0;">Crée ou rejoins une room privée</p>
+                </div>
+                <div class="room-browser__header-right">
+                  <select class="room-filter-select" id="room-filter" aria-label="Filtrer par format">
+                    <option value="all">Tous formats</option>
+                    <option value="1v1">1v1 uniquement</option>
+                    <option value="2v2">2v2 uniquement</option>
+                  </select>
+                  <button class="room-create-btn" id="room-create-btn" type="button">
+                    <span class="room-create-btn__icon">+</span>
+                    Créer une Room
+                  </button>
+                </div>
+              </div>
+
+              <!-- Back to modes -->
+              <div style="width:100%;max-width:900px;display:flex;justify-content:flex-start;">
+                <button class="secondary-button" id="back-to-modes" type="button" style="font-size:0.72rem;">← Retour aux modes</button>
+              </div>
+
+              <div class="room-table-wrapper">
+                <table class="room-table" role="grid" aria-label="Rooms disponibles">
+                  <thead>
+                    <tr>
+                      <th scope="col">Nom</th>
+                      <th scope="col">Format</th>
+                      <th scope="col">Joueurs</th>
+                      <th scope="col">Statut</th>
+                      <th scope="col" aria-label="Actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="room-table__body"></tbody>
+                </table>
+              </div>
+
+              <!-- Create Room modal -->
+              <div class="cr-modal-overlay is-hidden" id="cr-create-modal" role="dialog" aria-modal="true" aria-labelledby="cr-modal-title">
+                <div class="cr-modal">
+                  <h3 class="cr-modal__title" id="cr-modal-title">Créer une Room</h3>
+                  <div class="cr-modal__field">
+                    <label class="cr-modal__label" for="new-room-name">Nom de la room</label>
+                    <input class="cr-modal__input" id="new-room-name" type="text" maxlength="40" placeholder="ex: Room de Romain" autocomplete="off" />
+                  </div>
+                  <div class="cr-modal__field">
+                    <span class="cr-modal__label">Format</span>
+                    <div class="cr-modal__format-group">
+                      <div class="cr-modal__format-option">
+                        <input type="radio" name="new-room-format" id="format-1v1" value="1v1" checked />
+                        <label class="cr-modal__format-label" for="format-1v1">
+                          <span class="cr-modal__format-tag">1v1</span>
+                          <span class="cr-modal__format-sub">Duel solo</span>
+                        </label>
+                      </div>
+                      <div class="cr-modal__format-option">
+                        <input type="radio" name="new-room-format" id="format-2v2" value="2v2" />
+                        <label class="cr-modal__format-label" for="format-2v2">
+                          <span class="cr-modal__format-tag">2v2</span>
+                          <span class="cr-modal__format-sub">Arena squad</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="cr-modal__error" id="cr-modal-error" role="alert"></div>
+                  <div class="cr-modal__actions">
+                    <button class="cr-modal__cancel" id="cr-modal-cancel" type="button">Annuler</button>
+                    <button class="cr-modal__confirm" id="cr-modal-confirm" type="button">Créer →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ─── CUSTOM GAME: Room Lobby ─── -->
+            <div class="prematch-screen" id="custom-lobby-screen">
+              <!-- Dynamically rendered by CustomRoomLobbyStep -->
+            </div>
+
           </section>
         </div>
       </div>
@@ -435,10 +564,16 @@
               <div class="module-slot__icon module-slot__icon--perk" id="slot-perk-icon"></div>
             </div>
 
-            <!-- Dash removed per user request -->
+            <div class="module-slot moba-slot moba-slot--dash" id="slot-dash" data-mobile-action="dash">
+              <span class="module-slot__key">Shift</span>
+              <div class="module-slot__icon module-slot__icon--dash"></div>
+              <div class="module-slot__cooldown" id="slot-dash-overlay"></div>
+              <span class="module-slot__timer" id="slot-dash-timer"></span>
+              <span class="module-slot__name">Dash</span>
+            </div>
 
             <!-- Mod 1 (Q) -->
-            <div class="module-slot moba-slot" id="slot-module-1">
+            <div class="module-slot moba-slot" id="slot-module-1" data-mobile-action="module-1">
               <span class="module-slot__key">Q</span>
               <div class="module-slot__icon module-slot__icon--javelin"></div>
               <div class="module-slot__cooldown" id="slot-module-1-overlay"></div>
@@ -447,7 +582,7 @@
             </div>
 
             <!-- Mod 2 (E) -->
-            <div class="module-slot moba-slot" id="slot-module-2">
+            <div class="module-slot moba-slot" id="slot-module-2" data-mobile-action="module-2">
               <span class="module-slot__key">E</span>
               <div class="module-slot__icon module-slot__icon--field"></div>
               <div class="module-slot__cooldown" id="slot-module-2-overlay"></div>
@@ -456,7 +591,7 @@
             </div>
 
             <!-- Mod 3 (F) -->
-            <div class="module-slot moba-slot" id="slot-module-3">
+            <div class="module-slot moba-slot" id="slot-module-3" data-mobile-action="module-3">
               <span class="module-slot__key">F</span>
               <div class="module-slot__icon module-slot__icon--field"></div>
               <div class="module-slot__cooldown" id="slot-module-3-overlay"></div>
@@ -465,7 +600,7 @@
             </div>
 
             <!-- Core (R) -->
-            <div class="module-slot moba-slot moba-slot--ultimate" id="slot-core">
+            <div class="module-slot moba-slot moba-slot--ultimate" id="slot-core" data-mobile-action="core">
               <span class="module-slot__key">R</span>
               <div class="module-slot__icon module-slot__icon--ultimate" id="slot-core-icon"></div>
               <div class="module-slot__cooldown" id="slot-core-overlay"></div>
@@ -485,12 +620,25 @@
           </div>
         </div>
 
-        <!-- Target info removed in favor of dynamic proximity health bars -->
+        <div class="moba-hud__right">
+          <div class="hud-panel hud-panel--target moba-target">
+            <span class="label">Enemy Pressure</span>
+            <strong id="enemy-health-text">160 / 160</strong>
+            <div class="meter meter-health moba-bar moba-bar--enemy">
+              <div class="meter-fill meter-fill-enemy" id="enemy-health-fill"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="touch-layer" aria-hidden="true">
-        <div class="joystick" id="move-joystick">
+        <div class="joystick joystick--move" id="move-joystick" data-touch-stick="move">
           <div class="joystick-stick" id="move-stick"></div>
+          <span class="joystick__label">MOVE</span>
+        </div>
+        <div class="joystick joystick--aim" id="aim-joystick" data-touch-stick="aim">
+          <div class="joystick-stick joystick-stick--aim" id="aim-stick"></div>
+          <span class="joystick__label">AIM</span>
         </div>
       </div>
           </div>
@@ -518,6 +666,8 @@
                 </div>
                 <button class="loadout-create-btn" id="loadout-create-btn">New Loadout</button>
               </div>
+
+              <div class="loadout-sync-banner" id="loadout-sync-banner"></div>
 
               <div class="loadout-section-header">
                 <h2 class="loadout-section-title">Style Tags</h2>
@@ -607,6 +757,24 @@
             </section>
           </main>
         </section>
+
+        <nav class="shell-mobile-dock" aria-label="Navigation mobile persistante">
+          <button class="shell-mobile-dock__button" type="button" data-shell-view="landing">
+            <span class="shell-mobile-dock__label">Home</span>
+          </button>
+          <button class="shell-mobile-dock__button" type="button" data-shell-view="play">
+            <span class="shell-mobile-dock__label">Play</span>
+          </button>
+          <button class="shell-mobile-dock__button" type="button" data-shell-view="loadouts">
+            <span class="shell-mobile-dock__label">Loadouts</span>
+          </button>
+          <button class="shell-mobile-dock__button" type="button" data-shell-view="collection">
+            <span class="shell-mobile-dock__label">Collection</span>
+          </button>
+          <button class="shell-mobile-dock__button" type="button" data-shell-view="profile">
+            <span class="shell-mobile-dock__label">Profile</span>
+          </button>
+        </nav>
       </main>
     </div>
 
@@ -632,23 +800,30 @@
           <p class="auth-sub">v0.1.0</p>
         </div>
 
+        <div class="auth-mode-switch" role="tablist" aria-label="Type d'authentification">
+          <button class="auth-mode-switch__button is-active" id="auth-mode-signin" type="button" data-auth-mode="signin" aria-pressed="true">Connexion</button>
+          <button class="auth-mode-switch__button" id="auth-mode-signup" type="button" data-auth-mode="signup" aria-pressed="false">Inscription</button>
+        </div>
+
+        <p class="auth-copy" id="auth-copy">Un compte permanent est obligatoire avant d'entrer dans l'arène.</p>
+
         <form class="auth-form" id="auth-form" autocomplete="off" novalidate>
+          <div class="auth-field auth-field--signup is-hidden" id="auth-display-name-field">
+            <label class="auth-field__label" for="auth-display-name">Nom de pilote</label>
+            <input class="auth-field__input" id="auth-display-name" type="text" placeholder="Nom visible en jeu" autocomplete="nickname" maxlength="24" spellcheck="false" />
+          </div>
           <div class="auth-field">
-            <label class="auth-field__label" for="auth-identifier">Identifiant</label>
-            <input class="auth-field__input" id="auth-identifier" type="text" placeholder="TAG ou adresse e-mail" autocomplete="username" spellcheck="false" />
+            <label class="auth-field__label" for="auth-identifier">Adresse e-mail</label>
+            <input class="auth-field__input" id="auth-identifier" type="email" placeholder="pilot@prototype0.gg" autocomplete="username" spellcheck="false" />
           </div>
           <div class="auth-field">
             <label class="auth-field__label" for="auth-password">Mot de passe</label>
-            <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••••••" autocomplete="current-password" />
+            <input class="auth-field__input" id="auth-password" type="password" placeholder="••••••••••••" autocomplete="current-password" minlength="8" />
           </div>
-          <button class="auth-submit-btn" type="submit">SE&nbsp;CONNECTER</button>
+          <button class="auth-submit-btn" id="auth-submit-btn" type="submit">SE&nbsp;CONNECTER</button>
         </form>
 
-        <div class="auth-divider"><span>ou</span></div>
-
-        <button class="auth-connect-btn" id="auth-connect-btn" type="button">
-          CONTINUER EN TANT QUE SAA_BOT
-        </button>
+        <p class="auth-status" id="auth-status" aria-live="polite"></p>
       </div>
     </div>
   </body>

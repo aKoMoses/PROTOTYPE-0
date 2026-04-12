@@ -17,7 +17,7 @@ import { statusLine } from "../dom.js";
 import { clamp, length, normalize, pointToSegmentDistance } from "../utils.js";
 import { addImpact, addAfterimage, addBeamEffect, addExplosion, addShake } from "./effects.js";
 import { resolveMapCollision, maybeTeleportEntity } from "../maps.js";
-import { getBuildStats, getImplantDamageMultiplier, getStatusDuration } from "../build/loadout.js";
+import { getBuildStats, getPerkDamageMultiplier, getStatusDuration } from "../build/loadout.js";
 import {
   getAllBots,
   getPrimaryBot,
@@ -50,7 +50,7 @@ function getPhantomDirection(action) {
 }
 
 function getScaledDamage(baseDamage, target = getPrimaryBot()) {
-  return baseDamage * config.phantomDamageScale * getImplantDamageMultiplier(target);
+  return baseDamage * config.phantomDamageScale * getPerkDamageMultiplier(target);
 }
 
 function getScaledDuration(baseDuration) {
@@ -681,6 +681,8 @@ export function queuePhantomModule(abilityKey, action = {}) {
     aimY: action.aimY ?? input.mouseY,
   });
 }
+
+export const queuePhantomAbility = queuePhantomModule;
 
 export function resetPhantomClone({ silent = true } = {}) {
   playerClone.active = false;

@@ -11,6 +11,7 @@ import {
 } from "../state.js";
 import { clamp, length, normalize, approach } from "../utils.js";
 import { canSeeTarget, resolveMapCollision, maybeTeleportEntity } from "../maps.js";
+import { decideTeamDuelBotAction } from "../lib/ai/teamDuelDecision.ts";
 import {
   spawnBullet,
   updateStatusEffects,
@@ -22,6 +23,14 @@ import {
   startPulseReload,
 } from "./combat.js";
 import { addAfterimage, addImpact } from "./effects.js";
+import { getCurrentBotDifficultyTier } from "../progression.js";
+
+const LOCAL_TEAM_DUEL_BOT_DIFFICULTY = {
+  easy: "easy",
+  normal: "normal",
+  hard: "hard",
+  nightmare: "hard",
+};
 
 function getOpposingTargets(bot) {
   if ((bot.team ?? "enemy") === "player") {
@@ -41,6 +50,69 @@ function getOpposingTargets(bot) {
   return targets;
 }
 
+function getFriendlyActors(bot) {
+  if ((bot.team ?? "enemy") === "player") {
+    const allies = [];
+    if (player.alive) {
+      allies.push(player);
+    }
+    if (allyBot?.alive && allyBot !== bot) {
+      allies.push(allyBot);
+    }
+    if (playerClone.active && playerClone.alive) {
+      allies.push(playerClone);
+    }
+    return allies;
+  }
+
+  return teamEnemies.filter((candidate) => candidate?.alive && candidate !== bot);
+}
+
+function getEntityId(entity) {
+  if (entity === player) {
+    return "player";
+  }
+  if (entity === allyBot) {
+    return "ally-bot";
+  }
+  if (entity === playerClone) {
+    return "player-clone";
+  }
+  return entity.kind ?? "unknown-bot";
+}
+
+function getTeamIndex(entity) {
+  return (entity.team ?? "enemy") === "player" ? 0 : 1;
+}
+
+function toCombatantSnapshot(entity) {
+  return {
+    id: getEntityId(entity),
+    team: getTeamIndex(entity),
+    x: entity.x,
+    y: entity.y,
+    alive: Boolean(entity.alive),
+    connected: true,
+    hp: entity.hp ?? entity.maxHp ?? config.enemyMaxHp,
+    maxHp: entity.maxHp ?? config.playerMaxHp ?? config.enemyMaxHp,
+  };
+}
+
+function getLocalStrafeDirection(bot) {
+  const sessionId = getEntityId(bot);
+  let hash = 0;
+  for (let index = 0; index < sessionId.length; index += 1) {
+    hash = (hash * 31 + sessionId.charCodeAt(index)) | 0;
+  }
+
+  return ((Math.floor(Date.now() / 900) + hash) & 1) === 0 ? -1 : 1;
+}
+
+function getLocalBotDifficulty() {
+  const tier = getCurrentBotDifficultyTier();
+  return LOCAL_TEAM_DUEL_BOT_DIFFICULTY[tier] ?? "normal";
+}
+
 function getHostileProjectiles(bot) {
   return (bot.team ?? "enemy") === "player" ? enemyBullets : bullets;
 }
@@ -49,26 +121,7 @@ function getProjectileCollection(bot) {
   return (bot.team ?? "enemy") === "player" ? bullets : enemyBullets;
 }
 
-function chooseTarget(bot) {
-  const targets = getOpposingTargets(bot);
-  if (targets.length === 0) {
-    return null;
-  }
-
-  let bestTarget = targets[0];
-  let bestDistance = length(bestTarget.x - bot.x, bestTarget.y - bot.y);
-  for (let index = 1; index < targets.length; index += 1) {
-    const candidate = targets[index];
-    const distance = length(candidate.x - bot.x, candidate.y - bot.y);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestTarget = candidate;
-    }
-  }
-  return bestTarget;
-}
-
-function firePulse(bot, target) {
+function firePulse(bot, target, aimAngle = null) {
   if (bot.reloadTime > 0) {
     return false;
   }
@@ -78,10 +131,12 @@ function firePulse(bot, target) {
   }
 
   bot.ammo = Math.max(0, bot.ammo - 1);
-  const leadTime = 0.14;
-  const spread = (bot.team ?? "enemy") === "player" ? 18 : 24;
-  const aimX = target.x + (target.velocityX ?? 0) * leadTime + (Math.random() - 0.5) * spread;
-  const aimY = target.y + (target.velocityY ?? 0) * leadTime + (Math.random() - 0.5) * spread;
+  const aimX = Number.isFinite(aimAngle)
+    ? bot.x + Math.cos(aimAngle) * arena.width
+    : target.x + (target.velocityX ?? 0) * 0.14 + (Math.random() - 0.5) * ((bot.team ?? "enemy") === "player" ? 18 : 24);
+  const aimY = Number.isFinite(aimAngle)
+    ? bot.y + Math.sin(aimAngle) * arena.height
+    : target.y + (target.velocityY ?? 0) * 0.14 + (Math.random() - 0.5) * ((bot.team ?? "enemy") === "player" ? 18 : 24);
   const projectileColor = (bot.team ?? "enemy") === "player" ? "#7fdcff" : "#ff9f8f";
   const trailColor = (bot.team ?? "enemy") === "player" ? "#d7f6ff" : "#ffd2c8";
   spawnBullet(bot, aimX, aimY, getProjectileCollection(bot), projectileColor, 980, 8.5, {
@@ -126,7 +181,32 @@ function updateSingleBot(bot, dt) {
     bot.shield = 0;
   }
 
-  const target = chooseTarget(bot);
+  const opponents = getOpposingTargets(bot);
+  if (opponents.length === 0) {
+    return;
+  }
+
+  const decision = decideTeamDuelBotAction({
+    self: {
+      ...toCombatantSnapshot(bot),
+      cooldowns: {
+        primary: bot.shootCooldown ?? 0,
+        dash: bot.dodgeCooldown ?? 0,
+      },
+    },
+    allies: getFriendlyActors(bot).map(toCombatantSnapshot),
+    opponents: opponents.map((candidate) => ({
+      ...toCombatantSnapshot(candidate),
+      hasLineOfSight: canSeeTarget(bot, candidate),
+      isExposed: true,
+      threatLevel: candidate === player ? 0.24 : 0.12,
+    })),
+    difficulty: getLocalBotDifficulty(),
+    strafeDirection: getLocalStrafeDirection(bot),
+    aimJitterRoll: Math.random() - 0.5,
+  });
+
+  const target = opponents.find((candidate) => getEntityId(candidate) === decision.targetId) ?? opponents[0] ?? null;
   if (!target) {
     return;
   }
@@ -136,7 +216,7 @@ function updateSingleBot(bot, dt) {
   const distance = length(dx, dy);
   const forward = normalize(dx, dy);
   const side = { x: -forward.y, y: forward.x };
-  bot.facing = Math.atan2(dy, dx);
+  bot.facing = decision.facing;
 
   const incomingProjectile = getHostileProjectiles(bot).find((projectile) => {
     const nextX = projectile.x + projectile.vx * 0.1;
@@ -161,18 +241,8 @@ function updateSingleBot(bot, dt) {
       moveX = bot.dodgeVectorX;
       moveY = bot.dodgeVectorY;
     } else {
-      const idealRange = (bot.team ?? "enemy") === "player" ? 300 : 320;
-      const strafeDirection = Math.sin((bot.strafeTimer ?? 0) * 1.8 + ((bot.team ?? "enemy") === "player" ? 0 : 0.5)) >= 0 ? 1 : -1;
-      moveX = side.x * strafeDirection * 0.95;
-      moveY = side.y * strafeDirection * 0.95;
-
-      if (distance > idealRange + 36) {
-        moveX += forward.x * 1.08;
-        moveY += forward.y * 1.08;
-      } else if (distance < idealRange - 72) {
-        moveX -= forward.x * 0.84;
-        moveY -= forward.y * 0.84;
-      }
+      moveX = decision.movementX;
+      moveY = decision.movementY;
     }
   }
 
@@ -192,8 +262,8 @@ function updateSingleBot(bot, dt) {
   resolveMapCollision(bot);
   maybeTeleportEntity(bot);
 
-  if (!botStatus.stunned && bot.shootCooldown <= 0 && distance < 700 && canSeeTarget(bot, target)) {
-    if (firePulse(bot, target)) {
+  if (!botStatus.stunned && bot.shootCooldown <= 0 && decision.fireAngle !== null && canSeeTarget(bot, target)) {
+    if (firePulse(bot, target, decision.fireAngle)) {
       bot.shootCooldown = (bot.team ?? "enemy") === "player" ? 0.22 : 0.3;
     }
   }

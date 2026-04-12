@@ -2,6 +2,15 @@
 
 Minimal playable prototype in plain HTML, CSS, and JavaScript.
 
+## Account Layer
+
+The game now expects a permanent Supabase account before entering play.
+
+1. Copy `.env.example` to `.env`.
+2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
+3. Apply `supabase/migrations/20260412_account_layer.sql` on the target Supabase project.
+4. Run the app with Vite so the environment variables are injected.
+
 ## Current slice
 
 - top-down arena
@@ -21,4 +30,4 @@ Minimal playable prototype in plain HTML, CSS, and JavaScript.
 
 ## Run
 
-Open `index.html` in a browser, or serve the folder with any static server.
+Install dependencies with `npm install`, then run `npm run dev` for local development or `npm run build` for production validation.

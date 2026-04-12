@@ -8,32 +8,157 @@ import * as dom from "./dom.js";
 import { resetMapState } from "./maps.js";
 import { updatePortalCooldowns, resolveCharacterBodyBlocking } from "./maps.js";
 import { updateBullets, absorbPlayerProjectiles, absorbEnemyProjectiles, resolveCombat, getAllBots, resetBotsForMode, clearCombatArtifacts, updateMapInteractables } from "./gameplay/combat.js";
-import { updateDuelMatch, updateTeamDuelMatch, showRoundBanner, startDuelRound, startTeamDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton, updatePrematchFlow } from "./gameplay/match.js";
+import { updateDuelMatch, updateTeamDuelMatch, showRoundBanner, startDuelRound, startTeamDuelRound, finishDuelRound, bindMatchDeps, relaunchCurrentSession, launchSelectedSession, handlePrematchAction, bindPrematchButton } from "./gameplay/match.js";
 import { updateImpacts } from "./gameplay/combat.js";
 import { updatePlayer, resetPlayer, setWeapon } from "./gameplay/player.js";
 import { updateEnemy, updateEnemyBoltLinkJavelins, updateBoltLinkJavelins } from "./gameplay/enemy.js";
 import { updateTrainingBots } from "./gameplay/enemy.js";
 import { updateTeamDuelBots } from "./gameplay/team-ai.js";
 import { bindSurvivalDeps, startSurvivalRun, updateSurvivalEnemies, updateSurvivalMode } from "./gameplay/survival.js";
-import { drawWorld, resize } from "./gameplay/renderer.js";
+import { drawWorld, reportFramePerformance, resize } from "./gameplay/renderer.js";
 import { updateHud } from "./gameplay/hud.js";
-import { setupInputListeners } from "./gameplay/input.js";
+import { clearAimJoystick, clearJoystick, setupInputListeners } from "./gameplay/input.js";
 import { startDashInput, releaseDashInput, startModuleInput, releaseModuleInput, castReactorCore } from "./gameplay/modules.js";
 import { updatePhantomClone } from "./gameplay/phantom.js";
 import { openPrematch, closePrematch, renderPrematch, toggleHelpPanel, bindUIDeps, setPrematchStep, syncPrematchState } from "./build/ui.js";
 import { applySavedPlayerLoadout, setBotBuildMode } from "./build/loadout.js";
 import { bullets, enemyBullets, boltLinkJavelins, enemyBoltLinkJavelins, supportZones } from "./state.js";
 import { updateSupportZones } from "./gameplay/combat.js";
-import { initializeAudio, updateAudio } from "./audio.js";
-import { installSessionPersistence, restoreSessionSnapshot, clearGameSession } from "./session.js";
+import { initializeAudio, resumeAudio, suspendAudio, updateAudio } from "./audio.js";
 import { PROGRESSION_CHANGED_EVENT } from "./progression.js";
+import { initNetworkService, subscribeNetworkState } from "./lib/network/service.js";
+import { initMobileLifecycleService, subscribeMobileLifecycleState } from "./lib/mobile/lifecycle.js";
 
 let sessionPersistAccumulator = 0;
-const persistSession = installSessionPersistence();
+const persistSession = () => {};
+const gameOrientationGuard = document.getElementById("game-orientation-guard");
+const mapStatus = document.getElementById("map-status");
+let networkSnapshot = initNetworkService();
+let lifecycleSnapshot = initMobileLifecycleService();
 
 // Game loop control
 let isGameRunning = true;
 let frameId = null;
+let isOrientationLocked = false;
+let isLifecyclePaused = lifecycleSnapshot.phase === "background";
+
+function getIdleStatusCopy(snapshot = networkSnapshot) {
+  return snapshot.isOnline
+    ? "Prototype 0 online. Set the mode, build, and drop into the arena."
+    : "Mode hors ligne actif. Training, Survie et Versus IA local restent jouables.";
+}
+
+function syncNetworkStatusCopy(snapshot = networkSnapshot) {
+  networkSnapshot = snapshot;
+
+  if (mapStatus) {
+    mapStatus.textContent = snapshot.isOnline
+      ? "Arena data online."
+      : "Offline mode active. Network rooms unavailable.";
+  }
+}
+
+function syncOrientationGuardState(locked) {
+  if (!gameOrientationGuard) {
+    return;
+  }
+
+  gameOrientationGuard.setAttribute("aria-hidden", locked ? "false" : "true");
+}
+
+function releaseActiveInputs() {
+  input.keys.clear();
+  input.firing = false;
+  input.altFiring = false;
+  clearJoystick();
+  clearAimJoystick();
+  releaseDashInput();
+  releaseModuleInput(0);
+  releaseModuleInput(1);
+  releaseModuleInput(2);
+}
+
+function updateOrientationLock(locked) {
+  if (isOrientationLocked === locked) {
+    return;
+  }
+
+  isOrientationLocked = locked;
+  syncOrientationGuardState(locked);
+
+  if (locked) {
+    releaseActiveInputs();
+    dom.statusLine.textContent = "Portrait detected. Rotate to landscape to resume gameplay.";
+    return;
+  }
+
+  if (!uiState.prematchOpen) {
+    dom.statusLine.textContent = "Landscape restored. Gameplay resumed.";
+  }
+}
+
+function pauseRuntimeForLifecycle(snapshot = lifecycleSnapshot) {
+  releaseActiveInputs();
+  persistSession();
+
+  if (!isGameRunning || isLifecyclePaused) {
+    void suspendAudio();
+    return;
+  }
+
+  isLifecyclePaused = true;
+  if (frameId !== null) {
+    cancelAnimationFrame(frameId);
+    frameId = null;
+  }
+
+  void suspendAudio();
+
+  if (!uiState.prematchOpen) {
+    dom.statusLine.textContent = snapshot.isOnline
+      ? "Application mise en veille. Session sauvegardee localement."
+      : "Application mise en veille hors ligne. Session locale sauvegardee.";
+  }
+}
+
+function resumeRuntimeFromLifecycle(snapshot = lifecycleSnapshot) {
+  const wasPaused = isLifecyclePaused;
+  isLifecyclePaused = false;
+  globals.lastTime = performance.now();
+
+  if (isGameRunning && frameId === null) {
+    frameId = requestAnimationFrame(frame);
+  }
+
+  void resumeAudio();
+
+  if (wasPaused && !uiState.prematchOpen && !isOrientationLocked) {
+    dom.statusLine.textContent = snapshot.isOnline
+      ? "Application reprise. Session, input et audio resynchronises."
+      : "Application reprise hors ligne. Les modes reseau restent suspendus.";
+  }
+}
+
+window.addEventListener("p0-game-orientation-lock-changed", (event) => {
+  updateOrientationLock(Boolean(event.detail?.locked));
+});
+
+updateOrientationLock(document.querySelector(".app-shell")?.dataset.gameOrientationLock === "true");
+syncNetworkStatusCopy(networkSnapshot);
+subscribeNetworkState(syncNetworkStatusCopy);
+subscribeMobileLifecycleState((nextSnapshot) => {
+  const previousPhase = lifecycleSnapshot.phase;
+  lifecycleSnapshot = nextSnapshot;
+
+  if (nextSnapshot.phase === "background") {
+    pauseRuntimeForLifecycle(nextSnapshot);
+    return;
+  }
+
+  if (previousPhase === "background") {
+    resumeRuntimeFromLifecycle(nextSnapshot);
+  }
+});
 
 // Wire up cross-module dependencies
 bindMatchDeps({ resetPlayer, openPrematch, closePrematch, renderPrematch });
@@ -46,13 +171,13 @@ function frame(time) {
     return;
   }
 
+  const frameStartedAt = performance.now();
+
   try {
   const dt = Math.min(0.033, (time - globals.lastTime) / 1000);
   globals.lastTime = time;
 
-  const gameplayPaused = uiState.prematchOpen;
-  updatePrematchFlow(dt);
-
+  const gameplayPaused = uiState.prematchOpen || isOrientationLocked || isLifecyclePaused;
   if (!gameplayPaused) {
     updatePortalCooldowns(dt);
     updatePlayer(dt);
@@ -80,6 +205,7 @@ function frame(time) {
   updateAudio(dt);
   updateHud();
   drawWorld();
+  reportFramePerformance(performance.now() - frameStartedAt, { paused: gameplayPaused });
 
   sessionPersistAccumulator += dt;
   if (sessionPersistAccumulator >= 0.8) {
@@ -118,6 +244,8 @@ bindPrematchButton(dom.modeDuel, "mode-duel");
 bindPrematchButton(dom.modeSurvival, "mode-survival");
 bindPrematchButton(dom.modeTeamDuel, "mode-team-duel");
 bindPrematchButton(dom.modeTraining, "mode-training");
+bindPrematchButton(dom.modeCustom, "mode-custom");
+bindPrematchButton(document.getElementById("back-to-modes"), "back-to-modes");
 bindPrematchButton(dom.continueMap, "continue-map");
 bindPrematchButton(dom.backMode, "back-mode");
 bindPrematchButton(dom.continueBuild, "continue-build");
@@ -143,9 +271,11 @@ window.addEventListener("loadout-equip", (event) => {
   }
 
   if (event.detail && typeof event.detail === "object") {
-    event.detail.matchmakingActive = uiState.matchmaking?.active ?? false;
     event.detail.prematchStep = uiState.prematchStep ?? null;
   }
+
+  const deckId = selectedLoadout?.id ?? null;
+  uiState.selectedLoadoutId = deckId;
 
   document.querySelector('[data-shell-view="game"]')?.click();
   openPrematch("build");
@@ -159,21 +289,9 @@ window.addEventListener(PROGRESSION_CHANGED_EVENT, () => {
   persistSession();
 });
 
-const restoredSnapshot = restoreSessionSnapshot();
-if (restoredSnapshot) {
-  if (restoredSnapshot.resumeGameplay) {
-    launchSelectedSession();
-    dom.statusLine.textContent = `${dom.statusLine.textContent} Session restaurée automatiquement.`;
-  } else {
-    openPrematch(restoredSnapshot.ui?.prematchStep ?? "mode");
-    renderPrematch();
-    dom.statusLine.textContent = "Session prematch restaurée. Reprends la sélection sans repartir de zéro.";
-  }
-} else {
-  openPrematch("mode");
-  renderPrematch();
-  dom.statusLine.textContent = "Prototype 0 online. Set the mode, build, and drop into the arena.";
-}
+openPrematch("mode");
+renderPrematch();
+dom.statusLine.textContent = getIdleStatusCopy(networkSnapshot);
 persistSession();
 
 // Function to stop the game session when navigating away (e.g., clicking Home)
@@ -198,9 +316,6 @@ export function stopGameSession() {
   matchState.teamEnemyScore = 0;
   globals.lastTime = performance.now();
 
-  // Clear game session storage
-  clearGameSession();
-  
   // Update UI
   syncPrematchState();
   
@@ -210,9 +325,12 @@ export function stopGameSession() {
 
 // Function to restart the game loop when launching a new session
 function restartGameLoop() {
+  globals.lastTime = performance.now();
   if (!isGameRunning) {
     isGameRunning = true;
-    globals.lastTime = performance.now();
+  }
+
+  if (!isLifecyclePaused && frameId === null) {
     frameId = requestAnimationFrame(frame);
   }
 }
@@ -220,4 +338,6 @@ function restartGameLoop() {
 // Expose functions globally for shell-ui and match.js
 window.__P0_GAME = { stopGameSession, restartGameLoop };
 
-requestAnimationFrame(frame);
+if (!isLifecyclePaused) {
+  requestAnimationFrame(frame);
+}

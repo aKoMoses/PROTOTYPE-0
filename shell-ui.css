@@ -26,6 +26,13 @@
   --sh-border-gold: rgba(200, 155, 60, 0.2);
   --sh-border-sub:  rgba(255, 255, 255, 0.055);
 
+  --shell-safe-top: env(safe-area-inset-top, 0px);
+  --shell-safe-right: env(safe-area-inset-right, 0px);
+  --shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --shell-safe-left: env(safe-area-inset-left, 0px);
+  --shell-mobile-header-height: 72px;
+  --shell-mobile-dock-height: 84px;
+
   --sh-w:           292px;
   --sh-r:           3px;
 }
@@ -35,6 +42,7 @@
   overflow: hidden;
   background: var(--sh-deep);
   color-scheme: dark;
+  overscroll-behavior: none;
 }
 
 /* ── SHELL GRID ─────────────────────────────────────────────────── */
@@ -285,6 +293,221 @@
   background: var(--sh-deep);
 }
 
+.shell-network-banner {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 34;
+  display: grid;
+  gap: 4px;
+  max-width: min(420px, calc(100% - 36px));
+  padding: 12px 14px;
+  border: 1px solid rgba(200, 155, 60, 0.28);
+  border-radius: 18px;
+  background: rgba(30, 18, 6, 0.9);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(18px);
+}
+
+.shell-network-banner[hidden] {
+  display: none;
+}
+
+.shell-network-banner__title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sh-gold);
+}
+
+.shell-network-banner__copy {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--sh-text);
+}
+
+.shell-lifecycle-banner {
+  position: absolute;
+  top: 112px;
+  right: 18px;
+  z-index: 35;
+  display: grid;
+  gap: 8px;
+  max-width: min(420px, calc(100% - 36px));
+  padding: 14px 16px;
+  border: 1px solid rgba(11, 196, 227, 0.26);
+  border-radius: 18px;
+  background: rgba(6, 16, 24, 0.92);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.shell-lifecycle-banner[hidden] {
+  display: none;
+}
+
+.shell-lifecycle-banner.is-persistent {
+  border-color: rgba(200, 155, 60, 0.26);
+  background: rgba(20, 14, 6, 0.94);
+}
+
+.shell-lifecycle-banner__title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sh-cyan);
+}
+
+.shell-lifecycle-banner.is-persistent .shell-lifecycle-banner__title {
+  color: var(--sh-gold);
+}
+
+.shell-lifecycle-banner__copy {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--sh-text);
+}
+
+.shell-lifecycle-banner__action {
+  justify-self: start;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(200, 155, 60, 0.28);
+  border-radius: 999px;
+  background: rgba(200, 155, 60, 0.12);
+  color: var(--sh-text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.shell-lifecycle-banner__action:hover,
+.shell-lifecycle-banner__action:focus-visible {
+  background: rgba(200, 155, 60, 0.2);
+  border-color: rgba(200, 155, 60, 0.42);
+}
+
+.shell-mobile-header,
+.shell-mobile-dock {
+  display: none;
+}
+
+.shell-mobile-header {
+  position: absolute;
+  top: calc(var(--shell-safe-top) + 10px);
+  left: max(14px, calc(var(--shell-safe-left) + 8px));
+  right: max(14px, calc(var(--shell-safe-right) + 8px));
+  z-index: 32;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(200, 155, 60, 0.2);
+  border-radius: 20px;
+  background: rgba(5, 8, 16, 0.86);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+}
+
+.shell-mobile-header__copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.shell-mobile-header__eyebrow {
+  font-size: 0.58rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--sh-gold);
+}
+
+.shell-mobile-header__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+}
+
+.shell-mobile-header__home,
+.shell-mobile-dock__button {
+  touch-action: manipulation;
+}
+
+.shell-mobile-header__home {
+  min-width: 78px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(200, 155, 60, 0.4);
+  border-radius: 999px;
+  background: rgba(18, 24, 40, 0.9);
+  color: var(--sh-text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.shell-mobile-dock {
+  position: absolute;
+  left: max(10px, calc(var(--shell-safe-left) + 6px));
+  right: max(10px, calc(var(--shell-safe-right) + 6px));
+  bottom: calc(var(--shell-safe-bottom) + 10px);
+  z-index: 32;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(200, 155, 60, 0.18);
+  border-radius: 24px;
+  background: rgba(5, 8, 16, 0.88);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+}
+
+.shell-mobile-dock__button {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 10px 8px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--sh-text-mid);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.shell-mobile-dock__button:hover,
+.shell-mobile-dock__button:focus-visible,
+.shell-mobile-dock__button.is-active {
+  border-color: rgba(200, 155, 60, 0.28);
+  background: linear-gradient(180deg, rgba(200, 155, 60, 0.14), rgba(18, 24, 40, 0.88));
+  color: var(--sh-text);
+  outline: none;
+}
+
+.shell-mobile-dock__button.is-active {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.shell-mobile-dock__label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .shell-floating-nav {
   position: absolute;
   top: 18px;
@@ -410,6 +633,13 @@
     "center"
     "bottom"
     "footer";
+}
+
+.home-play,
+.home-portrait-btn,
+.home-tile,
+.shell-floating-nav__button {
+  touch-action: manipulation;
 }
 
 /* Scanline overlay (via layout pseudo) */
@@ -934,4 +1164,107 @@
     top: 14px;
     left: 14px;
   }
+}
+
+.app-shell[data-shell-layout="compact"] .app-workspace,
+.app-shell[data-shell-layout="handset"] .app-workspace,
+.app-shell[data-shell-layout="narrow"] .app-workspace {
+  padding-bottom: calc(var(--shell-mobile-dock-height) + var(--shell-safe-bottom) + 18px);
+}
+
+.app-shell[data-shell-layout="compact"] .shell-mobile-dock,
+.app-shell[data-shell-layout="handset"] .shell-mobile-dock,
+.app-shell[data-shell-layout="narrow"] .shell-mobile-dock {
+  display: grid;
+}
+
+.app-shell[data-shell-layout="compact"] .shell-network-banner,
+.app-shell[data-shell-layout="handset"] .shell-network-banner,
+.app-shell[data-shell-layout="narrow"] .shell-network-banner {
+  left: max(12px, calc(var(--shell-safe-left) + 8px));
+  right: max(12px, calc(var(--shell-safe-right) + 8px));
+  top: calc(var(--shell-safe-top) + 12px);
+  max-width: none;
+}
+
+.app-shell[data-shell-layout="compact"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-mobile-header,
+.app-shell[data-shell-layout="handset"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-mobile-header,
+.app-shell[data-shell-layout="narrow"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-mobile-header {
+  display: flex;
+}
+
+.app-shell[data-shell-layout="compact"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-network-banner,
+.app-shell[data-shell-layout="handset"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-network-banner,
+.app-shell[data-shell-layout="narrow"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-network-banner {
+  top: calc(var(--shell-mobile-header-height) + var(--shell-safe-top) + 20px);
+}
+
+.app-shell[data-shell-layout="compact"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-lifecycle-banner,
+.app-shell[data-shell-layout="handset"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-lifecycle-banner,
+.app-shell[data-shell-layout="narrow"]:not([data-active-view="landing"]):not([data-active-view="game"]) .shell-lifecycle-banner {
+  top: calc(var(--shell-mobile-header-height) + var(--shell-safe-top) + 106px);
+}
+
+.app-shell[data-shell-layout="compact"]:not([data-active-view="landing"]):not([data-active-view="game"]) .app-workspace,
+.app-shell[data-shell-layout="handset"]:not([data-active-view="landing"]):not([data-active-view="game"]) .app-workspace,
+.app-shell[data-shell-layout="narrow"]:not([data-active-view="landing"]):not([data-active-view="game"]) .app-workspace {
+  padding-top: calc(var(--shell-mobile-header-height) + var(--shell-safe-top) + 18px);
+}
+
+.app-shell[data-shell-layout="compact"][data-active-view="game"] .app-workspace,
+.app-shell[data-shell-layout="handset"][data-active-view="game"] .app-workspace,
+.app-shell[data-shell-layout="narrow"][data-active-view="game"] .app-workspace {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.app-shell[data-shell-layout="compact"] .shell-floating-nav,
+.app-shell[data-shell-layout="handset"] .shell-floating-nav,
+.app-shell[data-shell-layout="narrow"] .shell-floating-nav {
+  display: none;
+}
+
+.app-shell[data-shell-layout="compact"] .home-layout,
+.app-shell[data-shell-layout="handset"] .home-layout,
+.app-shell[data-shell-layout="narrow"] .home-layout {
+  padding-bottom: calc(var(--shell-mobile-dock-height) + var(--shell-safe-bottom) + 22px);
+}
+
+.app-shell[data-shell-layout="handset"] .home-topbar,
+.app-shell[data-shell-layout="narrow"] .home-topbar {
+  padding-top: calc(var(--shell-safe-top) + 18px);
+}
+
+.app-shell[data-shell-layout="handset"] .home-play,
+.app-shell[data-shell-layout="narrow"] .home-play {
+  width: min(82vw, 280px);
+  min-height: 76px;
+}
+
+.app-shell[data-shell-layout="handset"] .home-portrait-btn,
+.app-shell[data-shell-layout="narrow"] .home-portrait-btn {
+  min-height: 48px;
+  padding-right: 16px;
+}
+
+.app-shell[data-shell-layout="handset"] .home-tile,
+.app-shell[data-shell-layout="narrow"] .home-tile {
+  min-height: 120px;
+}
+
+.app-shell[data-shell-layout="narrow"] .home-topbar {
+  grid-template-columns: 1fr;
+}
+
+.app-shell[data-shell-layout="narrow"] .home-bottom {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.app-shell[data-shell-layout="narrow"] .home-tile-group--dev {
+  justify-self: center;
+}
+
+.app-shell[data-shell-layout="narrow"] .shell-mobile-dock {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }

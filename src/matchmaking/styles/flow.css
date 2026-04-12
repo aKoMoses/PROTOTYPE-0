@@ -77,29 +77,21 @@
   border-color: rgba(119, 216, 255, 0.5);
 }
 
-/* BUILD & RUNES PHASES: Forge energy theme */
-.prematch-shell[data-prematch-phase="build"] .screen-header h2,
-.prematch-shell[data-prematch-phase="runes"] .screen-header h2 {
+/* BUILD PHASE: Forge energy theme */
+.prematch-shell[data-prematch-phase="build"] .screen-header h2 {
   color: var(--gothic-gold-bright);
   text-shadow: 0 0 18px rgba(201, 162, 39, 0.35);
 }
 
-.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer,
-.prematch-shell[data-prematch-phase="runes"] .prematch-phase-timer {
+.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer {
   border-color: rgba(255, 70, 50, 0.35);
 }
 
-.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer .phase-timer__digit,
-.prematch-shell[data-prematch-phase="runes"] .prematch-phase-timer .phase-timer__digit {
+.prematch-shell[data-prematch-phase="build"] .prematch-phase-timer .phase-timer__digit {
   color: #ff6b35;
   text-shadow:
     0 0 14px rgba(255, 80, 40, 0.7),
     0 0 40px rgba(255, 50, 30, 0.3);
-}
-
-.prematch-shell[data-prematch-phase="runes"] .screen-header h2 {
-  color: var(--gothic-purple-bright);
-  text-shadow: 0 0 18px rgba(120, 71, 199, 0.35);
 }
 
 /* LOBBY PHASE: Green success cooperative gathering */

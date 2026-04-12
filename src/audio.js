@@ -31,6 +31,7 @@ const audioState = {
     fadeStartTime: 0,
   },
   ambience: null,
+  backgroundSuspended: false,
 };
 
 function clamp(value, min, max) {
@@ -536,6 +537,33 @@ function refreshControls() {
   }
 }
 
+function pauseMusicTracks() {
+  for (const track of audioState.music.tracks.values()) {
+    track.wasPlayingBeforeSuspend = !track.audio.paused;
+    if (!track.audio.paused) {
+      track.audio.pause();
+    }
+  }
+}
+
+function resumeMusicTracks() {
+  const preferredTrackKey = audioState.music.current ?? audioState.music.target;
+  if (!preferredTrackKey) {
+    return;
+  }
+
+  const preferredTrack = audioState.music.tracks.get(preferredTrackKey);
+  if (!preferredTrack) {
+    return;
+  }
+
+  const shouldResume = preferredTrack.wasPlayingBeforeSuspend ?? audioState.unlocked;
+  preferredTrack.wasPlayingBeforeSuspend = false;
+  if (shouldResume && preferredTrack.audio.paused) {
+    preferredTrack.audio.play().catch(() => {});
+  }
+}
+
 function bindUnlockEvents() {
   const handleUnlock = () => {
     unlockAudio();
@@ -560,6 +588,42 @@ export async function unlockAudio() {
     await audioState.ctx.resume();
     audioState.unlocked = true;
     applyMixTargets();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function suspendAudio() {
+  if (!audioState.ctx || !audioState.unlocked || audioState.backgroundSuspended) {
+    return false;
+  }
+
+  pauseMusicTracks();
+
+  try {
+    if (audioState.ctx.state === "running") {
+      await audioState.ctx.suspend();
+    }
+    audioState.backgroundSuspended = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function resumeAudio() {
+  if (!audioState.ctx || !audioState.unlocked) {
+    return false;
+  }
+
+  try {
+    if (audioState.ctx.state !== "running") {
+      await audioState.ctx.resume();
+    }
+    audioState.backgroundSuspended = false;
+    applyMixTargets();
+    resumeMusicTracks();
     return true;
   } catch {
     return false;
@@ -843,6 +907,8 @@ export function playModuleCue(moduleKey, owner = "player") {
       playTone({ type: "triangle", frequency: 240, sweepTo: 190, duration: 0.12, gain: 0.04, pan });
   }
 }
+
+export const playAbilityCue = playModuleCue;
 
 
 

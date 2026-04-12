@@ -2,14 +2,10 @@ import collectionGroups from "../../data/content-groups.json";
 import { content } from "../../content.js";
 import {
   PROGRESSION_CHANGED_EVENT,
-  decrementLevelForTest,
   getCollectionEntries,
   getMaxDefinedLevel,
   getNextUnlockEntry,
   getProgressionSnapshot,
-  getXpForLevel,
-  incrementLevelForTest,
-  setXp,
 } from "../../progression.js";
 import { sanitizeIconClass } from "../../utils.js";
 
@@ -38,17 +34,10 @@ function handleCollectionClick(event) {
   if (!button) return;
 
   const action = button.dataset.action;
-  if (action === "level-down") {
-    decrementLevelForTest();
-  } else if (action === "level-up") {
-    incrementLevelForTest();
-  } else if (action === "open-card") {
+  if (action === "open-card") {
     openCard(button.dataset.group, button.dataset.key);
   } else if (action === "close-card") {
     closeCard();
-  } else if (action === "unlock-to") {
-    const level = parseInt(button.dataset.level, 10);
-    if (level > 0) setXp(getXpForLevel(level));
   }
 }
 
@@ -89,10 +78,6 @@ function renderCollection() {
         <div class="bp-stat">
           <span class="bp-stat__label">XP</span>
           <strong class="bp-stat__value">${snapshot.xp}</strong>
-        </div>
-        <div class="bp-test-actions">
-          <button class="bp-action bp-action--down" type="button" data-action="level-down" ${snapshot.level <= 1 ? "disabled" : ""}>−</button>
-          <button class="bp-action bp-action--up" type="button" data-action="level-up" ${snapshot.level >= maxLevel ? "disabled" : ""}>+</button>
         </div>
       </div>
     </div>

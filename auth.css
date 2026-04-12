@@ -172,6 +172,48 @@
   margin-bottom: 12px;
 }
 
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.auth-mode-switch__button {
+  padding: 10px 14px;
+  border: 1px solid rgba(79, 195, 247, 0.16);
+  background: rgba(5, 16, 28, 0.72);
+  color: rgba(145, 180, 205, 0.72);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.auth-mode-switch__button.is-active {
+  border-color: rgba(212, 168, 67, 0.48);
+  color: #f2d389;
+  background: rgba(212, 168, 67, 0.1);
+}
+
+.auth-copy {
+  width: 100%;
+  margin: 0 0 18px;
+  color: rgba(195, 210, 225, 0.74);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  line-height: 1.7;
+  text-align: left;
+}
+
+.auth-field.is-hidden {
+  display: none;
+}
+
 .auth-field {
   display: flex;
   flex-direction: column;
@@ -253,55 +295,33 @@
   box-shadow: 0 0 24px rgba(212, 168, 67, 0.08);
 }
 
+.auth-submit-btn:disabled,
+.auth-mode-switch__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .auth-submit-btn:active { transform: scale(0.98); }
 
 /* forgot-btn removed */
 
 /* ── DIVIDER ──────────────────────────────────────────────────── */
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.auth-status {
   width: 100%;
-  margin: 24px 0 18px;
+  min-height: 42px;
+  margin: 10px 0 0;
+  color: rgba(163, 213, 241, 0.78);
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  color: rgba(140, 160, 180, 0.22);
-  font-size: 0.54rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  line-height: 1.7;
+  text-align: left;
 }
 
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgba(79, 195, 247, 0.06);
+.auth-status.is-error {
+  color: #ff9c92;
 }
 
-/* ── SAA_BOT CONNECT BUTTON ───────────────────────────────────── */
-.auth-connect-btn {
-  position: relative;
-  width: 100%;
-  padding: 11px 24px;
-  background: transparent;
-  color: rgba(79, 195, 247, 0.4);
-  border: 1px solid rgba(79, 195, 247, 0.1);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  cursor: pointer;
-  overflow: hidden;
-  transition: border-color 0.25s, color 0.25s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.auth-status.is-success {
+  color: #bbecac;
 }
-
-.auth-connect-btn:hover {
-  border-color: rgba(79, 195, 247, 0.28);
-  color: rgba(79, 195, 247, 0.75);
-}
-
-.auth-connect-btn:active { transform: scale(0.98); }

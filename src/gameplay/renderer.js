@@ -31,8 +31,136 @@ const cameraState = {
   lastUpdateAt: 0,
 };
 
+const qualityProfiles = [
+  { key: "low", maxPixelRatio: config.mobileRenderScaleLow, gridStep: 160, renderDecor: false, renderFloorLighting: false },
+  { key: "medium", maxPixelRatio: config.mobileRenderScaleMedium, gridStep: 120, renderDecor: true, renderFloorLighting: true },
+  { key: "high", maxPixelRatio: config.mobileRenderScaleHigh, gridStep: 100, renderDecor: true, renderFloorLighting: true },
+];
+
+const renderPerformanceState = {
+  qualityIndex: qualityProfiles.length - 1,
+  averageFrameMs: 0,
+  worstFrameMs: 0,
+  stressedMs: 0,
+  stableMs: 0,
+  frameCount: 0,
+  devicePixelRatio: 1,
+  effectivePixelRatio: 1,
+  lastQualityChangeReason: "initial",
+};
+
+function isMobilePerformanceMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const shortestSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+  const hasTouch = (navigator.maxTouchPoints ?? 0) > 0;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  return shortestSide > 0 && shortestSide <= 900 && (hasTouch || coarsePointer);
+}
+
+function getCurrentQualityProfile() {
+  return qualityProfiles[renderPerformanceState.qualityIndex] ?? qualityProfiles[qualityProfiles.length - 1];
+}
+
+function updatePerfDebugHandle() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.__P0_RENDER_PERF__ = {
+    getSnapshot: getRenderPerformanceSnapshot,
+  };
+}
+
+function setQualityIndex(nextQualityIndex, reason) {
+  const clampedIndex = clamp(nextQualityIndex, 0, qualityProfiles.length - 1);
+  if (clampedIndex === renderPerformanceState.qualityIndex) {
+    return false;
+  }
+
+  renderPerformanceState.qualityIndex = clampedIndex;
+  renderPerformanceState.lastQualityChangeReason = reason;
+  renderPerformanceState.stressedMs = 0;
+  renderPerformanceState.stableMs = 0;
+  resize();
+
+  if (typeof console !== "undefined") {
+    console.info(`[P0] Mobile render quality -> ${getCurrentQualityProfile().key} (${reason})`);
+  }
+
+  return true;
+}
+
+export function getRenderPerformanceSnapshot() {
+  return {
+    mode: isMobilePerformanceMode() ? "mobile" : "default",
+    quality: getCurrentQualityProfile().key,
+    averageFrameMs: Number(renderPerformanceState.averageFrameMs.toFixed(2)),
+    worstFrameMs: Number(renderPerformanceState.worstFrameMs.toFixed(2)),
+    frameCount: renderPerformanceState.frameCount,
+    devicePixelRatio: Number(renderPerformanceState.devicePixelRatio.toFixed(2)),
+    effectivePixelRatio: Number(renderPerformanceState.effectivePixelRatio.toFixed(2)),
+    lastQualityChangeReason: renderPerformanceState.lastQualityChangeReason,
+  };
+}
+
+export function reportFramePerformance(frameMs, { paused = false } = {}) {
+  if (!Number.isFinite(frameMs) || frameMs <= 0) {
+    return getRenderPerformanceSnapshot();
+  }
+
+  renderPerformanceState.frameCount += 1;
+  renderPerformanceState.averageFrameMs = renderPerformanceState.averageFrameMs > 0
+    ? renderPerformanceState.averageFrameMs * 0.9 + frameMs * 0.1
+    : frameMs;
+  renderPerformanceState.worstFrameMs = Math.max(frameMs, renderPerformanceState.worstFrameMs * 0.96);
+
+  const mobileMode = isMobilePerformanceMode();
+  if (!mobileMode || paused) {
+    renderPerformanceState.stressedMs = 0;
+    renderPerformanceState.stableMs = 0;
+    return getRenderPerformanceSnapshot();
+  }
+
+  if (renderPerformanceState.averageFrameMs > config.mobilePerfTargetFrameMs) {
+    renderPerformanceState.stressedMs += frameMs;
+    renderPerformanceState.stableMs = 0;
+  } else if (renderPerformanceState.averageFrameMs < config.mobilePerfUpgradeFrameMs) {
+    renderPerformanceState.stableMs += frameMs;
+    renderPerformanceState.stressedMs = Math.max(0, renderPerformanceState.stressedMs - frameMs);
+  } else {
+    renderPerformanceState.stressedMs = Math.max(0, renderPerformanceState.stressedMs - frameMs * 0.5);
+    renderPerformanceState.stableMs = 0;
+  }
+
+  if (renderPerformanceState.stressedMs >= config.mobilePerfDegradeHoldMs) {
+    setQualityIndex(renderPerformanceState.qualityIndex - 1, `frame budget exceeded (${renderPerformanceState.averageFrameMs.toFixed(1)}ms avg)`);
+  } else if (renderPerformanceState.stableMs >= config.mobilePerfUpgradeHoldMs) {
+    setQualityIndex(renderPerformanceState.qualityIndex + 1, `frame budget recovered (${renderPerformanceState.averageFrameMs.toFixed(1)}ms avg)`);
+  }
+
+  return getRenderPerformanceSnapshot();
+}
+
+function getEffectivePixelRatio() {
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const maxPixelRatio = isMobilePerformanceMode()
+    ? getCurrentQualityProfile().maxPixelRatio
+    : devicePixelRatio;
+  const effectivePixelRatio = Math.min(devicePixelRatio, maxPixelRatio);
+
+  renderPerformanceState.devicePixelRatio = devicePixelRatio;
+  renderPerformanceState.effectivePixelRatio = effectivePixelRatio;
+
+  return effectivePixelRatio;
+}
+
+updatePerfDebugHandle();
+
 export function resize() {
-  const ratio = window.devicePixelRatio || 1;
+  const ratio = getEffectivePixelRatio();
   const width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
   const height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
   canvas.width = width;
@@ -877,7 +1005,9 @@ export function drawCastTelegraph(entity) {
       drawTwinSilhouette(radius, progress, time, ctx);
       break;
     case "ultimate":
-      drawNestedRunes(radius, progress, time, ctx);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
       break;
     default:
       ctx.beginPath();
@@ -1110,27 +1240,6 @@ function drawTwinSilhouette(radius, progress, time, context) {
   ctx.arc(-shift, 0, radius, 0, Math.PI * 2);
   ctx.stroke();
   context.restore();
-}
-
-function drawNestedRunes(radius, progress, time, context) {
-  for (let r = 0; r < 3; r++) {
-    const currR = radius * (0.4 + r * 0.3);
-    const dir = r % 2 === 0 ? 1 : -1;
-    context.save();
-    context.rotate(time * 2 * dir);
-    context.beginPath();
-    context.arc(0, 0, currR, 0, Math.PI * 2);
-    context.stroke();
-    // Inner ticks
-    for (let i = 0; i < 4; i++) {
-      context.beginPath();
-      context.moveTo(currR - 8, 0);
-      context.lineTo(currR + 8, 0);
-      context.rotate(Math.PI / 2);
-      context.stroke();
-    }
-    context.restore();
-  }
 }
 
 export function drawWeaponTelegraph(entity) {
@@ -1706,6 +1815,8 @@ export function drawPylons() {
 export function drawWorld() {
   const viewportWidth = canvas.clientWidth || window.innerWidth;
   const viewportHeight = canvas.clientHeight || window.innerHeight;
+  const qualityProfile = getCurrentQualityProfile();
+  const isLowQuality = qualityProfile.key === "low";
   ctx.clearRect(0, 0, viewportWidth, viewportHeight);
 
   const camera = updateCameraState(viewportWidth, viewportHeight);
@@ -1736,44 +1847,54 @@ export function drawWorld() {
 
   const activeLayout = getMapLayout();
   const theme = activeLayout.theme ?? mapChoices.electroGallery.theme;
-  const gradient = ctx.createLinearGradient(0, 0, arena.width, arena.height);
-  gradient.addColorStop(0, theme.backgroundStart);
-  gradient.addColorStop(1, theme.backgroundEnd);
-  ctx.fillStyle = gradient;
+  if (isLowQuality) {
+    ctx.fillStyle = theme.backgroundStart;
+  } else {
+    const gradient = ctx.createLinearGradient(0, 0, arena.width, arena.height);
+    gradient.addColorStop(0, theme.backgroundStart);
+    gradient.addColorStop(1, theme.backgroundEnd);
+    ctx.fillStyle = gradient;
+  }
   ctx.fillRect(0, 0, arena.width, arena.height);
-  drawArenaFloorLighting();
+  if (qualityProfile.renderFloorLighting) {
+    drawArenaFloorLighting();
+  }
 
-  drawArenaDecor();
+  if (qualityProfile.renderDecor) {
+    drawArenaDecor();
+  }
 
-  ctx.strokeStyle = "rgba(124, 183, 223, 0.045)";
+  ctx.strokeStyle = isLowQuality ? "rgba(124, 183, 223, 0.03)" : "rgba(124, 183, 223, 0.045)";
   ctx.lineWidth = 1;
-  for (let x = 80; x < arena.width; x += 100) {
+  for (let x = 80; x < arena.width; x += qualityProfile.gridStep) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, arena.height);
     ctx.stroke();
   }
-  for (let y = 80; y < arena.height; y += 100) {
+  for (let y = 80; y < arena.height; y += qualityProfile.gridStep) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(arena.width, y);
     ctx.stroke();
   }
 
-  ctx.save();
-  ctx.setLineDash([18, 16]);
-  ctx.strokeStyle = "rgba(155, 220, 255, 0.1)";
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(arena.width * 0.5, 24);
-  ctx.lineTo(arena.width * 0.5, arena.height - 24);
-  ctx.moveTo(24, arena.height * 0.5);
-  ctx.lineTo(arena.width - 24, arena.height * 0.5);
-  ctx.stroke();
-  ctx.restore();
+  if (!isLowQuality) {
+    ctx.save();
+    ctx.setLineDash([18, 16]);
+    ctx.strokeStyle = "rgba(155, 220, 255, 0.1)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(arena.width * 0.5, 24);
+    ctx.lineTo(arena.width * 0.5, arena.height - 24);
+    ctx.moveTo(24, arena.height * 0.5);
+    ctx.lineTo(arena.width - 24, arena.height * 0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.strokeStyle = "rgba(119, 216, 255, 0.18)";
-  ctx.lineWidth = 8;
+  ctx.lineWidth = isLowQuality ? 5 : 8;
   ctx.strokeRect(6, 6, arena.width - 12, arena.height - 12);
 
   drawBushes();

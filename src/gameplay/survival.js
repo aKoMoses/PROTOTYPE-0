@@ -8,6 +8,9 @@ import { getMapLayout, resetMapState, resolveMapCollision, maybeTeleportEntity }
 import { clearCombatArtifacts, spawnBullet, applyPlayerDamage, updateStatusEffects, tickEntityMarks, getStatusState, getFieldInfluence, getZoneEffectsForEntity } from "./combat.js";
 import { getBuildStats } from "../build/loadout.js";
 import { addImpact, addShake } from "./effects.js";
+import { loadout } from "../state/app-state.js";
+import { addXp } from "../progression.js";
+import { syncServerProgressionAfterSurvival } from "../lib/account/progression-sync.js";
 
 let _resetPlayer = null;
 let _openPrematch = null;
@@ -311,10 +314,22 @@ export function finishSurvivalRun() {
   if (sandbox.mode !== sandboxModes.survival.key || survivalState.phase === "run_end") {
     return;
   }
+
+  const reachedWave = Math.max(1, Math.floor(Number(survivalState.wave) || 1));
+  const xpAward = Math.min(5, Math.max(1, Math.floor(reachedWave / 2)));
+  const progression = addXp(xpAward, "survival-run");
+  void syncServerProgressionAfterSurvival({
+    xp: progression.snapshot.xp,
+    level: progression.snapshot.level,
+    bestSurvivalWave: reachedWave,
+  });
+
   survivalState.phase = "run_end";
   survivalState.timer = 2.4;
   setBanner("SURVIVAL", `DOWN AT WAVE ${survivalState.wave}`, true, "fight");
-  statusLine.textContent = `Run over. ${survivalState.totalKills} hunters eliminated before the collapse.`;
+  statusLine.textContent = progression.leveledUp
+    ? `Run over. Wave ${reachedWave} reached, ${survivalState.totalKills} hunters eliminated. +${xpAward} XP earned. Level ${progression.snapshot.level} reached.`
+    : `Run over. Wave ${reachedWave} reached, ${survivalState.totalKills} hunters eliminated. +${xpAward} XP earned. XP ${progression.snapshot.xp}.`;
 }
 
 export function updateSurvivalMode(dt) {
