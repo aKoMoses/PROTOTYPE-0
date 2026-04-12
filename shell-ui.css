@@ -52,6 +52,7 @@
   grid-template-columns: minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* ── SIDEBAR ────────────────────────────────────────────────────── */
@@ -552,6 +553,9 @@
   display: none;
   min-width: 0;
   min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .shell-view.is-active {
@@ -1074,6 +1078,7 @@
 /* ── GAME VIEW ──────────────────────────────────────────────────── */
 .shell-view--game {
   background: #0a0d10;
+  overflow: hidden;
 }
 
 .shell-view--game .game-shell {
@@ -1177,6 +1182,13 @@
 .app-shell[data-shell-layout="handset"] .shell-mobile-dock,
 .app-shell[data-shell-layout="narrow"] .shell-mobile-dock {
   display: grid;
+}
+
+/* Hide dock during game / prematch — it covers action buttons */
+.app-shell[data-shell-layout="compact"][data-active-view="game"] .shell-mobile-dock,
+.app-shell[data-shell-layout="handset"][data-active-view="game"] .shell-mobile-dock,
+.app-shell[data-shell-layout="narrow"][data-active-view="game"] .shell-mobile-dock {
+  display: none;
 }
 
 .app-shell[data-shell-layout="compact"] .shell-network-banner,

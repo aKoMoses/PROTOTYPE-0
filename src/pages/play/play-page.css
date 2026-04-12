@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 0 0 2rem;
+  padding: 0 0 calc(2rem + var(--shell-safe-bottom, 0px));
 }
 
 .play-card,

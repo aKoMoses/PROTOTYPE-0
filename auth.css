@@ -12,6 +12,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding:
+    var(--shell-safe-top)
+    var(--shell-safe-right)
+    var(--shell-safe-bottom)
+    var(--shell-safe-left);
   background: #020509;
   overflow: hidden;
   transition: opacity 0.6s ease;

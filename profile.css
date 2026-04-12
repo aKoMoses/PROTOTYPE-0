@@ -99,7 +99,7 @@
   z-index: 1;
   max-width: 1160px;
   margin: 0 auto;
-  padding: 48px 44px 80px;
+  padding: 48px 44px calc(80px + var(--shell-safe-bottom));
   display: grid;
   gap: 36px;
 }
@@ -801,7 +801,7 @@
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════════ */
 @media (max-width: 960px) {
-  .profile-layout { padding: 32px 24px 60px; }
+  .profile-layout { padding: 32px 24px calc(60px + var(--shell-safe-bottom)); }
 
   .profile-banner {
     grid-template-columns: 1fr;
@@ -826,4 +826,46 @@
 
   .history-build,
   .history-date { display: none; }
+}
+
+/* ── PHONE (<500px) ──────────────────────────────────────────── */
+@media (max-width: 500px) {
+  .profile-layout {
+    padding: 16px 10px calc(48px + var(--shell-safe-bottom));
+    gap: 20px;
+  }
+
+  .profile-banner {
+    padding: 20px 14px;
+    gap: 18px;
+  }
+
+  .profile-avatar-frame {
+    width: 80px;
+    height: 80px;
+  }
+
+  .profile-banner__name {
+    font-size: 1.2rem;
+  }
+
+  .profile-stats-block {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .badge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .history-row {
+    grid-template-columns: 50px 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .history-row__result {
+    font-size: 0.7rem;
+  }
 }

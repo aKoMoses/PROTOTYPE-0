@@ -51,7 +51,7 @@
   z-index: 1;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 48px 40px 72px;
+  padding: 48px 40px calc(72px + var(--shell-safe-bottom));
   display: grid;
   gap: 32px;
 }
@@ -436,8 +436,8 @@
 }
 
 .loadout-card__fav {
-  width: 20px;
-  height: 20px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -611,7 +611,9 @@
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
+  max-height: 90dvh;
   padding: 28px;
+  padding-bottom: calc(28px + var(--shell-safe-bottom));
   background: linear-gradient(180deg, rgba(10, 14, 26, 0.98) 0%, rgba(5, 8, 16, 0.99) 100%);
   border: 1px solid var(--pf-border-gold);
   border-top: 2px solid var(--pf-gold);
@@ -889,7 +891,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
   .loadout-layout {
-    padding: 24px 16px 40px;
+    padding: 24px 16px calc(40px + var(--shell-safe-bottom));
   }
 
   .loadout-page-header {
@@ -913,5 +915,39 @@
 
   .loadout-card__build {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── PHONE (<500px) ─────────────────────────────────────────── */
+@media (max-width: 500px) {
+  .loadout-layout {
+    padding: 12px 8px calc(48px + var(--shell-safe-bottom));
+    gap: 14px;
+  }
+
+  .loadout-page-header {
+    gap: 10px;
+  }
+
+  .loadout-page-header__title {
+    font-size: 1.1rem;
+  }
+
+  .loadout-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .loadout-card__name {
+    font-size: 0.85rem;
+  }
+
+  .loadout-modal__dialog {
+    margin: 10px;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .loadout-modal__body {
+    padding: 16px 12px;
   }
 }

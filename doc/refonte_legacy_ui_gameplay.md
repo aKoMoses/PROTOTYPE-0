@@ -283,16 +283,23 @@ le repo perd une premiere couche de bruit sans impact fonctionnel.
 
 Objectif : cadrer ce qui reste encore utile mais non cible.
 
-Travail attendu :
+Decisions arretees (2026-04-12) :
 
-- clarifier le role exact du prematch ;
-- clarifier la frontiere entre page Play et flow de lancement in-game ;
-- clarifier si la vue dev standalone doit survivre ou non ;
-- clarifier quelles pages root-level restent legitimes.
+**Prematch**
+Statut : reliquat. Il doit etre supprime. Il n'est pas une zone de transition a conserver : c'est du legacy sans cible de survie. La page Play prend en charge les intentions de jeu (choix du mode et du contexte) ; le lancement in-game est desormais direct depuis le shell.
+
+**Frontiere Play / lancement in-game**
+Play = intentions de jeu (selection du mode, du contexte). Le lancement in-game = preparation immediate de la session (map, build). Cette frontiere est tranchee. Il n'y a plus de zone floue a maintenir.
+
+**Vue dev standalone**
+Statut : a supprimer. `dev-status.html` et `dev-status.js` sont des doublons sans valeur propre. La vue shell `src/pages/dev/dev-page.js` est la seule version a garder.
+
+**Pages root-level legitimes**
+Une seule page root-level reste legitime : `index.html` (point d'entree shell principal). Toutes les autres pages root-level (`auth`, `profile`, `collection`, `loadout-builder`, `dev-status`) sont soit a absorber dans le shell, soit a supprimer.
 
 Resultat attendu :
 
-les zones transitoires ne sont plus confondues avec l'architecture finale.
+les zones transitoires ne sont plus confondues avec l'architecture finale. Les arbitrages ci-dessus sont executes, non documentes comme questions ouvertes.
 
 ### 9.4 Etape 4 - Aligner la base front sur la cible shell
 

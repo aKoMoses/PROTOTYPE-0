@@ -22,7 +22,11 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 28px;
+  padding:
+    max(28px, calc(var(--shell-safe-top, 0px) + 14px))
+    max(28px, calc(var(--shell-safe-right, 0px) + 14px))
+    max(28px, calc(var(--shell-safe-bottom, 0px) + 14px))
+    max(28px, calc(var(--shell-safe-left, 0px) + 14px));
   background:
     radial-gradient(ellipse at 30% 20%, rgba(120, 71, 199, 0.12), transparent 50%),
     radial-gradient(ellipse at 70% 80%, rgba(201, 162, 39, 0.08), transparent 50%),
