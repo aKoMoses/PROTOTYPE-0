@@ -1,7 +1,8 @@
 // Mutable game state (shared across all modules)
 import { arena, config, sandboxModes } from "./config.js";
 import { weapons } from "./content.js";
-import { mapChoices } from "./maps.js";
+
+const DEFAULT_MAP_KEY = "electroGallery";
 
 export {
   loadout,
@@ -432,7 +433,7 @@ export const bots = [enemy, ...trainingBots];
 
 export const sandbox = {
   mode: "none",
-  mapKey: mapChoices.electroGallery.key,
+  mapKey: DEFAULT_MAP_KEY,
   helpOpen: false,
 };
 
@@ -485,7 +486,7 @@ export const beamEffects = [];
 export const mapEffects = [];
 export const survivalEnemies = [];
 export const mapState = {
-  layoutKey: mapChoices.electroGallery.key,
+  layoutKey: DEFAULT_MAP_KEY,
   obstacles: [],
   bushes: [],
   portals: [],
