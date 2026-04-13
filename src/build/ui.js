@@ -96,7 +96,7 @@ export function setPrematchStep(step) {
   _closeDeckDrawer();
   if (dom.prematchShell) {
     dom.prematchShell.dataset.prematchPhase =
-      step === "game-found" ? "found" : step;
+      step === "game-found" ? "found" : (step ?? "idle");
   }
   dom.mapScreen.classList.toggle("prematch-screen--active", step === "map");
   dom.buildScreen.classList.toggle("prematch-screen--active", step === "build");
@@ -109,6 +109,8 @@ export function setPrematchStep(step) {
 
 export function syncPrematchState() {
   dom.gameShell.classList.toggle("prematch-open", uiState.prematchOpen);
+  dom.prematchOverlay?.toggleAttribute("inert", !uiState.prematchOpen);
+  dom.prematchOverlay?.setAttribute("aria-hidden", uiState.prematchOpen ? "false" : "true");
   updateTrainingBuildButton();
 }
 
@@ -133,13 +135,20 @@ export function openPrematch(step = "mode") {
   abilityState.orbitalDistorter.charging = false;
   setPrematchStep(step);
   dom.prematchOverlay.classList.remove("is-hidden");
+  window.dispatchEvent(new CustomEvent("p0-prematch-visibility", {
+    detail: { open: true, step },
+  }));
   syncPrematchState();
   clearCombatArtifacts();
 }
 
 export function closePrematch() {
   uiState.prematchOpen = false;
+  setPrematchStep(null);
   dom.prematchOverlay.classList.add("is-hidden");
+  window.dispatchEvent(new CustomEvent("p0-prematch-visibility", {
+    detail: { open: false },
+  }));
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
   }

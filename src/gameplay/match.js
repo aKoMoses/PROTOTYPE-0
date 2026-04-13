@@ -24,6 +24,16 @@ window.addEventListener("p0-prematch-action", (event) => {
   handlePrematchAction(action);
 });
 
+window.addEventListener("p0-prematch-visibility", (event) => {
+  const isOpen = event.detail?.open === true;
+  const orchestrator = getPrematchOrchestrator();
+  if (isOpen) {
+    orchestrator.syncFromUiStep();
+    return;
+  }
+  orchestrator.deactivate();
+});
+
 // Forward declarations - these will be set by the modules that define them
 let _resetPlayer = null;
 let _openPrematch = null;
@@ -434,9 +444,9 @@ export function handlePrematchAction(buttonId) {
     playUiCue("click");
     resetMatchmakingState();
     uiState.selectedMode = sandboxModes.duel.key;
-    uiState.selectedMap = normalizeSelectedMap(sandboxModes.duel.key, uiState.selectedMap);
-    getPrematchOrchestrator().enterMap();
-    dom.statusLine.textContent = "1v1 Bot Duel selected.";
+    uiState.selectedMap = mapChoices.randomMap.key;
+    getPrematchOrchestrator().enterBuild();
+    dom.statusLine.textContent = "1v1 Bot Duel selected. Random arena armed.";
     _renderPrematch?.();
     return;
   }
@@ -456,9 +466,9 @@ export function handlePrematchAction(buttonId) {
     playUiCue("click");
     resetMatchmakingState();
     uiState.selectedMode = sandboxModes.teamDuel.key;
-    uiState.selectedMap = normalizeSelectedMap(sandboxModes.teamDuel.key, uiState.selectedMap);
-    getPrematchOrchestrator().enterMap();
-    dom.statusLine.textContent = "2v2 Arena selected.";
+    uiState.selectedMap = mapChoices.randomMap.key;
+    getPrematchOrchestrator().enterBuild();
+    dom.statusLine.textContent = "2v2 Arena selected. Random arena armed.";
     _renderPrematch?.();
     return;
   }

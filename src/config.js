@@ -167,6 +167,19 @@ export const config = {
   survivalWaveIntermission: 3,
 };
 
+Object.assign(config, {
+  javelinSlowDuration: config.boltLinkJavelinSlowDuration,
+  grappleCooldown: config.vGripHarpoonCooldown,
+  shieldCooldown: config.hexPlateProjectorCooldown,
+  shieldValue: config.hexPlateProjectorValue,
+  shieldDuration: config.hexPlateProjectorDuration,
+  shieldBreakRefund: config.hexPlateProjectorBreakRefund,
+  boosterCooldown: config.emPulseEmitterCooldown,
+  phaseShiftCooldown: config.ghostDriftModuleCooldown,
+  phaseShiftDuration: config.ghostDriftModuleDuration,
+  orbitalDistorterMoveBoost: config.orbitalDistorterTapMoveBoost,
+});
+
 export const botDifficultyProfiles = {
   easy: {
     spreadMult: 1.42,
@@ -325,5 +338,10 @@ export const moduleConfig = {
     vGripHarpoon: 0.18,
   },
 };
+
+Object.assign(moduleConfig, {
+  javelin: moduleConfig.boltLinkJavelin,
+  field: moduleConfig.orbitalDistorter,
+});
 
 export const abilityConfig = moduleConfig;

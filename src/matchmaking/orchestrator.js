@@ -33,6 +33,15 @@ export class PrematchOrchestrator {
     this.previousPhaseKey = null;
   }
 
+  deactivate() {
+    const prev = this.steps[this.currentStepKey];
+    if (prev) {
+      this.previousPhaseKey = prev.phaseKey;
+      prev.unmount();
+    }
+    this.currentStepKey = null;
+  }
+
   activateStep(stepKey) {
     if (this.currentStepKey === stepKey) {
       return;
