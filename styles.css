@@ -4002,6 +4002,15 @@ body {
 /* MOBILE TOUCH COMBAT — Thumb-friendly layout (landscape + pointer: coarse) */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── 0. HIDE KEYBOARD-ONLY HUD ELEMENTS ON TOUCH DEVICES ───────────────── */
+@media (pointer: coarse) {
+  .match-panel,
+  .help-toggle,
+  .help-panel {
+    display: none !important;
+  }
+}
+
 /* ── 1. JOYSTICKS — always visible, bigger, safe-area aware ─────────────── */
 @media (pointer: coarse) {
   .joystick {
@@ -4080,6 +4089,7 @@ body {
     min-width: 0 !important;
     border-radius: 0 !important;
     display: block !important;
+    pointer-events: none !important;
   }
 
   /* Ability bar → transparent positioning container */
@@ -4093,6 +4103,7 @@ body {
     padding: 0 !important;
     gap: 0 !important;
     display: block !important;
+    pointer-events: none !important;
   }
 
   /* All ability slots — absolute, tap-friendly */
@@ -4139,26 +4150,26 @@ body {
     border-color: rgba(255, 211, 117, 0.55) !important;
   }
 
-  /* Module 3 (F) — ~210° (lower-left arc) */
+  /* Module 3 (F) — ~215° (lower-left arc, just above aim joystick) */
   #slot-module-3 {
     right: calc(var(--shell-safe-right, 0px) + 16px + 140px - 14px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 6px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 12px) !important;
     left: auto !important;
     top: auto !important;
   }
 
-  /* Module 2 (E) — ~255° (upper-left arc) */
+  /* Module 2 (E) — ~245° (mid arc, spread upward) */
   #slot-module-2 {
-    right: calc(var(--shell-safe-right, 0px) + 16px + 88px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 44px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 92px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 68px) !important;
     left: auto !important;
     top: auto !important;
   }
 
-  /* Module 1 (Q) — ~280° (above aim joystick) */
+  /* Module 1 (Q) — ~275° (upper arc, clearly above E) */
   #slot-module-1 {
-    right: calc(var(--shell-safe-right, 0px) + 16px + 30px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 44px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 34px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 108px) !important;
     left: auto !important;
     top: auto !important;
   }
