@@ -73,7 +73,7 @@ function resetVGripState() {
   abilityState.vGripHarpoon.tetherPulse = 0;
 }
 
-function finalizeBoltLinkCycle(startCooldown = true) {
+function finalizeBoltLinkJavelinCycle(startCooldown = true) {
   abilityState.boltLinkJavelin.recastReady = false;
   abilityState.boltLinkJavelin.targetKind = null;
   abilityState.boltLinkJavelin.activeTime = 0;

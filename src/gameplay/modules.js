@@ -73,7 +73,7 @@ function resetVGripState() {
   moduleState.vGripHarpoon.tetherPulse = 0;
 }
 
-function finalizeBoltLinkCycle(startCooldown = true) {
+function finalizeBoltLinkJavelinCycle(startCooldown = true) {
   moduleState.boltLinkJavelin.recastReady = false;
   moduleState.boltLinkJavelin.targetKind = null;
   moduleState.boltLinkJavelin.activeTime = 0;
@@ -399,7 +399,7 @@ export function updateBoltLinkJavelinModule(dt) {
       moduleState.boltLinkJavelin.lastDirectionY = trackedTarget.y - player.y;
     }
     if (moduleState.boltLinkJavelin.pendingCooldown && moduleState.boltLinkJavelin.activeTime <= 0) {
-      finalizeBoltLinkCycle(true);
+      finalizeBoltLinkJavelinCycle(true);
     }
   }
 }
