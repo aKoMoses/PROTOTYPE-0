@@ -22,6 +22,7 @@
 
 * {
   box-sizing: border-box;
+  -webkit-touch-callout: none;
 }
 
 html,
@@ -37,6 +38,7 @@ body {
 
 body {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .game-shell {
@@ -45,6 +47,8 @@ body {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .game-shell::after {
@@ -223,6 +227,11 @@ body {
   width: 100%;
   height: calc(100% - var(--hud-reserved-space));
   cursor: crosshair;
+  touch-action: none;
+}
+
+@media (pointer: coarse) {
+  #game { cursor: none; }
 }
 
 .label,
@@ -2395,6 +2404,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  touch-action: none;
 }
 
 .joystick {
@@ -3559,12 +3569,13 @@ body {
 .moba-slot,
 .moba-slot .module-slot__icon,
 .moba-slot .module-slot__key {
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .moba-slot.is-pressed {
-  transform: translateY(1px) scale(0.98);
-  filter: brightness(1.08);
+  transform: scale(0.92);
+  filter: brightness(1.25);
+  box-shadow: 0 0 18px rgba(119, 216, 255, 0.5) !important;
 }
 
 /* Base metallic border style for sections */
@@ -4087,13 +4098,14 @@ body {
   /* All ability slots — absolute, tap-friendly */
   .moba-slot {
     position: absolute !important;
-    width: 52px !important;
-    height: 52px !important;
+    width: 58px !important;
+    height: 58px !important;
     border-radius: 50% !important;
     pointer-events: auto;
     background: rgba(8, 14, 20, 0.72) !important;
     border: 2px solid rgba(119, 216, 255, 0.35) !important;
     box-shadow: 0 0 12px rgba(0, 0, 0, 0.5) !important;
+    transition: transform 80ms ease, filter 80ms ease, box-shadow 80ms ease;
   }
 
   .moba-slot .module-slot__key {
@@ -4122,8 +4134,8 @@ body {
     bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 44px) !important;
     left: auto !important;
     top: auto !important;
-    width: 58px !important;
-    height: 58px !important;
+    width: 64px !important;
+    height: 64px !important;
     border-color: rgba(255, 211, 117, 0.55) !important;
   }
 

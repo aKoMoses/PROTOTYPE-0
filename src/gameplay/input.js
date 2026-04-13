@@ -216,6 +216,7 @@ function bindTouchActionButton(element, { onPress, onRelease, tapOnly = false })
     activePointerId = event.pointerId;
     element.classList.add("is-pressed");
     element.setPointerCapture?.(event.pointerId);
+    navigator.vibrate?.(12);
     onPress?.();
     if (tapOnly) {
       release(event.pointerId);
