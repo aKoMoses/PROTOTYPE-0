@@ -1,8 +1,5 @@
 import { getSupabaseAdminClient } from "./supabaseAdmin";
 
-const DEFAULT_MAP_KEY = "colyseus_arena";
-const DEFAULT_MAP_NAME = "Colyseus Arena";
-
 interface MatchParticipantResult {
   userId: string;
   displayName: string;
@@ -20,6 +17,8 @@ interface PersistMatchOptions {
   startedAt: string;
   completedAt: string;
   lobbyRoomId: string | null;
+  mapKey: string;
+  mapName: string;
   players: MatchParticipantResult[];
 }
 
@@ -56,8 +55,8 @@ export async function persistAuthoritativeMatchResult(options: PersistMatchOptio
     p_room_id: options.roomId,
     p_room_kind: options.roomKind,
     p_mode: options.mode,
-    p_map_key: DEFAULT_MAP_KEY,
-    p_map_name: DEFAULT_MAP_NAME,
+    p_map_key: options.mapKey,
+    p_map_name: options.mapName,
     p_started_at: options.startedAt,
     p_completed_at: options.completedAt,
     p_players: payload,

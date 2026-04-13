@@ -2,10 +2,11 @@ import { Room, Client, CloseCode } from "colyseus";
 import * as jwt from "jsonwebtoken";
 import { DuelState, PlayerState } from "./schema/DuelState";
 import { persistAuthoritativeMatchResult } from "../lib/matchPersistence";
+import { loadLobbyRoomConfig } from "../lib/lobbyRoom";
+import { circleIntersectsRect, moveCircleWithCollisions } from "../lib/networkArena";
+import { DEFAULT_NETWORK_MAP_KEY, getNetworkMapConfig } from "../../../src/lib/maps/network-map-config.js";
 
 // ─── Arena constants (must match client config) ──────────────────────────────
-const ARENA_W = 1600;
-const ARENA_H = 900;
 const PLAYER_RADIUS = 18;
 const PLAYER_MAX_HP = 280;
 const PLAYER_SPEED = 420;       // px/s
@@ -63,6 +64,7 @@ export class DuelRoom extends Room {
   private lobbyRoomId: string | null = null;
   private matchStartedAt = new Date().toISOString();
   private participantUserIds = new Map<string, string>();
+  private mapConfig = getNetworkMapConfig(DEFAULT_NETWORK_MAP_KEY);
   private droppedConnections = 0;
   private recoveredConnections = 0;
   private failedReconnections = 0;
@@ -98,13 +100,31 @@ export class DuelRoom extends Room {
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────
 
-  onCreate(options: any) {
+  async onCreate(options: any) {
     this.setState(this.state);
     this.lobbyRoomId = typeof options?.lobbyRoomId === "string" && options.lobbyRoomId.trim()
       ? options.lobbyRoomId.trim()
       : null;
+
+    if (this.lobbyRoomId) {
+      const lobbyConfig = await loadLobbyRoomConfig(this.lobbyRoomId);
+      if (lobbyConfig.format !== "1v1") {
+        throw new Error("Duel room requires a 1v1 custom room.");
+      }
+      this.mapConfig = getNetworkMapConfig(lobbyConfig.mapKey);
+    } else {
+      const requestedMapKey = typeof options?.mapKey === "string" && options.mapKey.trim()
+        ? options.mapKey.trim()
+        : DEFAULT_NETWORK_MAP_KEY;
+      this.mapConfig = getNetworkMapConfig(requestedMapKey);
+    }
+
     this.matchStartedAt = new Date().toISOString();
-    this.setMetadata({ lobbyRoomId: this.lobbyRoomId });
+    this.setMetadata({
+      lobbyRoomId: this.lobbyRoomId,
+      mapKey: this.mapConfig.key,
+      mapName: this.mapConfig.name,
+    });
     this.setSimulationInterval((dt) => this._tick(dt), 1000 / TICK_RATE);
   }
 
@@ -139,8 +159,9 @@ export class DuelRoom extends Room {
   onJoin(client: Client, _options: any, auth: { id: string; displayName: string }) {
     const p = new PlayerState();
     const isFirst = this.state.players.size === 0;
-    p.x = isFirst ? ARENA_W * 0.25 : ARENA_W * 0.75;
-    p.y = ARENA_H * 0.5;
+    const spawn = isFirst ? this.mapConfig.duelSpawns.blue : this.mapConfig.duelSpawns.red;
+    p.x = spawn.x;
+    p.y = spawn.y;
     p.hp = PLAYER_MAX_HP;
     p.alive = true;
     p.connected = true;
@@ -219,8 +240,9 @@ export class DuelRoom extends Room {
 
     let i = 0;
     this.state.players.forEach((p: PlayerState) => {
-      p.x = i === 0 ? ARENA_W * 0.25 : ARENA_W * 0.75;
-      p.y = ARENA_H * 0.5;
+      const spawn = i === 0 ? this.mapConfig.duelSpawns.blue : this.mapConfig.duelSpawns.red;
+      p.x = spawn.x;
+      p.y = spawn.y;
       p.hp = PLAYER_MAX_HP;
       p.alive = true;
       p.connected = true;
@@ -338,8 +360,18 @@ export class DuelRoom extends Room {
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len > 1) { dx /= len; dy /= len; }
 
-      p.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_W - PLAYER_RADIUS, p.x + dx * PLAYER_SPEED * dtSec));
-      p.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_H - PLAYER_RADIUS, p.y + dy * PLAYER_SPEED * dtSec));
+      const moved = moveCircleWithCollisions(
+        p.x,
+        p.y,
+        PLAYER_RADIUS,
+        dx * PLAYER_SPEED * dtSec,
+        dy * PLAYER_SPEED * dtSec,
+        this.mapConfig.arena.width,
+        this.mapConfig.arena.height,
+        this.mapConfig.obstacles,
+      );
+      p.x = moved.x;
+      p.y = moved.y;
     });
 
     // ── Update bullets + hit detection ──────────────────────────────────────
@@ -350,7 +382,14 @@ export class DuelRoom extends Room {
       b.y += b.vy * dtSec;
       b.life -= dtSec;
 
-      if (b.life <= 0 || b.x < 0 || b.x > ARENA_W || b.y < 0 || b.y > ARENA_H) continue;
+      if (
+        b.life <= 0 ||
+        b.x < 0 ||
+        b.x > this.mapConfig.arena.width ||
+        b.y < 0 ||
+        b.y > this.mapConfig.arena.height ||
+        this.mapConfig.obstacles.some((obstacle: { x: number; y: number; w: number; h: number }) => circleIntersectsRect(b.x, b.y, BULLET_RADIUS, obstacle))
+      ) continue;
 
       let hit = false;
       this.state.players.forEach((p: PlayerState, sid: string) => {
@@ -472,6 +511,8 @@ export class DuelRoom extends Room {
         startedAt: this.matchStartedAt,
         completedAt,
         lobbyRoomId: this.lobbyRoomId,
+        mapKey: this.mapConfig.key,
+        mapName: this.mapConfig.name,
         players: [
           {
             userId: winnerUserId,

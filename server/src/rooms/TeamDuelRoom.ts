@@ -3,6 +3,7 @@ import * as jwt from "jsonwebtoken";
 import { DuelState, PlayerState } from "./schema/DuelState";
 import { persistAuthoritativeMatchResult } from "../lib/matchPersistence";
 import { loadLobbyRoomConfig, loadLobbyRoomMembers, type LobbyRoomConfig } from "../lib/lobbyRoom";
+import { circleIntersectsRect, moveCircleWithCollisions, segmentIntersectsRect } from "../lib/networkArena";
 import {
   decideTeamDuelBotAction,
   type BotDifficulty,
@@ -13,9 +14,8 @@ import {
   type BotCombatRole,
 } from "../../../src/lib/ai/teamDuelArchetypes";
 import { weapons } from "../../../src/content.js";
+import { DEFAULT_NETWORK_MAP_KEY, getNetworkMapConfig } from "../../../src/lib/maps/network-map-config.js";
 
-const ARENA_W = 1600;
-const ARENA_H = 900;
 const PLAYER_RADIUS = 18;
 const PLAYER_MAX_HP = 280;
 const PLAYER_SPEED = 420;
@@ -97,6 +97,7 @@ export class TeamDuelRoom extends Room {
   private phaseEndTime = 0;
   private lobbyRoomId = "";
   private lobbyConfig: LobbyRoomConfig | null = null;
+  private mapConfig = getNetworkMapConfig(DEFAULT_NETWORK_MAP_KEY);
   private expectedPlayers = new Map<string, ExpectedPlayerState>();
   private joinedUserIds = new Set<string>();
   private participantUserIds = new Map<string, string>();
@@ -144,6 +145,7 @@ export class TeamDuelRoom extends Room {
       loadLobbyRoomMembers(lobbyRoomId),
     ]);
     this.lobbyConfig = lobbyConfig;
+    this.mapConfig = getNetworkMapConfig(lobbyConfig.mapKey);
 
     if (lobbyConfig.format !== "2v2") {
       throw new Error("Team duel requires a 2v2 custom room.");
@@ -173,6 +175,8 @@ export class TeamDuelRoom extends Room {
     this.setMetadata({
       lobbyRoomId: this.lobbyRoomId,
       format: "2v2",
+      mapKey: this.mapConfig.key,
+      mapName: this.mapConfig.name,
       botCount: lobbyConfig.botCount,
       botDifficulty: lobbyConfig.botDifficulty,
     });
@@ -424,7 +428,14 @@ export class TeamDuelRoom extends Room {
       bullet.y += bullet.vy * dtSec;
       bullet.life -= dtSec;
 
-      if (bullet.life <= 0 || bullet.x < 0 || bullet.x > ARENA_W || bullet.y < 0 || bullet.y > ARENA_H) {
+      if (
+        bullet.life <= 0 ||
+        bullet.x < 0 ||
+        bullet.x > this.mapConfig.arena.width ||
+        bullet.y < 0 ||
+        bullet.y > this.mapConfig.arena.height ||
+        this.mapConfig.obstacles.some((obstacle: { x: number; y: number; w: number; h: number }) => circleIntersectsRect(bullet.x, bullet.y, BULLET_RADIUS, obstacle))
+      ) {
         continue;
       }
 
@@ -852,7 +863,12 @@ export class TeamDuelRoom extends Room {
     const probeDistance = 88;
     const probeX = player.x + directionX * probeDistance;
     const probeY = player.y + directionY * probeDistance;
-    const edgePadding = Math.min(probeX, ARENA_W - probeX, probeY, ARENA_H - probeY);
+    const edgePadding = Math.min(
+      probeX,
+      this.mapConfig.arena.width - probeX,
+      probeY,
+      this.mapConfig.arena.height - probeY,
+    );
     let allyClearance = 0;
 
     for (const ally of allies) {
@@ -906,6 +922,10 @@ export class TeamDuelRoom extends Room {
     const source = this.state.players.get(sourceSessionId);
     const target = this.state.players.get(targetSessionId);
     if (!source?.alive || !target?.alive) {
+      return false;
+    }
+
+    if (this.mapConfig.obstacles.some((obstacle: { x: number; y: number; w: number; h: number }) => segmentIntersectsRect(source.x, source.y, target.x, target.y, obstacle))) {
       return false;
     }
 
@@ -997,14 +1017,23 @@ export class TeamDuelRoom extends Room {
       speedMultiplier = BOT_DASH_SPEED_MULTIPLIER;
     }
 
-    player.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_W - PLAYER_RADIUS, player.x + dx * PLAYER_SPEED * speedMultiplier * dtSec));
-    player.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_H - PLAYER_RADIUS, player.y + dy * PLAYER_SPEED * speedMultiplier * dtSec));
+    const moved = moveCircleWithCollisions(
+      player.x,
+      player.y,
+      PLAYER_RADIUS,
+      dx * PLAYER_SPEED * speedMultiplier * dtSec,
+      dy * PLAYER_SPEED * speedMultiplier * dtSec,
+      this.mapConfig.arena.width,
+      this.mapConfig.arena.height,
+      this.mapConfig.obstacles,
+    );
+    player.x = moved.x;
+    player.y = moved.y;
   }
 
   private _getSpawnPosition(team: number, slotIndex: number) {
-    const x = team === 0 ? ARENA_W * 0.22 : ARENA_W * 0.78;
-    const y = slotIndex === 0 ? ARENA_H * 0.35 : ARENA_H * 0.65;
-    return { x, y };
+    const teamSpawns = team === 0 ? this.mapConfig.teamSpawns.blue : this.mapConfig.teamSpawns.red;
+    return teamSpawns[slotIndex] ?? teamSpawns[0] ?? this.mapConfig.duelSpawns.blue;
   }
 
   private _clampUnit(value: unknown) {
@@ -1049,6 +1078,8 @@ export class TeamDuelRoom extends Room {
         startedAt: this.matchStartedAt,
         completedAt,
         lobbyRoomId: this.lobbyRoomId,
+        mapKey: this.mapConfig.key,
+        mapName: this.mapConfig.name,
         players: participants.map(({ player, authUserId }) => ({
           userId: authUserId!,
           displayName: player.displayName,

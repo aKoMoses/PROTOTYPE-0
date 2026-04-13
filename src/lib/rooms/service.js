@@ -13,7 +13,7 @@ export async function listRooms({ format = null } = {}) {
   const sb = getSupabaseClient();
   let query = sb
     .from(ROOMS_TABLE)
-    .select("id, name, format, status, max_players, bot_count, created_at")
+    .select("id, name, format, status, map_key, max_players, bot_count, created_at")
     .order("created_at", { ascending: false });
   if (format) query = query.eq("format", format);
   return query;
@@ -31,7 +31,7 @@ export async function listRoomMembers(roomId) {
 }
 
 /** Create a new room; creator is automatically added as host on the server via RLS. */
-export async function createRoom({ name, format, loadoutSnapshot = {} }) {
+export async function createRoom({ name, format, mapKey = "electroGallery", loadoutSnapshot = {} }) {
   if (!isSupabaseConfigured()) return { data: null, error: new Error("Supabase not configured") };
   const sb = getSupabaseClient();
   const { data: { session } } = await sb.auth.getSession();
@@ -40,8 +40,8 @@ export async function createRoom({ name, format, loadoutSnapshot = {} }) {
   const maxPlayers = format === "2v2" ? 4 : 2;
   const { data, error } = await sb
     .from(ROOMS_TABLE)
-    .insert({ name: name.trim(), format, max_players: maxPlayers, creator_id: session.user.id })
-    .select("id, name, format, status, max_players")
+    .insert({ name: name.trim(), format, map_key: mapKey, max_players: maxPlayers, creator_id: session.user.id })
+    .select("id, name, format, status, map_key, max_players")
     .single();
 
   if (error) return { data: null, error };

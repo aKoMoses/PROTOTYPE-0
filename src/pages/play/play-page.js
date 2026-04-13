@@ -3,6 +3,7 @@ import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase/clie
 import { getAccountSnapshot } from "../../lib/account/service.js";
 import { initNetworkService, subscribeNetworkState } from "../../lib/network/service.js";
 import { MultiplayerMatch } from "./multiplayer-match.js";
+import { customRoomMapChoices, DEFAULT_NETWORK_MAP_KEY, getNetworkMapChoice, isValidNetworkMapKey } from "../../lib/maps/network-map-config.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State
@@ -33,9 +34,14 @@ let networkSnapshot = initNetworkService();
 const createForm = {
   name: "",
   format: /** @type {'1v1'|'2v2'} */ ("1v1"),
+  mapKey: DEFAULT_NETWORK_MAP_KEY,
   botCount: 0,
   botDifficulty: /** @type {'easy'|'normal'|'hard'} */ ("normal"),
 };
+
+function _getMapChoice(mapKey) {
+  return getNetworkMapChoice(isValidNetworkMapKey(mapKey) ? mapKey : DEFAULT_NETWORK_MAP_KEY);
+}
 
 function getRemotePlayAvailability() {
   if (!isSupabaseConfigured()) {
@@ -314,7 +320,7 @@ function _renderCustomList() {
       <div class="play-room-row" data-room-id="${_esc(room.id)}">
         <div class="play-room-row__info">
           <strong class="play-room-row__name">${_esc(room.name)}</strong>
-          <span class="play-room-row__meta">${_esc(room.format)} · ${room.member_count ?? 0}/${room.max_players} joueurs</span>
+          <span class="play-room-row__meta">${_esc(room.format)} · ${_esc(_getMapChoice(room.map_key).name)} · ${room.member_count ?? 0}/${room.max_players} joueurs</span>
         </div>
         <button class="play-btn play-btn--join" data-action="join-room" data-room-id="${_esc(room.id)}" type="button">Rejoindre</button>
       </div>
@@ -422,6 +428,21 @@ function _renderCustomCreate() {
           </div>
         </div>
         <div class="play-form__field">
+          <label class="play-form__label">Map de la room</label>
+          <div class="play-map-picker">
+            ${customRoomMapChoices.map((mapChoice) => `
+              <label class="play-map-option ${createForm.mapKey === mapChoice.key ? "is-selected" : ""}">
+                <input type="radio" name="mapKey" value="${mapChoice.key}" ${createForm.mapKey === mapChoice.key ? "checked" : ""} />
+                <span class="play-map-option__swatch" style="--map-start:${mapChoice.theme.backgroundStart};--map-end:${mapChoice.theme.backgroundEnd};--map-accent:${mapChoice.theme.border}"></span>
+                <span class="play-map-option__body">
+                  <strong>${_esc(mapChoice.name)}</strong>
+                  <span>${_esc(mapChoice.subtitle)}</span>
+                </span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+        <div class="play-form__field">
           <label class="play-form__label">Bots dans la partie (0–${maxBots})</label>
           <div class="play-botstepper">
             <button class="play-botstepper__btn" data-action="bot-count-dec" type="button"${safeBotCount <= 0 ? " disabled" : ""}>−</button>
@@ -462,6 +483,7 @@ function _renderCustomLobby() {
   const amHost = currentRoom.creator_id === myId;
   const amReady = myMember?.is_ready ?? false;
   const allHumanReady = members.length > 0 && members.every((m) => m.is_ready);
+  const selectedMap = _getMapChoice(currentRoom.map_key);
 
   const actionHtml = myMember
     ? `<button class="play-btn ${amReady ? "play-btn--unready" : "play-btn--ready"}" data-action="toggle-ready" type="button" ${remotePlay.available ? "" : 'disabled aria-disabled="true"'}>
@@ -545,7 +567,7 @@ function _renderCustomLobby() {
         <button class="play-back" data-action="leave-room" type="button">← Quitter</button>
         <div class="play-header__room">
           <h1 class="play-title">${_esc(currentRoom.name)}</h1>
-          <span class="play-header__meta">${_esc(currentRoom.format)} · ${members.length}/${maxPlayers} joueurs</span>
+          <span class="play-header__meta">${_esc(currentRoom.format)} · ${_esc(selectedMap.name)} · ${members.length}/${maxPlayers} joueurs</span>
         </div>
       </header>
       <div class="play-lobby">
@@ -615,6 +637,9 @@ function _handleChange(e) {
   if (input.name === "format" && input.type === "radio") {
     createForm.format = /** @type {'1v1'|'2v2'} */ (input.value);
     if (currentScreen === "custom-create") _renderScreen();
+  } else if (input.name === "mapKey" && input.type === "radio") {
+    createForm.mapKey = isValidNetworkMapKey(input.value) ? input.value : DEFAULT_NETWORK_MAP_KEY;
+    if (currentScreen === "custom-create") _renderScreen();
   } else if (input.name === "botDifficulty" && input.type === "radio") {
     createForm.botDifficulty = /** @type {'easy'|'normal'|'hard'} */ (input.value);
     if (currentScreen === "custom-create") _renderScreen();
@@ -661,7 +686,7 @@ async function _loadRooms() {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("custom_rooms")
-    .select(`id, name, format, status, bot_count, bot_difficulty, max_players, creator_id, created_at,
+    .select(`id, name, format, status, map_key, bot_count, bot_difficulty, max_players, creator_id, created_at,
              room_members(count)`)
     .eq("status", "waiting")
     .order("created_at", { ascending: false });
@@ -707,6 +732,7 @@ async function _submitCreateRoom(form) {
   const maxBots = totalSlots - 1; // always leave at least 1 human slot
   const botCount = Math.min(Math.max(0, createForm.botCount), maxBots);
   const maxPlayers = totalSlots - botCount; // joinable human slots
+  const mapKey = isValidNetworkMapKey(createForm.mapKey) ? createForm.mapKey : DEFAULT_NETWORK_MAP_KEY;
 
   const { data: room, error: roomError } = await supabase
     .from("custom_rooms")
@@ -715,6 +741,7 @@ async function _submitCreateRoom(form) {
       name,
       format: createForm.format,
       status: "waiting",
+      map_key: mapKey,
       bot_count: botCount,
       bot_difficulty: createForm.botDifficulty,
       max_players: maxPlayers,
@@ -747,6 +774,7 @@ async function _submitCreateRoom(form) {
   currentRoom = room;
   members = [];
   createForm.name = "";
+  createForm.mapKey = DEFAULT_NETWORK_MAP_KEY;
   createForm.botCount = 0;
   _navigate("custom-lobby", { room });
 }

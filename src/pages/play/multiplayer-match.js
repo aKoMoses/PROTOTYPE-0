@@ -1,10 +1,9 @@
 import { joinDuelRoom, joinTeamDuelRoom, leaveCurrentRoom, reconnectToRoom } from "../../lib/colyseus/client.js";
 import { getAccountSnapshot, refreshAccountState } from "../../lib/account/service.js";
 import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase/client.js";
+import { getNetworkMapChoice, getNetworkMapConfig } from "../../lib/maps/network-map-config.js";
 
 // ─── Arena constants (must match server config) ───────────────────────────────
-const ARENA_W = 1600;
-const ARENA_H = 900;
 const PLAYER_RADIUS = 18;
 const MAX_HP = 280;
 const RECONNECT_RETRY_MS = 1500;
@@ -28,6 +27,8 @@ export class MultiplayerMatch {
     this.onExit = onExit;
     this.supabaseRoom = supabaseRoom;
     this.roomType = this.supabaseRoom?.format === "2v2" ? "team_duel" : "duel";
+    this.mapChoice = getNetworkMapChoice(this.supabaseRoom?.map_key);
+    this.mapConfig = getNetworkMapConfig(this.supabaseRoom?.map_key);
 
     /** @type {import("@colyseus/sdk").Room|null} */
     this.room = null;
@@ -57,8 +58,8 @@ export class MultiplayerMatch {
     };
 
     this.keys = new Set();
-    this.mouseX = ARENA_W / 2;
-    this.mouseY = ARENA_H / 2;
+    this.mouseX = this.mapConfig.arena.width / 2;
+    this.mouseY = this.mapConfig.arena.height / 2;
 
     this._boundKeyDown = this._onKeyDown.bind(this);
     this._boundKeyUp = this._onKeyUp.bind(this);
@@ -104,10 +105,10 @@ export class MultiplayerMatch {
         <div class="mp-hud">
           <button class="play-btn play-btn--outline" data-action="leave-match" type="button">← Quitter</button>
           <span class="mp-status" id="mp-status">Connexion au serveur…</span>
-          <span class="mp-hint">WASD · Souris pour viser · Clic pour tirer</span>
+          <span class="mp-hint">${this.mapChoice.name} · WASD · Souris pour viser · Clic pour tirer</span>
         </div>
         <div class="mp-canvas-wrap">
-          <canvas id="mp-canvas" width="${ARENA_W}" height="${ARENA_H}"
+          <canvas id="mp-canvas" width="${this.mapConfig.arena.width}" height="${this.mapConfig.arena.height}"
             class="mp-canvas" tabindex="0" style="outline:none;cursor:crosshair;"></canvas>
         </div>
       </div>
@@ -364,8 +365,8 @@ export class MultiplayerMatch {
   _onMouseMove(e) {
     if (!this.canvas) return;
     const rect = this.canvas.getBoundingClientRect();
-    this.mouseX = (e.clientX - rect.left) * (ARENA_W / rect.width);
-    this.mouseY = (e.clientY - rect.top) * (ARENA_H / rect.height);
+    this.mouseX = (e.clientX - rect.left) * (this.mapConfig.arena.width / rect.width);
+    this.mouseY = (e.clientY - rect.top) * (this.mapConfig.arena.height / rect.height);
   }
 
   _onCanvasClick() {
@@ -409,27 +410,12 @@ export class MultiplayerMatch {
   _draw() {
     const ctx = this.ctx;
     if (!ctx) return;
+    const arenaW = this.mapConfig.arena.width;
+    const arenaH = this.mapConfig.arena.height;
 
     this._updateNetworkHealth();
 
-    // Background
-    ctx.fillStyle = "#0a0a0a";
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
-
-    // Grid
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= ARENA_W; x += 100) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ARENA_H); ctx.stroke();
-    }
-    for (let y = 0; y <= ARENA_H; y += 100) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ARENA_W, y); ctx.stroke();
-    }
-
-    // Arena border
-    ctx.strokeStyle = "#2a2a2a";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, ARENA_W - 2, ARENA_H - 2);
+    this._drawMap(ctx, arenaW, arenaH);
 
     if (!this.state) return;
 
@@ -510,14 +496,14 @@ export class MultiplayerMatch {
     this.state.players?.forEach((p, sid) => scorePlayers.push({ ...p, sid }));
     if (scorePlayers.length > 0) {
       ctx.fillStyle = "rgba(0,0,0,0.65)";
-      ctx.fillRect(ARENA_W / 2 - 90, 8, 180, 30);
+      ctx.fillRect(arenaW / 2 - 120, 8, 240, 30);
       ctx.fillStyle = "#eee";
       ctx.font = "bold 15px monospace";
       ctx.textAlign = "center";
       const scoreStr = this.roomType === "team_duel"
         ? `Blue ${Math.max(...scorePlayers.filter((p) => p.team === 0).map((p) => p.roundScore), 0)}  ·  Red ${Math.max(...scorePlayers.filter((p) => p.team === 1).map((p) => p.roundScore), 0)}`
         : scorePlayers.map((p) => `${p.displayName} ${p.roundScore}`).join("  ·  ");
-      ctx.fillText(scoreStr, ARENA_W / 2, 28);
+      ctx.fillText(scoreStr, arenaW / 2, 28);
     }
 
     // Countdown overlay
@@ -525,11 +511,11 @@ export class MultiplayerMatch {
       const sec = Math.ceil(this.state.phaseTimer / 1000);
       const label = sec > 0 ? String(sec) : "GO !";
       ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillRect(ARENA_W / 2 - 70, ARENA_H / 2 - 55, 140, 80);
+      ctx.fillRect(arenaW / 2 - 70, arenaH / 2 - 55, 140, 80);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 56px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(label, ARENA_W / 2, ARENA_H / 2 + 16);
+      ctx.fillText(label, arenaW / 2, arenaH / 2 + 16);
     }
 
     // Match end overlay
@@ -540,35 +526,100 @@ export class MultiplayerMatch {
         ? this.state.winnerTeam === me.team
         : this.state.winnerId === this.sessionId;
       ctx.fillStyle = "rgba(0,0,0,0.72)";
-      ctx.fillRect(ARENA_W / 2 - 220, ARENA_H / 2 - 55, 440, 90);
+      ctx.fillRect(arenaW / 2 - 220, arenaH / 2 - 55, 440, 90);
       ctx.fillStyle = isWinner ? "#ffe87a" : "#f66";
       ctx.font = "bold 30px monospace";
       ctx.textAlign = "center";
       ctx.fillText(
         isWinner ? "Victoire !" : this.roomType === "team_duel" ? "Défaite !" : `${winner?.displayName ?? "?"} gagne !`,
-        ARENA_W / 2, ARENA_H / 2 + 12,
+        arenaW / 2, arenaH / 2 + 12,
       );
     }
 
     // Round end overlay
     if (this.state.phase === "round_end") {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(ARENA_W / 2 - 120, ARENA_H / 2 - 30, 240, 50);
+      ctx.fillRect(arenaW / 2 - 120, arenaH / 2 - 30, 240, 50);
       ctx.fillStyle = "#ccc";
       ctx.font = "bold 22px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("Round terminé", ARENA_W / 2, ARENA_H / 2 + 8);
+      ctx.fillText("Round terminé", arenaW / 2, arenaH / 2 + 8);
     }
 
     if (this.netHealth.quality !== "good" && this.netHealth.quality !== "init") {
       const badge = this.netHealth.quality === "lost" ? "Réseau instable" : "Réseau dégradé";
       ctx.fillStyle = this.netHealth.quality === "lost" ? "rgba(168,40,40,0.88)" : "rgba(140,100,20,0.88)";
-      ctx.fillRect(ARENA_W - 220, 12, 208, 28);
+      ctx.fillRect(arenaW - 220, 12, 208, 28);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 12px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(`${badge} · ${Math.round(this.netHealth.staleMs)}ms`, ARENA_W - 116, 30);
+      ctx.fillText(`${badge} · ${Math.round(this.netHealth.staleMs)}ms`, arenaW - 116, 30);
     }
+  }
+
+  _drawMap(ctx, arenaW, arenaH) {
+    const { theme, obstacles, bushes, portals, pylons } = this.mapConfig;
+
+    const gradient = ctx.createLinearGradient(0, 0, arenaW, arenaH);
+    gradient.addColorStop(0, theme.backgroundStart);
+    gradient.addColorStop(1, theme.backgroundEnd);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, arenaW, arenaH);
+
+    ctx.strokeStyle = theme.grid;
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= arenaW; x += 100) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, arenaH);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= arenaH; y += 100) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(arenaW, y);
+      ctx.stroke();
+    }
+
+    bushes.forEach((bush) => {
+      ctx.fillStyle = theme.bushFill;
+      ctx.strokeStyle = theme.bushStroke;
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(bush.x, bush.y, bush.w, bush.h);
+      ctx.strokeRect(bush.x, bush.y, bush.w, bush.h);
+    });
+
+    obstacles.forEach((obstacle) => {
+      ctx.fillStyle = theme.obstacleFill;
+      ctx.strokeStyle = theme.obstacleStroke;
+      ctx.lineWidth = 2;
+      ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+      ctx.strokeRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+    });
+
+    portals.forEach((portal) => {
+      ctx.beginPath();
+      ctx.arc(portal.x, portal.y, portal.radius, 0, Math.PI * 2);
+      ctx.fillStyle = theme.portalFill;
+      ctx.fill();
+      ctx.strokeStyle = portal.color ?? theme.portalStroke;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    });
+
+    pylons.forEach((pylon) => {
+      ctx.beginPath();
+      ctx.arc(pylon.x, pylon.y, pylon.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `${pylon.color}33`;
+      ctx.fill();
+      ctx.strokeStyle = pylon.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    ctx.strokeStyle = theme.border;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, arenaW - 2, arenaH - 2);
   }
 
   _getRenderablePlayers() {

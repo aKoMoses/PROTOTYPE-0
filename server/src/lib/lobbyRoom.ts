@@ -12,6 +12,7 @@ export interface LobbyRoomConfig {
   id: string;
   format: "1v1" | "2v2";
   status: "waiting" | "in_progress" | "closed";
+  mapKey: string;
   botCount: number;
   botDifficulty: "easy" | "normal" | "hard";
   maxPlayers: number;
@@ -25,7 +26,7 @@ export async function loadLobbyRoomConfig(lobbyRoomId: string) {
 
   const { data, error } = await supabase
     .from("custom_rooms")
-    .select("id, format, status, bot_count, bot_difficulty, max_players")
+    .select("id, format, status, map_key, bot_count, bot_difficulty, max_players")
     .eq("id", lobbyRoomId)
     .maybeSingle();
 
@@ -51,6 +52,7 @@ export async function loadLobbyRoomConfig(lobbyRoomId: string) {
     id: typeof data.id === "string" ? data.id : lobbyRoomId,
     format,
     status,
+    mapKey: typeof data.map_key === "string" && data.map_key.trim() ? data.map_key.trim() : "electroGallery",
     botCount: Number.isFinite(data.bot_count) ? Math.max(0, Math.trunc(data.bot_count)) : 0,
     botDifficulty,
     maxPlayers: Number.isFinite(data.max_players) ? Math.max(1, Math.trunc(data.max_players)) : 2,
