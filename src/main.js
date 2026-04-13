@@ -244,7 +244,7 @@ ttPanelToggle?.addEventListener("click", () => {
   ttPanel?.classList.toggle("is-collapsed");
 });
 
-window.addEventListener("loadout-equip", (event) => {
+window.addEventListener("loadout-equip", async (event) => {
   const selectedLoadout = event.detail?.loadout;
   const result = applySavedPlayerLoadout(selectedLoadout);
   if (!result.ok) {
@@ -259,7 +259,13 @@ window.addEventListener("loadout-equip", (event) => {
   const deckId = selectedLoadout?.id ?? null;
   uiState.selectedLoadoutId = deckId;
 
-  document.querySelector('[data-shell-view="game"]')?.click();
+  // Navigate to game view first (if needed), THEN open prematch at build.
+  // The old synchronous click() triggered an async setShellView that would
+  // call openPrematch("map") AFTER our openPrematch("build"), sending the
+  // user back to the map screen — visible on mobile where the race is obvious.
+  if (window.__P0_SHELL?.getActiveView() !== "game") {
+    await window.__P0_SHELL?.setView("game");
+  }
   openPrematch("build");
   renderPrematch();
   dom.statusLine.textContent = `${selectedLoadout?.name ?? "Loadout"} loaded into combat launch.`;

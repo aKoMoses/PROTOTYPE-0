@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd server && npm ci && npm run build"
+
+[deploy]
+startCommand = "node server/dist/server/src/index.js"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 300
+restartPolicyType = "always"

@@ -377,13 +377,15 @@ async function setShellView(nextView) {
     return;
   }
 
+  const prevView = activeView;
+
   // Stop the game session when navigating away from the game view
-  if (activeView === "game" && nextView !== "game") {
+  if (prevView === "game" && nextView !== "game") {
     window.__P0_GAME?.stopGameSession?.();
   }
 
   // Deactivate the play page when leaving it
-  if (activeView === "play" && nextView !== "play") {
+  if (prevView === "play" && nextView !== "play") {
     try {
       const mod = await import("./src/pages/play/play-page.js");
       mod.deactivatePage?.();
@@ -401,14 +403,19 @@ async function setShellView(nextView) {
       const mod = await import("./src/pages/play/play-page.js");
       mod.activatePage?.();
     } else if (nextView === "game") {
-      const { renderPrematch, openPrematch } = await import("./src/build/ui.js");
-      const { matchState } = await import("./src/state.js");
-      matchState.round = 1;
-      matchState.playerWins = 0;
-      matchState.botWins = 0;
-      matchState.isOver = false;
-      openPrematch("map");
-      renderPrematch();
+      // Only reset match state and open prematch when *entering* game from another view.
+      // Re-calling setView("game") while already in game (e.g. from a loadout-equip
+      // side-effect) must not stomp whatever prematch step is already active.
+      if (prevView !== "game") {
+        const { renderPrematch, openPrematch } = await import("./src/build/ui.js");
+        const { matchState } = await import("./src/state.js");
+        matchState.round = 1;
+        matchState.playerWins = 0;
+        matchState.botWins = 0;
+        matchState.isOver = false;
+        openPrematch("map");
+        renderPrematch();
+      }
       window.__P0_GAME?.restartGameLoop?.();
     }
   } catch (err) {
@@ -432,9 +439,6 @@ async function setShellView(nextView) {
     const isActive = control.dataset.shellView === nextView;
     if (control.classList.contains("shell-nav__button")) {
       control.classList.toggle("shell-nav__button--active", isActive);
-    }
-    if (control.classList.contains("shell-mobile-dock__button")) {
-      control.classList.toggle("is-active", isActive);
     }
     if (isActive) {
       control.setAttribute("aria-current", "page");

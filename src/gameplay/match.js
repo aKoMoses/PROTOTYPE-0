@@ -30,6 +30,7 @@ let _openPrematch = null;
 let _closePrematch = null;
 let _renderPrematch = null;
 let prematchOrchestrator = null;
+let launchActionLocked = false;
 
 function getPrematchOrchestrator() {
   if (!prematchOrchestrator) {
@@ -411,6 +412,21 @@ export function launchSelectedSession() {
   window.__P0_GAME?.restartGameLoop?.();
 }
 
+function releaseLaunchActionLock() {
+  launchActionLocked = false;
+  dom.startSession?.classList.remove("is-locking");
+}
+
+function lockLaunchAction() {
+  if (launchActionLocked) {
+    return false;
+  }
+
+  launchActionLocked = true;
+  dom.startSession?.classList.add("is-locking");
+  return true;
+}
+
 export function handlePrematchAction(buttonId) {
   unlockAudio();
 
@@ -495,6 +511,7 @@ export function handlePrematchAction(buttonId) {
 
   if (buttonId === "step-build" || buttonId === "continue-build") {
     playUiCue("click");
+    releaseLaunchActionLock();
     trainingToolState.editingBuild = false;
     resetBuildWizard();
     getPrematchOrchestrator().enterBuild();
@@ -535,8 +552,17 @@ export function handlePrematchAction(buttonId) {
   }
 
   if (buttonId === "start-session") {
+    if (!lockLaunchAction()) {
+      return;
+    }
     playUiCue("confirm");
-    launchSelectedSession();
+    try {
+      launchSelectedSession();
+    } finally {
+      requestAnimationFrame(() => {
+        releaseLaunchActionLock();
+      });
+    }
   }
 }
 
@@ -582,16 +608,14 @@ export function bindPrematchButton(button, actionId) {
     return;
   }
   button.dataset.codexBound = "true";
-  if (!button.getAttribute("onclick")) {
-    button.addEventListener("click", (event) => {
-      if (!uiState.prematchOpen) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      handlePrematchAction(actionId);
-    });
-  }
+  button.addEventListener("click", (event) => {
+    if (!uiState.prematchOpen) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    handlePrematchAction(actionId);
+  });
   button.addEventListener("keydown", (event) => {
     if (!uiState.prematchOpen) {
       return;
