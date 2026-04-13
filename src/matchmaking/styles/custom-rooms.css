@@ -91,6 +91,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -259,6 +260,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s, border-color 0.15s;
   white-space: nowrap;
 }
@@ -312,13 +314,17 @@
 
 /* ─── CREATE ROOM MODAL overlay ──────────── */
 .cr-modal-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
   background: rgba(4, 6, 14, 0.85);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   animation: fade-in 0.2s ease;
 }
 
@@ -328,6 +334,7 @@
 
 .cr-modal {
   width: min(480px, 90vw);
+  margin: auto;
   padding: 32px;
   background: linear-gradient(168deg, rgba(10, 14, 22, 0.98), rgba(6, 8, 16, 0.99));
   border: 1px solid rgba(201, 162, 39, 0.35);
@@ -370,6 +377,7 @@
   color: var(--gothic-text, rgba(232, 225, 215, 0.9));
   font-family: "Courier New", monospace;
   font-size: 0.85rem;
+  min-height: 44px;
   transition: border-color 0.2s;
 }
 
@@ -443,6 +451,8 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
   transition: border-color 0.2s, color 0.2s;
 }
 
@@ -463,6 +473,8 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
   transition: background 0.2s, box-shadow 0.2s;
 }
 
@@ -1417,14 +1429,27 @@
     gap: 12px;
   }
 
+  .cr-modal-overlay {
+    align-items: flex-start;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .cr-modal {
+    width: min(100%, 560px);
+    padding: 20px 16px;
+    gap: 18px;
+  }
+
   .room-create-btn {
     width: 100%;
     justify-content: center;
     padding: 12px 14px;
+    min-height: 48px;
   }
 
   .room-filter-select {
     flex: 1;
+    min-height: 48px;
   }
 
   .room-table {
@@ -1439,6 +1464,15 @@
   .room-table tbody td {
     padding: 8px;
     font-size: 0.72rem;
+  }
+
+  .cr-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .cr-modal__cancel,
+  .cr-modal__confirm {
+    width: 100%;
   }
 
   #custom-lobby-screen.prematch-screen--active {

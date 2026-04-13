@@ -382,11 +382,11 @@
 
               <!-- Create Room modal -->
               <div class="cr-modal-overlay is-hidden" id="cr-create-modal" role="dialog" aria-modal="true" aria-labelledby="cr-modal-title">
-                <div class="cr-modal">
+                <form class="cr-modal" id="cr-create-form">
                   <h3 class="cr-modal__title" id="cr-modal-title">Créer une Room</h3>
                   <div class="cr-modal__field">
                     <label class="cr-modal__label" for="new-room-name">Nom de la room</label>
-                    <input class="cr-modal__input" id="new-room-name" type="text" maxlength="40" placeholder="ex: Room de Romain" autocomplete="off" />
+                    <input class="cr-modal__input" id="new-room-name" type="text" maxlength="40" placeholder="ex: Room de Romain" autocomplete="off" enterkeyhint="done" />
                   </div>
                   <div class="cr-modal__field">
                     <span class="cr-modal__label">Format</span>
@@ -410,9 +410,9 @@
                   <div class="cr-modal__error" id="cr-modal-error" role="alert"></div>
                   <div class="cr-modal__actions">
                     <button class="cr-modal__cancel" id="cr-modal-cancel" type="button">Annuler</button>
-                    <button class="cr-modal__confirm" id="cr-modal-confirm" type="button">Créer →</button>
+                    <button class="cr-modal__confirm" id="cr-modal-confirm" type="submit">Créer →</button>
                   </div>
-                </div>
+                </form>
               </div>
             </div>
 

@@ -31,6 +31,7 @@ export class RoomBrowserStep extends PrematchStepBase {
     this._onModalConfirm   = this._onModalConfirm.bind(this);
     this._onScreenClick    = this._onScreenClick.bind(this);
     this._onModalKeydown   = this._onModalKeydown.bind(this);
+    this._onScreenSubmit   = this._onScreenSubmit.bind(this);
   }
 
   /* ── Lifecycle ───────────────────────── */
@@ -41,13 +42,8 @@ export class RoomBrowserStep extends PrematchStepBase {
     if (!screen) return;
     screen.addEventListener("click",  this._onScreenClick);
     screen.addEventListener("change", this._onFilterChange);
-    screen.querySelector(".room-create-btn")
-      ?.addEventListener("click", this._onCreateClick);
-    screen.querySelector(".cr-modal__cancel")
-      ?.addEventListener("click", this._onModalCancel);
-    screen.querySelector(".cr-modal__confirm")
-      ?.addEventListener("click", this._onModalConfirm);
     screen.addEventListener("keydown", this._onModalKeydown);
+    screen.addEventListener("submit", this._onScreenSubmit);
 
     this._load();
     this._unsubscribe = subscribeToRoomsList(() => this._load());
@@ -63,6 +59,7 @@ export class RoomBrowserStep extends PrematchStepBase {
     screen.removeEventListener("click",   this._onScreenClick);
     screen.removeEventListener("change",  this._onFilterChange);
     screen.removeEventListener("keydown", this._onModalKeydown);
+    screen.removeEventListener("submit", this._onScreenSubmit);
   }
 
   /* ── Data ────────────────────────────── */
@@ -165,7 +162,13 @@ export class RoomBrowserStep extends PrematchStepBase {
     const nameInput = modal.querySelector("#new-room-name");
     if (nameInput) {
       nameInput.value = "";
-      nameInput.focus();
+      requestAnimationFrame(() => {
+        try {
+          nameInput.focus({ preventScroll: true });
+        } catch {
+          nameInput.focus();
+        }
+      });
     }
     const errorEl = modal.querySelector(".cr-modal__error");
     if (errorEl) errorEl.textContent = "";
@@ -237,6 +240,13 @@ export class RoomBrowserStep extends PrematchStepBase {
     this._submitCreate();
   }
 
+  _onScreenSubmit(e) {
+    if (!this._modalOpen) return;
+    if (!e.target.closest(".cr-modal")) return;
+    e.preventDefault();
+    this._submitCreate();
+  }
+
   _onModalKeydown(e) {
     if (!this._modalOpen) return;
     if (e.key === "Escape") {
@@ -250,6 +260,30 @@ export class RoomBrowserStep extends PrematchStepBase {
   }
 
   async _onScreenClick(e) {
+    const createBtn = e.target.closest(".room-create-btn");
+    if (createBtn) {
+      this._onCreateClick();
+      return;
+    }
+
+    const cancelBtn = e.target.closest(".cr-modal__cancel");
+    if (cancelBtn) {
+      this._onModalCancel();
+      return;
+    }
+
+    const confirmBtn = e.target.closest(".cr-modal__confirm");
+    if (confirmBtn) {
+      this._onModalConfirm();
+      return;
+    }
+
+    const modalOverlay = e.target.closest(".cr-modal-overlay");
+    if (this._modalOpen && modalOverlay && e.target === modalOverlay) {
+      this._closeModal();
+      return;
+    }
+
     const joinBtn = e.target.closest(".room-join-btn");
     if (joinBtn && !joinBtn.disabled) {
       const roomId = joinBtn.dataset.roomId;
