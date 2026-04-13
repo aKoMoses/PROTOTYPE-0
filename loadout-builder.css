@@ -986,43 +986,255 @@
   }
 }
 
+/* ================================================================
+   MOBILE — Rebuilt from scratch for touch-first experience
+   Layout : topbar → name → pips → mech → prompt (flex column)
+   Piece selection : bottom sheet 62vh · grid 2 colonnes
+   ================================================================ */
 @media (max-width: 640px) {
-  .builder-panel {
-    width: 100%;
-    height: 50%;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    transform: translateY(100%);
-    border-left: none;
-    border-top: 1px solid rgba(198, 40, 40, 0.15);
-    padding-bottom: var(--shell-safe-bottom);
-  }
-  .builder-panel.is-open {
-    transform: translateY(0);
-  }
-  .builder-mech-wrap {
-    width: 200px;
-    height: 300px;
+
+  /* ── Container principal ──────────────────────────────────────── */
+  .builder-main {
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0 0 0;
+    overflow: hidden;
   }
 
+  /* ── Topbar : sort du flux absolu → flex item #1 ─────────────── */
   .builder-topbar {
-    padding: calc(10px + var(--shell-safe-top, 0px)) 14px 10px;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: 100%;
+    padding: calc(10px + var(--shell-safe-top, 0px)) 14px 8px;
+    box-sizing: border-box;
+    flex-shrink: 0;
   }
 
   .builder-back {
-    padding: 10px 14px;
+    padding: 8px 14px;
     min-height: 44px;
+    font-size: 0.7rem;
+  }
+
+  /* ── Name input : flex item #2 ───────────────────────────────── */
+  .builder-name-input {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 100%;
+    padding: 0 20px 0;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .builder-name-field {
+    width: 100%;
+    max-width: 300px;
+    font-size: 0.92rem;
+  }
+
+  /* ── Progress pips : flex item #3 ───────────────────────────── */
+  .builder-progress {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 100%;
+    justify-content: center;
+    padding: 8px 0 4px;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .builder-pip {
+    width: 26px;
+    height: 3px;
+  }
+
+  /* ── Mech : flex item #4, réduit et centré ───────────────────── */
+  .builder-mech-wrap {
+    width: 174px;
+    height: 246px;
+    flex-shrink: 0;
+    margin: 2px auto 0;
+  }
+
+  /* Rings animés proportionnels */
+  .builder-reactor-ring {
+    width: 150px;
+    height: 150px;
+  }
+  .builder-reactor-ring-inner {
+    width: 108px;
+    height: 108px;
+  }
+
+  /* ── Slot prompt : flex item #5 ──────────────────────────────── */
+  .builder-slot-prompt {
+    margin-top: 6px;
+    padding: 0 20px;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .builder-slot-prompt__title {
+    font-size: 1.05rem;
+    letter-spacing: 0.07em;
+    margin-bottom: 2px;
+  }
+
+  .builder-slot-prompt__sub {
+    font-size: 0.62rem;
+  }
+
+  /* ── Boot text ───────────────────────────────────────────────── */
+  .builder-boot-text {
+    bottom: 20px;
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+  }
+
+  /* ── Forge button : full-width, positionné au-dessus safe area ── */
+  .builder-forge-wrap {
+    left: 16px;
+    right: 16px;
+    transform: none;
+    bottom: calc(24px + var(--shell-safe-bottom));
   }
 
   .builder-forge-btn {
-    padding: 14px 28px;
-    min-height: 48px;
+    width: 100%;
+    padding: 15px 20px;
+    font-size: 0.88rem;
+    letter-spacing: 0.12em;
+    clip-path: none;
+    border-radius: 3px;
+    min-height: 50px;
   }
 
-  .builder-main {
-    padding: max(14px, var(--shell-safe-top)) 10px max(14px, var(--shell-safe-bottom)) 10px;
+  .builder-forge-orbital {
+    display: none;
+  }
+
+  /* ── Bottom sheet ────────────────────────────────────────────── */
+  .builder-panel {
+    position: absolute;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 62%;
+    transform: translateY(100%);
+    border-left: none;
+    border-top: 1px solid rgba(198, 40, 40, 0.2);
+    border-radius: 14px 14px 0 0;
+    background: linear-gradient(180deg, rgba(10, 16, 30, 0.99) 0%, rgba(6, 10, 20, 0.99) 100%);
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5), 0 -2px 0 rgba(198, 40, 40, 0.08);
+  }
+
+  .builder-panel.is-open {
+    transform: translateY(0);
+  }
+
+  /* Drag handle visuel */
+  .builder-panel__header {
+    padding: 10px 18px 10px;
+  }
+
+  .builder-panel__header::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 auto 10px;
+  }
+
+  .builder-panel__title {
+    font-size: 0.78rem;
+  }
+
+  .builder-panel__subtitle {
+    font-size: 0.6rem;
+  }
+
+  /* ── Grid 2 colonnes ─────────────────────────────────────────── */
+  .builder-panel__list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 6px 12px calc(16px + var(--shell-safe-bottom));
+    align-content: start;
+  }
+
+  .builder-panel__empty {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+
+  /* ── Piece card : layout vertical centré ─────────────────────── */
+  .builder-piece {
+    padding: 12px 8px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    min-height: 96px;
+  }
+
+  /* Hover adapté au touch (scale / pas de translateX) */
+  .builder-piece:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 20px var(--piece-accent-shadow, rgba(198, 40, 40, 0.15));
+  }
+
+  .builder-piece__header {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  .builder-piece__header-copy {
+    width: 100%;
+  }
+
+  .builder-piece__icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .builder-piece__name {
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+
+  .builder-piece__role {
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* Masqué en grid compact — info secondaire */
+  .builder-piece__desc,
+  .builder-piece__stats {
+    display: none;
+  }
+
+  /* ── Corner frames ajustés ───────────────────────────────────── */
+  .builder-corner-frame--bl,
+  .builder-corner-frame--br {
+    bottom: calc(8px + var(--shell-safe-bottom));
   }
 }
 
