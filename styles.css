@@ -3987,14 +3987,51 @@ body {
   }
 }
 
-/* ─── GRIP CONTROLS — Thumb-friendly combat HUD for touch + landscape ────── */
-/* Overrides the desktop-style moba bar when the user is on a real touch      */
-/* device (pointer: coarse). Slots are repositioned as absolute elements       */
-/* inside a full-screen transparent overlay so each thumb can reach them.      */
-@media (max-width: 900px) and (orientation: landscape) and (pointer: coarse) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* MOBILE TOUCH COMBAT — Thumb-friendly layout (landscape + pointer: coarse) */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* Turn the moba-hud bar into a transparent viewport-sized shell so that
-     absolutely-positioned slot children can be placed anywhere on screen. */
+/* ── 1. JOYSTICKS — always visible, bigger, safe-area aware ─────────────── */
+@media (pointer: coarse) {
+  .joystick {
+    opacity: 0.45 !important;
+    transform: scale(1) !important;
+    width: 140px !important;
+    height: 140px !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px) !important;
+    border-width: 2px !important;
+  }
+
+  .joystick.active {
+    opacity: 0.85 !important;
+  }
+
+  .joystick--move {
+    left: calc(var(--shell-safe-left, 0px) + 16px) !important;
+  }
+
+  .joystick--aim {
+    right: calc(var(--shell-safe-right, 0px) + 16px) !important;
+    left: auto !important;
+  }
+
+  .joystick-stick {
+    width: 60px !important;
+    height: 60px !important;
+    margin-left: -30px !important;
+    margin-top: -30px !important;
+  }
+
+  .joystick__label {
+    font-size: 0.68rem !important;
+    bottom: -20px !important;
+  }
+}
+
+/* ── 2. MOBA HUD → transparent overlay on mobile touch ──────────────────── */
+@media (max-width: 900px) and (pointer: coarse) {
+
+  /* Full-screen transparent shell */
   .bottom-hud.moba-hud {
     inset: 0 !important;
     width: 100% !important;
@@ -4007,131 +4044,121 @@ body {
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    justify-content: flex-start !important;
     pointer-events: none;
   }
 
-  /* Hide desktop-only decorative sections */
+  /* Hide desktop-only sections — HP bars are already overhead on canvas */
   .moba-hud__left,
   .moba-hud__avatar-frame,
   .moba-hud__right,
-  .moba-slot--passive {
+  .moba-slot--passive,
+  .moba-bars {
     display: none !important;
   }
 
-  /* Center section: transparent full-screen layer */
+  /* Center section → transparent positioning layer */
   .moba-hud__center {
     position: absolute !important;
     inset: 0 !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    height: 100% !important;
     width: 100% !important;
+    height: 100% !important;
     padding: 0 !important;
     min-width: 0 !important;
     border-radius: 0 !important;
     display: block !important;
   }
 
-  /* Ability bar: full-screen block container so children position freely */
+  /* Ability bar → transparent positioning container */
   .moba-abilities {
     position: absolute !important;
     inset: 0 !important;
     background: transparent !important;
     border: none !important;
-    height: 100% !important;
     width: 100% !important;
+    height: 100% !important;
     padding: 0 !important;
     gap: 0 !important;
     display: block !important;
   }
 
-  /* All ability slots: absolute, compact, tap-friendly */
+  /* All ability slots — absolute, tap-friendly */
   .moba-slot {
     position: absolute !important;
-    width: 54px !important;
-    height: 54px !important;
-    border-radius: 12px !important;
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 50% !important;
     pointer-events: auto;
+    background: rgba(8, 14, 20, 0.72) !important;
+    border: 2px solid rgba(119, 216, 255, 0.35) !important;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.5) !important;
   }
 
-  /* Hide keyboard key hints on touch — they're meaningless on mobile */
   .moba-slot .module-slot__key {
     display: none !important;
   }
 
-  /* ── LEFT THUMB ZONE ──────────────────────────────────────────────────── */
-  /* Move joystick sits at: left=22px, width=116px → right edge = 138px      */
-
-  /* Dash (Shift): immediately right of the move joystick, same baseline */
-  #slot-dash {
-    left: calc(var(--shell-safe-left, 0px) + 22px + 116px + 8px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 14px) !important;
-    right: auto !important;
-    top: auto !important;
+  .moba-slot .module-slot__name {
+    font-size: 0.52rem !important;
+    white-space: nowrap !important;
+    max-width: 56px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
-  /* ── RIGHT THUMB ZONE ─────────────────────────────────────────────────── */
-  /* Aim joystick: right=22px, width=116px → left edge = right+22+116=146px  */
-  /* Slots stack vertically to the left of the aim joystick (bottom → top):  */
-  /*   Core(R) → Module3(F) → Module2(E) → Module1(Q)                        */
-  /* Spacing: 54px slot + 6px gap = 60px per step                            */
+  /* ── ARC LAYOUT around the right (aim) joystick ──────────────────────── */
+  /* Reference point: aim joystick center =                                  */
+  /*   right: safe + 16px + 70px(half) = safe+86px from right edge           */
+  /*   bottom: safe + 18px + 70px(half) = safe+88px from bottom edge         */
+  /* Arc radius ~110px from joystick center, slots placed at angles:         */
+  /*   Core(R)=180° (left), Mod3(F)=210°, Mod2(E)=240°, Mod1(Q)=270° (top) */
+  /* Formulae: x = cx + r·cos(θ) - half;  y = cy + r·sin(θ) - half         */
 
+  /* Core (R) — 180° (directly left of aim joystick) — bigger for ultimate */
   #slot-core {
-    right: calc(var(--shell-safe-right, 0px) + 22px + 116px + 8px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 14px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 140px + 10px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 44px) !important;
     left: auto !important;
     top: auto !important;
     width: 58px !important;
     height: 58px !important;
+    border-color: rgba(255, 211, 117, 0.55) !important;
   }
 
+  /* Module 3 (F) — ~210° (lower-left arc) */
   #slot-module-3 {
-    right: calc(var(--shell-safe-right, 0px) + 22px + 116px + 8px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 14px + 60px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 140px - 14px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 6px) !important;
     left: auto !important;
     top: auto !important;
   }
 
+  /* Module 2 (E) — ~255° (upper-left arc) */
   #slot-module-2 {
-    right: calc(var(--shell-safe-right, 0px) + 22px + 116px + 8px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 14px + 120px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 88px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 44px) !important;
     left: auto !important;
     top: auto !important;
   }
 
+  /* Module 1 (Q) — ~280° (above aim joystick) */
   #slot-module-1 {
-    right: calc(var(--shell-safe-right, 0px) + 22px + 116px + 8px) !important;
-    bottom: calc(var(--shell-safe-bottom, 0px) + 14px + 180px) !important;
+    right: calc(var(--shell-safe-right, 0px) + 16px + 30px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 140px + 44px) !important;
     left: auto !important;
     top: auto !important;
   }
 
-  /* ── HP / AMMO BARS — compact strip at top center ────────────────────── */
-  .moba-bars {
-    position: absolute !important;
-    top: max(8px, var(--shell-safe-top, 0px)) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    bottom: auto !important;
+  /* ── DASH — arc around the left (move) joystick ──────────────────────── */
+  /* Placed to the right of the move joystick, easy left-thumb reach */
+  #slot-dash {
+    left: calc(var(--shell-safe-left, 0px) + 16px + 140px + 10px) !important;
+    bottom: calc(var(--shell-safe-bottom, 0px) + 18px + 44px) !important;
     right: auto !important;
-    width: min(220px, 56vw) !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-    background: rgba(0, 0, 0, 0.55) !important;
-    padding: 5px 8px !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(119, 216, 255, 0.18) !important;
-  }
-
-  .moba-bar {
-    height: 10px !important;
-  }
-
-  .moba-bar-text {
-    font-size: 0.62rem !important;
+    top: auto !important;
+    border-color: rgba(119, 216, 255, 0.55) !important;
   }
 }
 
